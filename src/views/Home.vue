@@ -1,15 +1,16 @@
 <template>
-<div class="home">
-  <img alt="Vue logo" src="../assets/logo.png" />
-</div>
+  <div class="home"></div>
+  <hexagon-panel />
 </template>
 
 <script lang="ts">
-import {
-  defineComponent
-} from "vue";
+import { defineComponent } from "vue";
+import hexagonPanel from "@/components/hexagonPanel.vue";
 
 export default defineComponent({
-  name: "Home"
+  name: "Home",
+  components: {
+    hexagonPanel,
+  },
 });
 </script>
