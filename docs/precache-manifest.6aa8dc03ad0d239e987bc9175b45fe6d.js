@@ -1,10 +1,10 @@
 self.__precacheManifest = (self.__precacheManifest || []).concat([
   {
-    "revision": "dc7d1cc90dbd9528fbb9",
-    "url": "/war-on-board/css/app.95dc6f13.css"
+    "revision": "9dae62d1b14d41bbcfab",
+    "url": "/war-on-board/css/app.aa25491c.css"
   },
   {
-    "revision": "f8263fbc6f8c3c569da042e64e457b0d",
+    "revision": "56365ccda357945eaf3011258d6b3f3a",
     "url": "/war-on-board/index.html"
   },
   {
@@ -12,12 +12,12 @@ self.__precacheManifest = (self.__precacheManifest || []).concat([
     "url": "/war-on-board/js/about.80278e4c.js"
   },
   {
-    "revision": "dc7d1cc90dbd9528fbb9",
-    "url": "/war-on-board/js/app.158cdac0.js"
+    "revision": "9dae62d1b14d41bbcfab",
+    "url": "/war-on-board/js/app.f49832dc.js"
   },
   {
-    "revision": "3e918fca433bf8bf4b62",
-    "url": "/war-on-board/js/chunk-vendors.2af5bd35.js"
+    "revision": "4d1c34122adbea53b620",
+    "url": "/war-on-board/js/chunk-vendors.2aca9852.js"
   },
   {
     "revision": "3c51975481e21c61633b738c9712fb75",
