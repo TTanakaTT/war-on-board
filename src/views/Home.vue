@@ -1,16 +1,16 @@
 <template>
   <div class="home"></div>
-  <hexagon-panel />
+  <hexagon-panels />
 </template>
 
 <script lang="ts">
 import { defineComponent } from "vue";
-import hexagonPanel from "@/components/hexagonPanel.vue";
+import hexagonPanels from "@/components/hexagonPanels.vue";
 
 export default defineComponent({
   name: "Home",
   components: {
-    hexagonPanel,
+    hexagonPanels,
   },
 });
 </script>
