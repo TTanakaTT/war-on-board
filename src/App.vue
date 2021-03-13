@@ -1,13 +1,11 @@
 <template>
-<navigation-header />
-<router-view />
+  <navigation-header />
+  <router-view />
 </template>
 
 <script lang="ts">
-import {
-  defineComponent
-} from "vue";
-import navigationHeader from "@/components/navigationHeader.vue"; // @ is an alias to /src
+import { defineComponent } from "vue";
+import navigationHeader from "@/components/navigationHeader.vue";
 
 export default defineComponent({
   name: "App",
@@ -17,7 +15,7 @@ export default defineComponent({
 });
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
