@@ -9,8 +9,6 @@ import hexagonPanels from "@/components/hexagonPanels.vue";
 
 export default defineComponent({
   name: "Home",
-  components: {
-    hexagonPanels,
-  },
+  components: { hexagonPanels }
 });
 </script>

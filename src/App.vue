@@ -9,9 +9,7 @@ import navigationHeader from "@/components/navigationHeader.vue";
 
 export default defineComponent({
   name: "App",
-  components: {
-    navigationHeader,
-  },
+  components: { navigationHeader }
 });
 </script>
 

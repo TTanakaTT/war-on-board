@@ -11,7 +11,7 @@ import { defineComponent } from "vue";
 
 export default defineComponent({
   name: "hexagonPanel",
-  props: { layer: { type: Number, default: 1 } },
+  props: { layer: { type: Number, default: 1 } }
 });
 </script>
 <style lang="scss" scoped>
