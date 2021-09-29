@@ -1,9 +1,20 @@
 <template>
   <div class="hexagon-panels">
-    <div class="hexagon"></div>
-  </div>
-  <div class="hexagon-panels alt">
-    <div class="hexagon"></div>
+    <div
+      v-for="hl in sideRange"
+      :key="hl"
+      class="horizon-layer"
+      :style="horizonStyle(hl)"
+    >
+      <div
+        v-for="vl of layer - Math.abs(hl)"
+        :key="vl"
+        class="vertical-layer"
+        :style="verticalStyle(hl, vl)"
+      >
+        <div class="hexagon" />
+      </div>
+    </div>
   </div>
 </template>
 <script lang="ts">
@@ -11,7 +22,29 @@ import { defineComponent } from "vue";
 
 export default defineComponent({
   name: "hexagonPanel",
-  props: { layer: { type: Number, default: 1 } }
+  props: { layer: { type: Number, default: 1 } },
+  computed: {
+    sideRange(): number[] {
+      const horizontalLayer = this.layer;
+      const range = [];
+      for (let i = -(horizontalLayer - 1); i < horizontalLayer; i++) {
+        range.push(i);
+      }
+      return range;
+    },
+  },
+  methods: {
+    horizonStyle(horizontalLayer: number): {} {
+      return { "--left": ((173.20508 / 2) * 1.1 * horizontalLayer).toString() + "px" };
+    },
+    verticalStyle(horizontalLayer: number, verticalLayer: number): {} {
+      return {
+        "--top":
+          (100 * 1.1 * (verticalLayer - 1 + 0.5 * Math.abs(horizontalLayer))).toString() +
+          "px",
+      };
+    },
+  },
 });
 </script>
 <style lang="scss" scoped>
@@ -21,15 +54,28 @@ $height: 100px; // .alt`s height: $height * $sqrt3 / 2
 $sqrt3: 1.7320508;
 $border-size: 1px;
 $border-style: solid $border-size black;
-$background-color: yellow;
+$background-color: rgb(206, 216, 218);
 
 .hexagon-panels {
+  position: relative;
   padding-left: $height / $sqrt3 / 2;
+  left: 50vw;
 
+  .horizon-layer {
+    left: var(--left);
+    position: absolute;
+    --left: 0;
+  }
+  .vertical-layer {
+    top: var(--top);
+    position: absolute;
+    --top: 0;
+  }
   .hexagon {
     position: relative;
     height: $height;
     width: $height / $sqrt3;
+    left: -#{$height / $sqrt3};
     background-color: $background-color;
     border-top: $border-style;
     border-bottom: $border-style;
@@ -53,22 +99,22 @@ $background-color: yellow;
       transform: rotate(-60deg);
     }
   }
-}
 
-.hexagon-panels.alt {
-  padding-left: $height * $sqrt3 / 4 - $height / 4;
-  padding-top: $height / 2 - $height * $sqrt3 / 4;
-  padding-bottom: $height / 2 - $height * $sqrt3 / 4;
+  .hexagon-panels.alt {
+    padding-left: $height * $sqrt3 / 4 - $height / 4;
+    padding-top: $height / 2 - $height * $sqrt3 / 4;
+    padding-bottom: $height / 2 - $height * $sqrt3 / 4;
 
-  .hexagon {
-    height: $height * $sqrt3 / 2;
-    width: $height / 2;
-    transform: rotate(30deg);
-
-    &:before,
-    &:after {
+    .hexagon {
       height: $height * $sqrt3 / 2;
       width: $height / 2;
+      transform: rotate(30deg);
+
+      &:before,
+      &:after {
+        height: $height * $sqrt3 / 2;
+        width: $height / 2;
+      }
     }
   }
 }
