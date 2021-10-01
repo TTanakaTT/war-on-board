@@ -5,10 +5,9 @@
 
 <script lang="ts">
 import { defineComponent } from "vue";
-import hexagonPanels from "@/components/hexagonPanels.vue";
+import HexagonPanels from "@/components/HexagonPanels.vue";
 
 export default defineComponent({
-  name: "Home",
-  components: { hexagonPanels },
+  components: { HexagonPanels },
 });
 </script>

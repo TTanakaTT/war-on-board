@@ -21,7 +21,6 @@
 import { defineComponent } from "vue";
 
 export default defineComponent({
-  name: "hexagonPanel",
   props: { layer: { type: Number, default: 1 } },
   computed: {
     sideRange(): number[] {
@@ -51,6 +50,7 @@ export default defineComponent({
 });
 </script>
 <style lang="scss" scoped>
+@use "sass:math";
 // ref: https://codepen.io/raccy/pen/xBKBew
 
 $height: 100px; // .alt`s height: $height * $sqrt3 / 2
@@ -61,7 +61,7 @@ $background-color: rgb(206, 216, 218);
 
 .hexagon-panels {
   position: relative;
-  padding-left: $height / $sqrt3 / 2;
+  padding-left: math.div(math.div($height, $sqrt3), 2);
   left: 50vw;
 
   .horizon-layer {
@@ -77,8 +77,8 @@ $background-color: rgb(206, 216, 218);
   .hexagon {
     position: relative;
     height: $height;
-    width: $height / $sqrt3;
-    left: -#{$height / $sqrt3};
+    width: math.div($height, $sqrt3);
+    left: math.div(-$height, $sqrt3);
     background-color: $background-color;
     border-top: $border-style;
     border-bottom: $border-style;
@@ -90,7 +90,7 @@ $background-color: rgb(206, 216, 218);
       top: -$border-size;
       left: 0;
       height: $height;
-      width: $height / $sqrt3;
+      width: math.div($height, $sqrt3);
       background-color: $background-color;
       border-top: $border-style;
       border-bottom: $border-style;
@@ -104,19 +104,19 @@ $background-color: rgb(206, 216, 218);
   }
 
   .hexagon-panels.alt {
-    padding-left: $height * $sqrt3 / 4 - $height / 4;
-    padding-top: $height / 2 - $height * $sqrt3 / 4;
-    padding-bottom: $height / 2 - $height * $sqrt3 / 4;
+    padding-left: math.div($height * $sqrt3, 4) - math.div($height, 4);
+    padding-top: math.div($height, 2) - math.div($height * $sqrt3, 4);
+    padding-bottom: math.div($height, 2) - math.div($height * $sqrt3, 4);
 
     .hexagon {
-      height: $height * $sqrt3 / 2;
-      width: $height / 2;
+      height: math.div($height * $sqrt3, 2);
+      width: math.div($height, 2);
       transform: rotate(30deg);
 
       &:before,
       &:after {
-        height: $height * $sqrt3 / 2;
-        width: $height / 2;
+        height: math.div($height * $sqrt3, 2);
+        width: math.div($height, 2);
       }
     }
   }
