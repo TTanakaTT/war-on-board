@@ -34,10 +34,13 @@ export default defineComponent({
     },
   },
   methods: {
-    horizonStyle(horizontalLayer: number): {} {
+    horizonStyle(horizontalLayer: number): { [s: string]: string } {
       return { "--left": ((173.20508 / 2) * 1.1 * horizontalLayer).toString() + "px" };
     },
-    verticalStyle(horizontalLayer: number, verticalLayer: number): {} {
+    verticalStyle(
+      horizontalLayer: number,
+      verticalLayer: number
+    ): { [s: string]: string } {
       return {
         "--top":
           (100 * 1.1 * (verticalLayer - 1 + 0.5 * Math.abs(horizontalLayer))).toString() +
