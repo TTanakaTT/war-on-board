@@ -34,7 +34,9 @@ export default defineComponent({
   },
   methods: {
     horizonStyle(horizontalLayer: number): { [s: string]: string } {
-      return { "--left": ((173.20508 / 2) * 1.1 * horizontalLayer).toString() + "px" };
+      return {
+        "--left": ((173.20508 / 2) * 1.1 * horizontalLayer).toString() + "px",
+      };
     },
     verticalStyle(
       horizontalLayer: number,
@@ -42,8 +44,11 @@ export default defineComponent({
     ): { [s: string]: string } {
       return {
         "--top":
-          (100 * 1.1 * (verticalLayer - 1 + 0.5 * Math.abs(horizontalLayer))).toString() +
-          "px",
+          (
+            100 *
+            1.1 *
+            (verticalLayer - 1 + 0.5 * Math.abs(horizontalLayer))
+          ).toString() + "px",
       };
     },
   },

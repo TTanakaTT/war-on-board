@@ -1,4 +1,4 @@
 module.exports = {
   publicPath: "/war-on-board/",
-  outputDir: "docs"
+  outputDir: "docs",
 };
