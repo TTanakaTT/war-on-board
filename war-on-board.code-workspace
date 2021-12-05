@@ -3,5 +3,12 @@
     {
       "path": "."
     }
-  ]
+  ],
+  "settings": {
+    "vue3snippets.enable-compile-vue-file-on-did-save-code": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": true
+    },
+    "editor.formatOnSave": true
+  }
 }

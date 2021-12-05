@@ -1,16 +1,21 @@
 <template>
-  <div class="home"></div>
-  <hexagon-panels />
+  <div class="home">
+    <hexagon-panels :layer="layer" />
+    <input type="number" id="layer" v-model="layer" />
+  </div>
 </template>
 
 <script lang="ts">
 import { defineComponent } from "vue";
-import hexagonPanels from "@/components/hexagonPanels.vue";
+import HexagonPanels from "@/components/HexagonPanels.vue";
 
 export default defineComponent({
-  name: "Home",
-  components: {
-    hexagonPanels,
+  components: { HexagonPanels },
+  data() {
+    const layer = 1;
+    return {
+      layer,
+    };
   },
 });
 </script>

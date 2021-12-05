@@ -5,13 +5,10 @@
 
 <script lang="ts">
 import { defineComponent } from "vue";
-import navigationHeader from "@/components/navigationHeader.vue";
+import NavigationHeader from "@/components/NavigationHeader.vue";
 
 export default defineComponent({
-  name: "App",
-  components: {
-    navigationHeader,
-  },
+  components: { NavigationHeader },
 });
 </script>
 
