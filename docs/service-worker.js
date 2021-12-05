@@ -14,7 +14,7 @@
 importScripts("https://storage.googleapis.com/workbox-cdn/releases/4.3.1/workbox-sw.js");
 
 importScripts(
-  "/war-on-board/precache-manifest.6aa8dc03ad0d239e987bc9175b45fe6d.js"
+  "/war-on-board/precache-manifest.90a294c722b85f7e8dbdce334cac8533.js"
 );
 
 workbox.core.setCacheNameDetails({prefix: "war-on-board"});
