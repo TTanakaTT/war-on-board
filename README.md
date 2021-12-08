@@ -1,34 +1,41 @@
 # war-on-board
 
 ## Project setup
+
 ```
-npm install
+yarn
 ```
 
 ### Compiles and hot-reloads for development
+
 ```
-npm run serve
+yarn run serve
 ```
 
-### Compiles and minifies for production
+### Products static files for hosting
+
 ```
-npm run build
+yarn run build
 ```
 
 ### Run your unit tests
+
 ```
-npm run test:unit
+yarn run test:unit
 ```
 
 ### Run your end-to-end tests
+
 ```
-npm run test:e2e
+yarn run test:e2e
 ```
 
 ### Lints and fixes files
+
 ```
-npm run lint
+yarn run lint
 ```
 
 ### Customize configuration
+
 See [Configuration Reference](https://cli.vuejs.org/config/).
