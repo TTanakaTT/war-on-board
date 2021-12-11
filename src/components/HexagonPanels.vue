@@ -19,6 +19,7 @@
 </template>
 <script lang="ts">
 import { defineComponent } from "vue";
+import { CssVariable } from "@/interfaces/CssVariable";
 
 export default defineComponent({
   props: { layer: { type: Number, default: 1 } },
@@ -33,15 +34,12 @@ export default defineComponent({
     },
   },
   methods: {
-    horizonStyle(horizontalLayer: number): { [s: string]: string } {
+    horizonStyle(horizontalLayer: number): CssVariable {
       return {
         "--left": ((173.20508 / 2) * 1.1 * horizontalLayer).toString() + "px",
       };
     },
-    verticalStyle(
-      horizontalLayer: number,
-      verticalLayer: number
-    ): { [s: string]: string } {
+    verticalStyle(horizontalLayer: number, verticalLayer: number): CssVariable {
       return {
         "--top":
           (
