@@ -1,7 +1,7 @@
 <template>
   <div class="home">
+    <input type="number" id="layer" v-model="layer" min="1" step="1" />
     <hexagon-panels :layer="layer" />
-    <input type="number" id="layer" v-model="layer" />
   </div>
 </template>
 
