@@ -36,7 +36,7 @@ export default defineComponent({
   methods: {
     horizonStyle(horizontalLayer: number): CssVariable {
       return {
-        "--left": ((173.20508 / 2) * 1.1 * horizontalLayer).toString() + "px",
+        "--left": ((173.3 / 2) * 1.1 * horizontalLayer).toString() + "px",
       };
     },
     verticalStyle(horizontalLayer: number, verticalLayer: number): CssVariable {
@@ -57,7 +57,7 @@ export default defineComponent({
 // ref: https://codepen.io/raccy/pen/xBKBew
 
 $height: 100px; // .alt`s height: $height * $sqrt3 / 2
-$sqrt3: 1.7320508;
+$sqrt3: 1.73;
 $border-size: 1px;
 $border-style: solid $border-size black;
 $background-color: rgb(206, 216, 218);
