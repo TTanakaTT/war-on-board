@@ -3,11 +3,11 @@
     <div
       v-for="hl in sideRange"
       :key="hl"
-      class="horizon-layer"
-      :style="horizonStyle(hl)"
+      class="horizontal-layer"
+      :style="horizontalStyle(hl)"
     >
       <div v-for="vl of layer - Math.abs(hl)" :key="vl" class="vertical-layer">
-        <hexagon-panel />
+        <hexagon-panel :horizontalLayer="hl" :verticalLayer="vl" />
       </div>
     </div>
   </div>
@@ -31,7 +31,7 @@ export default defineComponent({
     },
   },
   methods: {
-    horizonStyle(horizontalLayer: number): CssVariable {
+    horizontalStyle(horizontalLayer: number): CssVariable {
       const height = 100;
       const left: number =
         ((height * Math.sqrt(3)) / 2) * 1.1 * horizontalLayer -
@@ -53,7 +53,7 @@ export default defineComponent({
 .layered-hexagon-panels {
   position: relative;
   left: 50%;
-  .horizon-layer {
+  .horizontal-layer {
     float: left;
     position: relative;
     left: var(--left);
