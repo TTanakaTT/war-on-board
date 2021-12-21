@@ -1,10 +1,11 @@
 <template>
   <v-app id="inspire">
     <v-navigation-drawer v-model="drawer" app style="z-index: 900">
-      <v-list-item>
-        <v-list-item-title class="text-h6"> Application </v-list-item-title>
-        <v-list-item-subtitle> subtext </v-list-item-subtitle>
-      </v-list-item>
+      <router-link to="/">
+        <v-list-item>
+          <v-list-item-title class="text-h6"> Application </v-list-item-title>
+        </v-list-item>
+      </router-link>
       <v-divider></v-divider>
       <v-list dense nav>
         <router-link to="/">
@@ -67,3 +68,13 @@ export default defineComponent({
   },
 });
 </script>
+<style lang="scss" scoped>
+.router-link-active {
+  color: inherit;
+  text-decoration: none;
+  .v-list-item-title:not(.text-h6) {
+    color: -webkit-link;
+    text-decoration: underline;
+  }
+}
+</style>
