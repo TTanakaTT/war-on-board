@@ -61,7 +61,7 @@ import { defineComponent } from "vue";
 
 export default defineComponent({
   data() {
-    const drawer = false;
+    const drawer = null;
     return {
       drawer,
     };
