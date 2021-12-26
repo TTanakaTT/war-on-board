@@ -48,7 +48,6 @@ export default defineComponent({
 });
 </script>
 <style lang="scss" scoped>
-@use "sass:math";
 // ref: https://codepen.io/raccy/pen/xBKBew
 .layered-hexagon-panels {
   position: relative;
