@@ -1,4 +1,4 @@
 # Checkbox
 
-- [] `yarn upgrade`
-- [] `yarn build`
+- [ ] `yarn upgrade`
+- [ ] `yarn build`
