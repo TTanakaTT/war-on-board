@@ -1,6 +1,9 @@
 <template>
   <div class="home">
-    <input type="number" id="layer" v-model="layer" min="1" step="1" />
+    <form id="app" @submit="checkForm">
+      <input type="number" id="layer" v-model="inputLayer" min="1" step="1" />
+      <input type="submit" value="Change" />
+    </form>
     <layered-hexagon-panels :layer="layer" />
   </div>
 </template>
@@ -12,10 +15,16 @@ import LayeredHexagonPanels from "@/components/LayeredHexagonPanels.vue";
 export default defineComponent({
   components: { LayeredHexagonPanels },
   data() {
-    const layer = 5;
     return {
-      layer,
+      inputLayer: 5,
+      layer: 5,
     };
+  },
+  methods: {
+    checkForm(e: Event) {
+      e.preventDefault();
+      this.layer = this.inputLayer;
+    },
   },
 });
 </script>
