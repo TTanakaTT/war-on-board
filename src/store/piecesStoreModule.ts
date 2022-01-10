@@ -21,17 +21,17 @@ const piecesStoreModule: Module<PieceState, RootState> = {
         return state.pieces
           .filter(
             (x) =>
-              x.horizontalLayer == horizontalLayer &&
-              x.verticalLayer == verticalLayer
+              x.horizontalLayer === horizontalLayer &&
+              x.verticalLayer === verticalLayer
           )
           .map((y) => y.pieceName);
       },
   },
   mutations: {
-    create(state, piece: Piece) {
+    create(state, piece: Piece): void {
       state.pieces.push(piece);
     },
-    delete(state, piece: Piece) {
+    delete(state, piece: Piece): void {
       const index: number = state.pieces.findIndex(
         ({ horizontalLayer, verticalLayer, pieceName }) =>
           horizontalLayer === piece.horizontalLayer &&
@@ -42,10 +42,10 @@ const piecesStoreModule: Module<PieceState, RootState> = {
     },
   },
   actions: {
-    create({ commit }, piece: Piece) {
+    create({ commit }, piece: Piece): void {
       commit("create", piece);
     },
-    delete({ commit }, piece: Piece) {
+    delete({ commit }, piece: Piece): void {
       commit("delete", piece);
     },
   },
