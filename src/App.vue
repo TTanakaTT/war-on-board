@@ -1,5 +1,5 @@
 <template>
-  <v-app id="inspire">
+  <v-app id="inspire" :theme="darkTheme ? 'dark' : 'light'">
     <v-navigation-drawer v-model="drawer" app style="z-index: 900">
       <router-link to="/">
         <v-list-item>
@@ -28,6 +28,11 @@
     <v-app-bar app>
       <v-app-bar-title>Application !!!!!!!!!!!</v-app-bar-title>
       <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
+      <v-switch
+        v-model="darkTheme"
+        hide-details="true"
+        label="theme"
+      ></v-switch>
     </v-app-bar>
 
     <v-main>
@@ -62,8 +67,10 @@ import { defineComponent } from "vue";
 export default defineComponent({
   data() {
     const drawer = null;
+    const darkTheme = true;
     return {
       drawer,
+      darkTheme,
     };
   },
 });

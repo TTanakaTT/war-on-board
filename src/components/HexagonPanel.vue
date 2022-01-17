@@ -1,6 +1,8 @@
 <template>
-  <div class="hexagon-panel" :class="showState">
-    <v-icon v-for="piece in showPieces" :key="piece">{{ piece }}</v-icon>
+  <div class="hexagon-panel" :class="getClass">
+    <transition-group name="pieces">
+      <v-icon v-for="piece in showPieces" :key="piece">{{ piece }}</v-icon>
+    </transition-group>
   </div>
 </template>
 
@@ -19,17 +21,19 @@ export default defineComponent({
         this.verticalLayer
       );
     },
-    showState(): panelState {
+    getClass(): string[] {
       const states: panelState[] = this.$store.getters[
         "panels/getThisPanelStates"
       ](this.horizontalLayer, this.verticalLayer);
+      let state: string;
       if (states.length !== 0) {
-        return states[0];
+        state = states[0];
       } else if (this.showPieces.length !== 0) {
-        return PANELSTATE.ENABLED;
+        state = PANELSTATE.ENABLED;
       } else {
-        return PANELSTATE.NORMAL;
+        state = PANELSTATE.NORMAL;
       }
+      return [this.$vuetify.theme.current, state];
     },
   },
 });
@@ -50,15 +54,35 @@ $height: 100px; // .alt`s height: $height * $sqrt3 / 2
 $sqrt3: 1.73;
 $border-size: 1px;
 $border-style: solid $border-size black;
-$background-color-normal: rgb(58, 58, 50);
-$background-color-normal-hover: rgb(134, 134, 122);
-$background-color-selected: rgb(177, 177, 137);
-$background-color-selected-hover: rgb(197, 197, 100);
-$background-color-move-candidated: rgb(95, 95, 79);
-$background-color-move-candidated-hover: rgb(143, 143, 107);
-$background-color-disabled: rgb(43, 43, 40);
+$background-color-dark-normal: rgb(58, 58, 50);
+$background-color-dark-normal-hover: rgb(134, 134, 122);
+$background-color-dark-selected: rgb(177, 177, 137);
+$background-color-dark-selected-hover: rgb(197, 197, 100);
+$background-color-dark-move-candidated: rgb(95, 95, 79);
+$background-color-dark-move-candidated-hover: rgb(143, 143, 107);
+$background-color-dark-disabled: rgb(43, 43, 40);
+
+$background-color-light-normal: rgb(233, 247, 230);
+$background-color-light-normal-hover: rgb(251, 254, 250);
+$background-color-light-selected: rgb(170, 231, 154);
+$background-color-light-selected-hover: rgb(229, 245, 225);
+$background-color-light-move-candidated: rgb(211, 241, 203);
+$background-color-light-move-candidated-hover: rgb(250, 253, 249);
+$background-color-light-disabled: rgb(255, 255, 255);
+
+.pieces-enter-active,
+.pieces-leave-active {
+  transition: all 0.5s ease;
+}
+.pieces-enter-from,
+.pieces-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
 
 .hexagon-panel {
+  transition: all 0.2s ease-in;
+  transition: all 0.4s ease-out;
   position: relative;
   height: $height;
   width: math.div($height, $sqrt3);
@@ -68,6 +92,8 @@ $background-color-disabled: rgb(43, 43, 40);
 
   &:before,
   &:after {
+    transition: all 0.2s ease-in;
+    transition: all 0.4s ease-out;
     content: "";
     position: absolute;
     top: -$border-size;
@@ -83,65 +109,140 @@ $background-color-disabled: rgb(43, 43, 40);
     transform: rotate(-60deg);
   }
 
-  &.normal {
-    pointer-events: none;
-    background-color: $background-color-normal;
+  &:hover {
+    transition: all 0.1s ease-in;
+    transition: all 0.1s ease-out;
     &:before,
     &:after {
-      background-color: $background-color-normal;
+      transition: all 0.1s ease-in;
+      transition: all 0.1s ease-out;
+    }
+  }
+  &.normal {
+    pointer-events: none;
+    &.dark {
+      background-color: $background-color-dark-normal;
+      &:before,
+      &:after {
+        background-color: $background-color-dark-normal;
+      }
+    }
+    &.light {
+      background-color: $background-color-light-normal;
+      &:before,
+      &:after {
+        background-color: $background-color-light-normal;
+      }
     }
   }
   &.enabled {
-    background-color: $background-color-normal;
     cursor: pointer;
-    &:before,
-    &:after {
-      background-color: $background-color-normal;
-    }
-    &:hover {
-      background-color: $background-color-normal-hover;
+    &.dark {
+      background-color: $background-color-dark-normal;
       &:before,
       &:after {
-        background-color: $background-color-normal-hover;
+        background-color: $background-color-dark-normal;
+      }
+      &:hover {
+        background-color: $background-color-dark-normal-hover;
+        &:before,
+        &:after {
+          background-color: $background-color-dark-normal-hover;
+        }
+      }
+    }
+    &.light {
+      background-color: $background-color-light-normal;
+      &:before,
+      &:after {
+        background-color: $background-color-light-normal;
+      }
+      &:hover {
+        background-color: $background-color-light-normal-hover;
+        &:before,
+        &:after {
+          background-color: $background-color-light-normal-hover;
+        }
       }
     }
   }
   &.selected {
-    background-color: $background-color-selected;
     cursor: pointer;
-    &:before,
-    &:after {
-      background-color: $background-color-selected;
-    }
-    &:hover {
-      background-color: $background-color-selected-hover;
+    &.dark {
+      background-color: $background-color-dark-selected;
       &:before,
       &:after {
-        background-color: $background-color-selected-hover;
+        background-color: $background-color-dark-selected;
+      }
+      &:hover {
+        background-color: $background-color-dark-selected-hover;
+        &:before,
+        &:after {
+          background-color: $background-color-dark-selected-hover;
+        }
+      }
+    }
+    &.light {
+      background-color: $background-color-light-selected;
+      &:before,
+      &:after {
+        background-color: $background-color-light-selected;
+      }
+      &:hover {
+        background-color: $background-color-light-selected-hover;
+        &:before,
+        &:after {
+          background-color: $background-color-light-selected-hover;
+        }
       }
     }
   }
   &.move-candidated {
-    background-color: $background-color-move-candidated;
     cursor: pointer;
-    &:before,
-    &:after {
-      background-color: $background-color-move-candidated;
-    }
-    &:hover {
-      background-color: $background-color-move-candidated-hover;
+    &.dark {
+      background-color: $background-color-dark-move-candidated;
       &:before,
       &:after {
-        background-color: $background-color-move-candidated-hover;
+        background-color: $background-color-dark-move-candidated;
+      }
+      &:hover {
+        background-color: $background-color-dark-move-candidated-hover;
+        &:before,
+        &:after {
+          background-color: $background-color-dark-move-candidated-hover;
+        }
+      }
+    }
+    &.light {
+      background-color: $background-color-light-move-candidated;
+      &:before,
+      &:after {
+        background-color: $background-color-light-move-candidated;
+      }
+      &:hover {
+        background-color: $background-color-light-move-candidated-hover;
+        &:before,
+        &:after {
+          background-color: $background-color-light-move-candidated-hover;
+        }
       }
     }
   }
   &.disabled {
-    background-color: $background-color-disabled;
     pointer-events: none;
-    &:before,
-    &:after {
-      background-color: $background-color-disabled;
+    &.dark {
+      background-color: $background-color-dark-disabled;
+      &:before,
+      &:after {
+        background-color: $background-color-dark-disabled;
+      }
+    }
+    &.light {
+      background-color: $background-color-light-disabled;
+      &:before,
+      &:after {
+        background-color: $background-color-light-disabled;
+      }
     }
   }
 }
