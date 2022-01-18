@@ -1,8 +1,16 @@
 <template>
   <div class="home">
     <form id="app" @submit="checkForm">
-      <input type="number" id="layer" v-model="inputLayer" min="1" step="1" />
-      <input type="submit" value="Change" />
+      <v-text-field
+        label="the layer of tiles"
+        type="number"
+        id="layer"
+        v-model="inputLayer"
+        min="1"
+        step="1"
+        density="compact"
+      />
+      <v-btn type="submit">Change</v-btn>
     </form>
     <layered-hexagon-panels :layer="layer" />
   </div>
