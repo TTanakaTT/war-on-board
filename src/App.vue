@@ -1,12 +1,12 @@
 <template>
-  <v-app id="inspire">
-    <v-navigation-drawer v-model="drawer" app style="z-index: 900">
+  <v-app id="inspire" :theme="theme">
+    <v-navigation-drawer v-model="drawer" app>
       <router-link to="/">
         <v-list-item>
-          <v-list-item-title class="text-h6"> Application </v-list-item-title>
+          <v-list-item-title class="text-h6"> War-on-Board </v-list-item-title>
         </v-list-item>
       </router-link>
-      <v-divider></v-divider>
+      <v-divider />
       <v-list dense nav>
         <router-link to="/">
           <v-list-item>
@@ -14,8 +14,6 @@
             <v-list-item-title>Home</v-list-item-title>
           </v-list-item>
         </router-link>
-      </v-list>
-      <v-list dense nav>
         <router-link to="/">
           <v-list-item>
             <v-icon>mdi-help-box</v-icon>
@@ -23,10 +21,24 @@
           </v-list-item>
         </router-link>
       </v-list>
+      <v-divider />
+      <v-list-item>
+        <v-list-item-title class="text-h6"> Settings </v-list-item-title>
+      </v-list-item>
+      <v-list dense nav>
+        <v-list-item>
+          <v-switch
+            v-model="theme"
+            false-icon="mdi-weather-sunny"
+            false-value="light"
+            true-icon="mdi-weather-night"
+            true-value="dark"
+          ></v-switch>
+        </v-list-item>
+      </v-list>
     </v-navigation-drawer>
 
     <v-app-bar app>
-      <v-app-bar-title>Application !!!!!!!!!!!</v-app-bar-title>
       <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
     </v-app-bar>
 
@@ -62,8 +74,10 @@ import { defineComponent } from "vue";
 export default defineComponent({
   data() {
     const drawer = null;
+    const theme = "dark";
     return {
       drawer,
+      theme,
     };
   },
 });
