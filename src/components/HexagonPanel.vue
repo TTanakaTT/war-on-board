@@ -33,7 +33,8 @@ export default defineComponent({
       } else {
         state = PANELSTATE.NORMAL;
       }
-      return [this.$vuetify.theme.current, state];
+      // BUG: .value returns undefined
+      return [this.$vuetify.theme.current as unknown as string, state];
     },
   },
 });
