@@ -58,7 +58,7 @@ $border-style: solid $border-size black;
 $background-color-dark-normal: rgb(58, 58, 50);
 $background-color-dark-normal-hover: rgb(134, 134, 122);
 $background-color-dark-selected: rgb(177, 177, 137);
-$background-color-dark-selected-hover: rgb(197, 197, 100);
+$background-color-dark-selected-hover: rgb(218, 218, 167);
 $background-color-dark-move-candidated: rgb(95, 95, 79);
 $background-color-dark-move-candidated-hover: rgb(143, 143, 107);
 $background-color-dark-disabled: rgb(43, 43, 40);
@@ -66,9 +66,9 @@ $background-color-dark-disabled: rgb(43, 43, 40);
 $background-color-light-normal: rgb(233, 247, 230);
 $background-color-light-normal-hover: rgb(251, 254, 250);
 $background-color-light-selected: rgb(170, 231, 154);
-$background-color-light-selected-hover: rgb(229, 245, 225);
+$background-color-light-selected-hover: rgb(240, 249, 238);
 $background-color-light-move-candidated: rgb(211, 241, 203);
-$background-color-light-move-candidated-hover: rgb(250, 253, 249);
+$background-color-light-move-candidated-hover: $background-color-light-selected-hover;
 $background-color-light-disabled: rgb(255, 255, 255);
 
 .pieces-enter-active,
