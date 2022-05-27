@@ -73,7 +73,8 @@ import { defineComponent } from "vue";
 
 export default defineComponent({
   data() {
-    const drawer = null;
+    // I wanna use [boolean | null | undefined] type. But when this variable is returned, the type of this variable become [null] even though I declared it as type [boolean | null | undefined]. why?
+    let drawer: any = null;
     const theme = "dark";
     return {
       drawer,
