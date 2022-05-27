@@ -29,9 +29,9 @@ export default defineComponent({
       if (states.length !== 0) {
         state = states[0];
       } else if (this.showPieces.length !== 0) {
-        state = PANELSTATE.ENABLED;
+        state = PANELSTATE.OCCUPIED;
       } else {
-        state = PANELSTATE.NORMAL;
+        state = PANELSTATE.UNOCCUPIED;
       }
       // BUG: .value returns undefined
       return [this.$vuetify.theme.current as unknown as string, state];
@@ -55,21 +55,21 @@ $height: 100px; // .alt`s height: $height * $sqrt3 / 2
 $sqrt3: 1.73;
 $border-size: 1px;
 $border-style: solid $border-size black;
-$background-color-dark-normal: rgb(58, 58, 50);
-$background-color-dark-normal-hover: rgb(134, 134, 122);
+$background-color-dark-unoccupied: rgb(58, 58, 50);
+$background-color-dark-unoccupied-hover: rgb(134, 134, 122);
 $background-color-dark-selected: rgb(177, 177, 137);
 $background-color-dark-selected-hover: rgb(218, 218, 167);
-$background-color-dark-move-candidated: rgb(95, 95, 79);
-$background-color-dark-move-candidated-hover: rgb(143, 143, 107);
-$background-color-dark-disabled: rgb(43, 43, 40);
+$background-color-dark-movable: rgb(95, 95, 79);
+$background-color-dark-movable-hover: rgb(143, 143, 107);
+$background-color-dark-immovable: rgb(43, 43, 40);
 
-$background-color-light-normal: rgb(233, 247, 230);
-$background-color-light-normal-hover: rgb(251, 254, 250);
+$background-color-light-unoccupied: rgb(233, 247, 230);
+$background-color-light-unoccupied-hover: rgb(251, 254, 250);
 $background-color-light-selected: rgb(170, 231, 154);
 $background-color-light-selected-hover: rgb(240, 249, 238);
-$background-color-light-move-candidated: rgb(211, 241, 203);
-$background-color-light-move-candidated-hover: $background-color-light-selected-hover;
-$background-color-light-disabled: rgb(255, 255, 255);
+$background-color-light-movable: rgb(211, 241, 203);
+$background-color-light-movable-hover: $background-color-light-selected-hover;
+$background-color-light-immovable: rgb(255, 255, 255);
 
 .pieces-enter-active,
 .pieces-leave-active {
@@ -119,50 +119,50 @@ $background-color-light-disabled: rgb(255, 255, 255);
       transition: all 0.1s ease-out;
     }
   }
-  &.normal {
+  &.unoccupied {
     pointer-events: none;
     &.dark {
-      background-color: $background-color-dark-normal;
+      background-color: $background-color-dark-unoccupied;
       &:before,
       &:after {
-        background-color: $background-color-dark-normal;
+        background-color: $background-color-dark-unoccupied;
       }
     }
     &.light {
-      background-color: $background-color-light-normal;
+      background-color: $background-color-light-unoccupied;
       &:before,
       &:after {
-        background-color: $background-color-light-normal;
+        background-color: $background-color-light-unoccupied;
       }
     }
   }
-  &.enabled {
+  &.occupied {
     cursor: pointer;
     &.dark {
-      background-color: $background-color-dark-normal;
+      background-color: $background-color-dark-unoccupied;
       &:before,
       &:after {
-        background-color: $background-color-dark-normal;
+        background-color: $background-color-dark-unoccupied;
       }
       &:hover {
-        background-color: $background-color-dark-normal-hover;
+        background-color: $background-color-dark-unoccupied-hover;
         &:before,
         &:after {
-          background-color: $background-color-dark-normal-hover;
+          background-color: $background-color-dark-unoccupied-hover;
         }
       }
     }
     &.light {
-      background-color: $background-color-light-normal;
+      background-color: $background-color-light-unoccupied;
       &:before,
       &:after {
-        background-color: $background-color-light-normal;
+        background-color: $background-color-light-unoccupied;
       }
       &:hover {
-        background-color: $background-color-light-normal-hover;
+        background-color: $background-color-light-unoccupied-hover;
         &:before,
         &:after {
-          background-color: $background-color-light-normal-hover;
+          background-color: $background-color-light-unoccupied-hover;
         }
       }
     }
@@ -198,51 +198,51 @@ $background-color-light-disabled: rgb(255, 255, 255);
       }
     }
   }
-  &.move-candidated {
+  &.movable {
     cursor: pointer;
     &.dark {
-      background-color: $background-color-dark-move-candidated;
+      background-color: $background-color-dark-movable;
       &:before,
       &:after {
-        background-color: $background-color-dark-move-candidated;
+        background-color: $background-color-dark-movable;
       }
       &:hover {
-        background-color: $background-color-dark-move-candidated-hover;
+        background-color: $background-color-dark-movable-hover;
         &:before,
         &:after {
-          background-color: $background-color-dark-move-candidated-hover;
+          background-color: $background-color-dark-movable-hover;
         }
       }
     }
     &.light {
-      background-color: $background-color-light-move-candidated;
+      background-color: $background-color-light-movable;
       &:before,
       &:after {
-        background-color: $background-color-light-move-candidated;
+        background-color: $background-color-light-movable;
       }
       &:hover {
-        background-color: $background-color-light-move-candidated-hover;
+        background-color: $background-color-light-movable-hover;
         &:before,
         &:after {
-          background-color: $background-color-light-move-candidated-hover;
+          background-color: $background-color-light-movable-hover;
         }
       }
     }
   }
-  &.disabled {
+  &.immovable {
     pointer-events: none;
     &.dark {
-      background-color: $background-color-dark-disabled;
+      background-color: $background-color-dark-immovable;
       &:before,
       &:after {
-        background-color: $background-color-dark-disabled;
+        background-color: $background-color-dark-immovable;
       }
     }
     &.light {
-      background-color: $background-color-light-disabled;
+      background-color: $background-color-light-immovable;
       &:before,
       &:after {
-        background-color: $background-color-light-disabled;
+        background-color: $background-color-light-immovable;
       }
     }
   }

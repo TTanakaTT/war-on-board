@@ -58,9 +58,9 @@ const panelsStoreModule: Module<PanelState, RootState> = {
               ) && x.state === PANELSTATE.SELECTED
           ).length > 0;
         if (isMoveCandidated) {
-          panelStates.push(PANELSTATE.MOVE_CANDIDATED);
+          panelStates.push(PANELSTATE.MOVABLE);
         } else if (isNotSelected) {
-          panelStates.push(PANELSTATE.DISABLED);
+          panelStates.push(PANELSTATE.IMMOVABLE);
         }
         panelStates.sort();
         return panelStates;
@@ -74,7 +74,7 @@ const panelsStoreModule: Module<PanelState, RootState> = {
           x.verticalLayer === panel.verticalLayer
       );
       const isPanelExisted = thisPanelIndex >= 0;
-      const isNormal = panel.state === PANELSTATE.NORMAL;
+      const isNormal = panel.state === PANELSTATE.UNOCCUPIED;
       if (isPanelExisted && isNormal) {
         state.panels.splice(thisPanelIndex, 1);
       } else if (isPanelExisted && !isNormal) {

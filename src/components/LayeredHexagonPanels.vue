@@ -1,7 +1,7 @@
 <template>
   <div class="layered-hexagon-panels">
     <div>
-      <v-btn rounded color="primary" @click="generate">generate </v-btn>
+      <v-btn rounded color="primary" @click="generate">Generate</v-btn>
     </div>
     <div
       v-for="hl in sideRange"
@@ -81,10 +81,10 @@ export default defineComponent({
           this.selectedPanel = {
             horizontalLayer: horizontalLayer,
             verticalLayer: verticalLayer,
-            state: PANELSTATE.NORMAL,
+            state: PANELSTATE.UNOCCUPIED,
           };
           break;
-        case PANELSTATE.MOVE_CANDIDATED:
+        case PANELSTATE.MOVABLE:
           this.pieceChange(
             this.selectedPanel.horizontalLayer,
             this.selectedPanel.verticalLayer
@@ -97,7 +97,7 @@ export default defineComponent({
       let state: panelState = this.getState(horizontalLayer, verticalLayer);
       let panel: Panel;
       switch (state) {
-        case PANELSTATE.NORMAL:
+        case PANELSTATE.UNOCCUPIED:
           panel = {
             horizontalLayer: horizontalLayer,
             verticalLayer: verticalLayer,
@@ -105,7 +105,7 @@ export default defineComponent({
           };
           break;
         case PANELSTATE.SELECTED:
-        case PANELSTATE.MOVE_CANDIDATED:
+        case PANELSTATE.MOVABLE:
           panel = this.selectedPanel;
           break;
         default:
