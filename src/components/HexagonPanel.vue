@@ -34,7 +34,7 @@ export default defineComponent({
         state = PANELSTATE.UNOCCUPIED;
       }
       // BUG: .value returns undefined
-      return [this.$vuetify.theme.current as unknown as string, state];
+      return [this.$vuetify.theme.name as unknown as string, state];
     },
   },
 });

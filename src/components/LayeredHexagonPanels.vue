@@ -61,10 +61,9 @@ export default defineComponent({
       const height = 100;
       const left: number =
         ((height * Math.sqrt(3)) / 2) * 1.1 * horizontalLayer -
-        (height / Math.sqrt(3)) * (this.layer + horizontalLayer) +
+        (height / Math.sqrt(3)) * (Number(this.layer) + horizontalLayer) +
         height / Math.sqrt(3) / 2;
       const top: number = Math.abs(horizontalLayer) * (height * 0.5) * 1.1;
-
       return {
         "--left": left.toString() + "px",
         "--top": top.toString() + "px",
@@ -74,7 +73,7 @@ export default defineComponent({
       this.pieceChange(-(this.layer - 1), 1);
     },
     panelChange(horizontalLayer: number, verticalLayer: number): void {
-      let state: panelState = this.getState(horizontalLayer, verticalLayer);
+      const state: panelState = this.getState(horizontalLayer, verticalLayer);
       this.stateChange(horizontalLayer, verticalLayer);
       switch (state) {
         case undefined:
@@ -94,7 +93,7 @@ export default defineComponent({
       }
     },
     stateChange(horizontalLayer: number, verticalLayer: number): void {
-      let state: panelState = this.getState(horizontalLayer, verticalLayer);
+      const state: panelState = this.getState(horizontalLayer, verticalLayer);
       let panel: Panel;
       switch (state) {
         case PANELSTATE.UNOCCUPIED:

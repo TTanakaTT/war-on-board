@@ -10,13 +10,17 @@
       <v-list dense nav>
         <router-link to="/">
           <v-list-item>
-            <v-icon>mdi-view-dashboard</v-icon>
+            <template v-slot:prepend>
+              <v-icon>mdi-view-dashboard</v-icon>
+            </template>
             <v-list-item-title>Home</v-list-item-title>
           </v-list-item>
         </router-link>
         <router-link to="/">
           <v-list-item>
-            <v-icon>mdi-help-box</v-icon>
+            <template v-slot:prepend>
+              <v-icon>mdi-help-box</v-icon>
+            </template>
             <v-list-item-title>Help</v-list-item-title>
           </v-list-item>
         </router-link>
@@ -74,7 +78,8 @@ import { defineComponent } from "vue";
 export default defineComponent({
   data() {
     // I wanna use [boolean | null | undefined] type. But when this variable is returned, the type of this variable become [null] even though I declared it as type [boolean | null | undefined]. why?
-    let drawer: any = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const drawer: any = null;
     const theme = "dark";
     return {
       drawer,
