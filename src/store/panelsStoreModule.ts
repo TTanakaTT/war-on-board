@@ -25,7 +25,7 @@ const panelsStoreModule: Module<PanelState, RootState> = {
               x.horizontalLayer === horizontalLayer &&
               x.verticalLayer === verticalLayer
           )
-          .map((y) => y.state);
+          .map((y) => y.panelState);
         const isMoveCandidated =
           state.panels.filter(
             (x) =>
@@ -47,7 +47,7 @@ const panelsStoreModule: Module<PanelState, RootState> = {
                 x.verticalLayer -
                 verticalLayer <=
                 1 &&
-              x.state === PANELSTATE.SELECTED
+              x.panelState === PANELSTATE.SELECTED
           ).length > 0;
         const isNotSelected =
           state.panels.filter(
@@ -55,7 +55,7 @@ const panelsStoreModule: Module<PanelState, RootState> = {
               !(
                 x.horizontalLayer === horizontalLayer &&
                 x.verticalLayer === verticalLayer
-              ) && x.state === PANELSTATE.SELECTED
+              ) && x.panelState === PANELSTATE.SELECTED
           ).length > 0;
         if (isMoveCandidated) {
           panelStates.push(PANELSTATE.MOVABLE);
@@ -74,21 +74,21 @@ const panelsStoreModule: Module<PanelState, RootState> = {
           x.verticalLayer === panel.verticalLayer
       );
       const isPanelExisted = thisPanelIndex >= 0;
-      const isNormal = panel.state === PANELSTATE.UNOCCUPIED;
+      const isNormal = panel.panelState === PANELSTATE.UNOCCUPIED;
       if (isPanelExisted && isNormal) {
         state.panels.splice(thisPanelIndex, 1);
       } else if (isPanelExisted && !isNormal) {
-        state.panels[thisPanelIndex].state = panel.state;
+        state.panels[thisPanelIndex].panelState = panel.panelState;
       } else if (!isPanelExisted && !isNormal) {
         state.panels.push(panel);
       }
     },
     delete(state, panel: Panel): void {
       const index: number = state.panels.findIndex(
-        ({ horizontalLayer, verticalLayer, state }) =>
+        ({ horizontalLayer, verticalLayer, panelState: panelState }) =>
           horizontalLayer === panel.horizontalLayer &&
           verticalLayer === panel.verticalLayer &&
-          state === panel.state
+          panelState === panel.panelState
       );
       state.panels.splice(index, 1);
     },

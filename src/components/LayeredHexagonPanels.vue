@@ -42,7 +42,7 @@ export default defineComponent({
     const selectedPanel: Panel = {
       horizontalLayer: 1,
       verticalLayer: 1,
-      state: PANELSTATE.SELECTED,
+      panelState: PANELSTATE.SELECTED,
     };
     return { selectedPanel };
   },
@@ -73,14 +73,17 @@ export default defineComponent({
       this.pieceChange(-(this.layer - 1), 1);
     },
     panelChange(horizontalLayer: number, verticalLayer: number): void {
-      const state: panelState = this.getState(horizontalLayer, verticalLayer);
+      const panelState: panelState = this.getState(
+        horizontalLayer,
+        verticalLayer
+      );
       this.stateChange(horizontalLayer, verticalLayer);
-      switch (state) {
+      switch (panelState) {
         case undefined:
           this.selectedPanel = {
             horizontalLayer: horizontalLayer,
             verticalLayer: verticalLayer,
-            state: PANELSTATE.UNOCCUPIED,
+            panelState: PANELSTATE.UNOCCUPIED,
           };
           break;
         case PANELSTATE.MOVABLE:
@@ -93,14 +96,17 @@ export default defineComponent({
       }
     },
     stateChange(horizontalLayer: number, verticalLayer: number): void {
-      const state: panelState = this.getState(horizontalLayer, verticalLayer);
+      const panelState: panelState = this.getState(
+        horizontalLayer,
+        verticalLayer
+      );
       let panel: Panel;
-      switch (state) {
+      switch (panelState) {
         case PANELSTATE.UNOCCUPIED:
           panel = {
             horizontalLayer: horizontalLayer,
             verticalLayer: verticalLayer,
-            state: PANELSTATE.SELECTED,
+            panelState: PANELSTATE.SELECTED,
           };
           break;
         case PANELSTATE.SELECTED:
@@ -111,7 +117,7 @@ export default defineComponent({
           panel = {
             horizontalLayer: horizontalLayer,
             verticalLayer: verticalLayer,
-            state: PANELSTATE.SELECTED,
+            panelState: PANELSTATE.SELECTED,
           };
       }
       const storeAction = "panels/update";

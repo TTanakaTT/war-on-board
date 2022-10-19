@@ -22,19 +22,19 @@ export default defineComponent({
       );
     },
     getClass(): string[] {
-      const states: panelState[] = this.$store.getters[
+      const panelStates: panelState[] = this.$store.getters[
         "panels/getThisPanelStates"
       ](this.horizontalLayer, this.verticalLayer);
-      let state: string;
-      if (states.length !== 0) {
-        state = states[0];
+      let panelState: string;
+      if (panelStates.length !== 0) {
+        panelState = panelStates[0];
       } else if (this.showPieces.length !== 0) {
-        state = PANELSTATE.OCCUPIED;
+        panelState = PANELSTATE.OCCUPIED;
       } else {
-        state = PANELSTATE.UNOCCUPIED;
+        panelState = PANELSTATE.UNOCCUPIED;
       }
       // BUG: .value returns undefined
-      return [this.$vuetify.theme.name as unknown as string, state];
+      return [this.$vuetify.theme.name as unknown as string, panelState];
     },
   },
 });
