@@ -26,9 +26,9 @@ export default defineComponent({
         "panels/getThisPanelStates"
       ](this.horizontalLayer, this.verticalLayer);
       let panelState: string;
-      if (panelStates.length !== 0) {
+      if (panelStates?.length) {
         panelState = panelStates[0];
-      } else if (this.showPieces.length !== 0) {
+      } else if (this.showPieces?.length) {
         panelState = PANELSTATE.OCCUPIED;
       } else {
         panelState = PANELSTATE.UNOCCUPIED;

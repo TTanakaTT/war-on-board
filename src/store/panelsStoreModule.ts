@@ -16,7 +16,7 @@ const panelsStoreModule: Module<PanelState, RootState> = {
   getters: {
     getThisPanelStates:
       (state) => (horizontalLayer: number, verticalLayer: number) => {
-        if (state.panels.length === 0) {
+        if (!state.panels?.length) {
           return [];
         }
         const panelStates: panelState[] = state.panels
