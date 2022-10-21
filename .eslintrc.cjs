@@ -15,6 +15,7 @@ module.exports = {
     "@vue/eslint-config-prettier",
   ],
   parserOptions: {
+    // sourceType: "module",
     ecmaVersion: 2022,
   },
   rules: {},
