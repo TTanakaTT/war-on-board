@@ -6815,7 +6815,7 @@ vary@~1.1.2:
 
 "vue-cli-plugin-e2e-playwright@git+https://github.com/TTanakaTT/vue-cli-plugin-e2e-playwright.git#development":
   version "1.2.0"
-  resolved "git+https://github.com/TTanakaTT/vue-cli-plugin-e2e-playwright.git#c3b4c1e9db0ad8fc9b7fe2cb44c70333992b4da3"
+  resolved "git+https://github.com/TTanakaTT/vue-cli-plugin-e2e-playwright.git#7b8bc08deebd1af3af9429b997d5e2b33480ff86"
   dependencies:
     "@vue/cli-shared-utils" "^5.0.8"
 
