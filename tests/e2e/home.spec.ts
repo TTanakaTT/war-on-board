@@ -7,7 +7,12 @@ base.runTest(async ({ page }) => {
 
   await page.locator("header.v-toolbar > div > button").click();
   await base.compareScreenshot(page, "1-1.png");
-  await page.locator("header.v-toolbar > div > button").click();
+  const scrim = page.locator(".v-navigation-drawer__scrim");
+  if ((await scrim.count()) > 0) {
+    await page.mouse.click(300, 100);
+  } else {
+    await page.locator("header.v-toolbar > div > button").click();
+  }
   await base.compareScreenshot(page, "1-2.png");
 
   await page.getByLabel("the layer of tiles").fill("6");

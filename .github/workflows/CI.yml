@@ -30,8 +30,10 @@ jobs:
           node-version: 18
       - name: Install dependencies
         run: yarn install --frozen-lockfile
-      - name: Prepare Playwright tests
+      - name: Prepare test
         run: npx playwright install
+      - name: Install test dependencies
+        run: npx playwright install-deps
       - name: Run Playwright tests
         run: yarn test:e2e
       - uses: actions/upload-artifact@v3
