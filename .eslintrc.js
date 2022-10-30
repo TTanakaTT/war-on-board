@@ -1,5 +1,3 @@
-require("@rushstack/eslint-patch/modern-module-resolution");
-
 module.exports = {
   root: true,
   env: {
@@ -15,7 +13,6 @@ module.exports = {
     "@vue/eslint-config-prettier",
   ],
   parserOptions: {
-    // sourceType: "module",
     ecmaVersion: 2022,
   },
   rules: {},
