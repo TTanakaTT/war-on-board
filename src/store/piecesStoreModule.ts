@@ -15,7 +15,7 @@ const piecesStoreModule: Module<PieceState, RootState> = {
   getters: {
     getThisPieceNames:
       (state) => (horizontalLayer: number, verticalLayer: number) => {
-        if (state.pieces.length === 0) {
+        if (!state.pieces?.length) {
           return [];
         }
         return state.pieces

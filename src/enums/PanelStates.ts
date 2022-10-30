@@ -1,8 +1,8 @@
 export enum PANELSTATE {
-  NORMAL = "normal",
-  ENABLED = "enabled",
+  UNOCCUPIED = "unoccupied",
+  OCCUPIED = "occupied",
   SELECTED = "selected",
-  MOVE_CANDIDATED = "move-candidated",
-  DISABLED = "disabled",
+  MOVABLE = "movable",
+  IMMOVABLE = "immovable",
 }
 export type panelState = typeof PANELSTATE[keyof typeof PANELSTATE];

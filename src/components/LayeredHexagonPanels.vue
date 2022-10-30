@@ -1,7 +1,7 @@
 <template>
   <div class="layered-hexagon-panels">
     <div>
-      <v-btn rounded color="primary" @click="generate">generate </v-btn>
+      <v-btn rounded color="primary" @click="generate">Generate</v-btn>
     </div>
     <div
       v-for="hl in sideRange"
@@ -42,7 +42,7 @@ export default defineComponent({
     const selectedPanel: Panel = {
       horizontalLayer: 1,
       verticalLayer: 1,
-      state: PANELSTATE.SELECTED,
+      panelState: PANELSTATE.SELECTED,
     };
     return { selectedPanel };
   },
@@ -61,10 +61,9 @@ export default defineComponent({
       const height = 100;
       const left: number =
         ((height * Math.sqrt(3)) / 2) * 1.1 * horizontalLayer -
-        (height / Math.sqrt(3)) * (this.layer + horizontalLayer) +
+        (height / Math.sqrt(3)) * (Number(this.layer) + horizontalLayer) +
         height / Math.sqrt(3) / 2;
       const top: number = Math.abs(horizontalLayer) * (height * 0.5) * 1.1;
-
       return {
         "--left": left.toString() + "px",
         "--top": top.toString() + "px",
@@ -74,17 +73,20 @@ export default defineComponent({
       this.pieceChange(-(this.layer - 1), 1);
     },
     panelChange(horizontalLayer: number, verticalLayer: number): void {
-      let state: panelState = this.getState(horizontalLayer, verticalLayer);
+      const panelState: panelState = this.getState(
+        horizontalLayer,
+        verticalLayer
+      );
       this.stateChange(horizontalLayer, verticalLayer);
-      switch (state) {
+      switch (panelState) {
         case undefined:
           this.selectedPanel = {
             horizontalLayer: horizontalLayer,
             verticalLayer: verticalLayer,
-            state: PANELSTATE.NORMAL,
+            panelState: PANELSTATE.UNOCCUPIED,
           };
           break;
-        case PANELSTATE.MOVE_CANDIDATED:
+        case PANELSTATE.MOVABLE:
           this.pieceChange(
             this.selectedPanel.horizontalLayer,
             this.selectedPanel.verticalLayer
@@ -94,25 +96,28 @@ export default defineComponent({
       }
     },
     stateChange(horizontalLayer: number, verticalLayer: number): void {
-      let state: panelState = this.getState(horizontalLayer, verticalLayer);
+      const panelState: panelState = this.getState(
+        horizontalLayer,
+        verticalLayer
+      );
       let panel: Panel;
-      switch (state) {
-        case PANELSTATE.NORMAL:
+      switch (panelState) {
+        case PANELSTATE.UNOCCUPIED:
           panel = {
             horizontalLayer: horizontalLayer,
             verticalLayer: verticalLayer,
-            state: PANELSTATE.SELECTED,
+            panelState: PANELSTATE.SELECTED,
           };
           break;
         case PANELSTATE.SELECTED:
-        case PANELSTATE.MOVE_CANDIDATED:
+        case PANELSTATE.MOVABLE:
           panel = this.selectedPanel;
           break;
         default:
           panel = {
             horizontalLayer: horizontalLayer,
             verticalLayer: verticalLayer,
-            state: PANELSTATE.SELECTED,
+            panelState: PANELSTATE.SELECTED,
           };
       }
       const storeAction = "panels/update";
