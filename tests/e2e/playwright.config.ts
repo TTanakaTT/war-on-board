@@ -44,60 +44,52 @@ const config: PlaywrightTestConfig = {
 
   /* Configure projects for major browsers */
   projects: [
-    {
-      name: "Google Chrome",
-      use: {
-        channel: "chrome",
-      },
-    },
     // {
     //   name: "chromium",
     //   use: {
     //     ...devices["Desktop Chrome"],
     //   },
     // },
-
     // {
-    //   name: 'firefox',
+    //   name: "firefox",
     //   use: {
-    //     ...devices['Desktop Firefox'],
+    //     ...devices["Desktop Firefox"],
     //   },
     // },
-
     // {
-    //   name: 'webkit',
+    //   name: "webkit",
     //   use: {
-    //     ...devices['Desktop Safari'],
+    //     ...devices["Desktop Safari"],
     //   },
     // },
 
     /* Test against mobile viewports. */
     // {
-    //   name: 'Mobile Chrome',
+    //   name: "Mobile Chrome",
     //   use: {
-    //     ...devices['Pixel 5'],
+    //     ...devices["Pixel 5"],
     //   },
     // },
     // {
-    //   name: 'Mobile Safari',
+    //   name: "Mobile Safari",
     //   use: {
-    //     ...devices['iPhone 12'],
+    //     ...devices["iPhone 12"],
     //   },
     // },
 
     /* Test against branded browsers. */
     // {
-    //   name: 'Microsoft Edge',
+    //   name: "Microsoft Edge",
     //   use: {
-    //     channel: 'msedge',
+    //     channel: "msedge",
     //   },
     // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: {
-    //     channel: 'chrome',
-    //   },
-    // },
+    {
+      name: "Google Chrome",
+      use: {
+        channel: "chrome",
+      },
+    },
   ],
 
   /* Folder for test artifacts such as screenshots, videos, traces, etc. */
