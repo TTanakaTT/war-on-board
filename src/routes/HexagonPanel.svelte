@@ -59,7 +59,7 @@
 	{onclick}
 	{onkeydown}
 >
-	{#each $pieceNames as pieceName, index}
+	{#each $pieceNames as pieceName (pieceName)}
 		<i class="z-1" transition:slide={{ duration: 500, axis: 'y' }}>
 			<ChessKnight
 				class="bg-primary-variant dark:bg-primary-variant-dark size-9 rounded-xl border border-white p-1.5 text-white"

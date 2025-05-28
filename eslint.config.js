@@ -32,5 +32,8 @@ export default ts.config(
 				svelteConfig
 			}
 		}
+	},
+	{
+		ignores: ['docs/**']
 	}
 );

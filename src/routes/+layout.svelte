@@ -46,7 +46,7 @@
 	>
 		<div>
 			<h1>Drawer</h1>
-			{#each locales as locale}
+			{#each locales as locale (locale)}
 				<button
 					class="border-primary dark:border-primary-dark m-1 rounded-xl border p-1"
 					onclick={() => setLocale(locale)}>{locale}</button
@@ -60,7 +60,7 @@
 			class="dialog-content bg-surface dark:bg-surface-dark text-onsurface dark:text-onsurface-dark border-outline dark:border-outline-dark fixed h-screen w-64 overflow-hidden border transition duration-200 ease-out {navTranslateStyle}"
 		>
 			<h1>Drawer</h1>
-			{#each locales as locale}
+			{#each locales as locale (locale)}
 				<button
 					class="border-primary dark:border-primary-dark m-1 rounded-xl border p-1"
 					onclick={() => setLocale(locale)}>{locale}</button
