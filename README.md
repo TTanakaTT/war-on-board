@@ -1,35 +1,26 @@
-# war-on-board
+# sv
 
-## Project setup
+Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
 
-```
-yarn
-```
+## Developing
 
-### Compiles and hot-reloads for development
+Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
 
-```
-yarn run serve
-```
+```bash
+pnpm run dev
 
-### Products static files for hosting
-
-```
-yarn run build
+# or start the server and open the app in a new browser tab
+pnpm run dev -- --open
 ```
 
-### Run your end-to-end tests
+## Building
 
-```
-yarn run test:e2e
-```
+To create a production version of your app:
 
-### Lints and fixes files
-
-```
-yarn run lint
+```bash
+pnpm run build
 ```
 
-### Customize configuration
+You can preview the production build with `pnpm run preview`.
 
-See [Configuration Reference](https://cli.vuejs.org/config/).
+> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
