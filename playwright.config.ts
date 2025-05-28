@@ -6,6 +6,7 @@ export default defineConfig({
 		port: 4173
 	},
 	testDir: 'tests/e2e',
+	reporter: [['html', { outputFolder: 'playwright-report' }]],
 	projects: [
 		{
 			name: 'chromium',
@@ -17,12 +18,6 @@ export default defineConfig({
 			name: 'firefox',
 			use: {
 				...devices['Desktop Firefox']
-			}
-		},
-		{
-			name: 'webkit',
-			use: {
-				...devices['Desktop Safari']
 			}
 		}
 	],

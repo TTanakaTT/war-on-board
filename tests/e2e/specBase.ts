@@ -27,7 +27,7 @@ export class SpecBase {
 		) => void
 	): void {
 		test.beforeEach(async ({ page }: { page: Page }) => {
-			await page.goto('http://localhost:8080/war-on-board/');
+			await page.goto('http://localhost:4173/');
 		});
 
 		test(this.title, testFunction);

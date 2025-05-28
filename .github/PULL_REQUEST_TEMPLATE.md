@@ -1,4 +1,4 @@
 # Checkbox
 
-- [ ] `yarn upgrade`
-- [ ] `yarn build`
+- [ ] `pnpm upgrade`
+- [ ] `pnpm run build`

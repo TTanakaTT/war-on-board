@@ -48,7 +48,7 @@
 			<h1>Drawer</h1>
 			{#each locales as locale (locale)}
 				<button
-					class="border-primary dark:border-primary-dark m-1 rounded-xl border p-1"
+					class="border-primary dark:border-primary-dark m-1 rounded-xl border p-1 hover:ring hover:ring-primary dark:hover:ring-primary-dark"
 					onclick={() => setLocale(locale)}>{locale}</button
 				>
 			{/each}
@@ -62,7 +62,7 @@
 			<h1>Drawer</h1>
 			{#each locales as locale (locale)}
 				<button
-					class="border-primary dark:border-primary-dark m-1 rounded-xl border p-1"
+					class="border-primary dark:border-primary-dark m-1 rounded-xl border p-1 hover:ring hover:ring-primary dark:hover:ring-primary-dark"
 					onclick={() => setLocale(locale)}>{locale}</button
 				>
 			{/each}

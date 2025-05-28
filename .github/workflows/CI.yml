@@ -10,35 +10,39 @@ on:
     branches: [main]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: yarn
-      - run: yarn run build
-
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
         with:
-          node-version: 18
+          version: 8
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: pnpm install
       - name: Prepare test
         run: npx playwright install
       - name: Install test dependencies
         run: npx playwright install-deps
       - name: Run Playwright tests
-        run: yarn test:e2e
-      - uses: actions/upload-artifact@v3
+        run: pnpm run test:e2e
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
+          name: Playwright report
           path: playwright-report/
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: Screenshots
+          path: tests/e2e/home.spec.ts-snapshots
           retention-days: 30

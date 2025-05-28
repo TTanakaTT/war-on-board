@@ -5,32 +5,55 @@ const base = new SpecBase('home');
 base.runTest(async ({ page }) => {
 	await base.compareScreenshot(page, '0-0.png');
 
-	await page.locator('header.v-toolbar > div > button').click();
+	await base.compareScreenshot(page, '1-0.png');
+
+	await page.getByRole('banner').getByRole('button').hover();
 	await base.compareScreenshot(page, '1-1.png');
-	const scrim = page.locator('.v-navigation-drawer__scrim');
-	if ((await scrim.count()) > 0) {
-		await page.mouse.click(300, 100);
-	} else {
-		await page.locator('header.v-toolbar > div > button').click();
-	}
+
+	await page.getByRole('banner').getByRole('button').click();
 	await base.compareScreenshot(page, '1-2.png');
 
-	await page.getByLabel('the layer of tiles').fill('6');
-	await page.getByRole('button', { name: 'Change' }).click();
+	await page.getByRole('button', { name: 'ja' }).hover();
+	await base.compareScreenshot(page, '1-3.png');
+
+	await page.getByRole('button', { name: 'ja' }).click();
+	await base.compareScreenshot(page, '1-4.png');
+
+	await base.compareScreenshot(page, '2-0.png');
+
+	await page.getByRole('button', { name: '生産' }).hover();
 	await base.compareScreenshot(page, '2-1.png');
 
-	await page.getByRole('button', { name: 'Generate' }).click();
+	await page.getByRole('button', { name: '生産' }).click();
 	await base.compareScreenshot(page, '2-2.png');
 
-	await page.locator('.hexagon-panel').first().click();
-	await base.compareScreenshot(page, '3-1.png');
+	await page.locator(".pseudo-el\\:content-\\[\\'\\'\\]").first().hover();
+	await base.compareScreenshot(page, '2-3.png');
 
-	await page.locator('div:nth-child(3) > div > .hexagon-panel').first().click();
-	await base.compareScreenshot(page, '3-2.png');
+	await page.locator(".pseudo-el\\:content-\\[\\'\\'\\]").first().click();
+	await base.compareScreenshot(page, '2-4.png');
 
-	await page.locator('div:nth-child(3) > div > .hexagon-panel').first().click();
-	await base.compareScreenshot(page, '3-3.png');
+	await page.locator("div:nth-child(2) > div > .pseudo-el\\:content-\\[\\'\\'\\]").first().hover();
+	await base.compareScreenshot(page, '2-5.png');
 
-	await page.locator('.hexagon-panel').first().click();
-	await base.compareScreenshot(page, '3-4.png');
+	await page.locator("div:nth-child(2) > div > .pseudo-el\\:content-\\[\\'\\'\\]").first().click();
+	await base.compareScreenshot(page, '2-6.png');
+
+	await page.locator("div:nth-child(2) > div > .pseudo-el\\:content-\\[\\'\\'\\]").first().click();
+	await base.compareScreenshot(page, '2-7.png');
+
+	await page
+		.locator("div:nth-child(3) > div:nth-child(2) > .pseudo-el\\:content-\\[\\'\\'\\]")
+		.click();
+	await base.compareScreenshot(page, '2-8.png');
+
+	await page
+		.locator("div:nth-child(3) > div:nth-child(2) > .pseudo-el\\:content-\\[\\'\\'\\]")
+		.click();
+	await base.compareScreenshot(page, '2-9.png');
+
+	await page
+		.locator("div:nth-child(3) > div:nth-child(2) > .pseudo-el\\:content-\\[\\'\\'\\]")
+		.click();
+	await base.compareScreenshot(page, '2-10.png');
 });
