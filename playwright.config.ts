@@ -9,15 +9,17 @@ export default defineConfig({
 	reporter: [['html', { outputFolder: 'playwright-report' }]],
 	projects: [
 		{
-			name: 'chromium',
+			name: 'chromium-hd',
 			use: {
-				...devices['Desktop Chrome']
+				...devices['Desktop Chrome'],
+				viewport: { width: 1440, height: 1080 }
 			}
 		},
 		{
-			name: 'firefox',
+			name: 'firefox-xga',
 			use: {
-				...devices['Desktop Firefox']
+				...devices['Desktop Firefox'],
+				viewport: { width: 1024, height: 768 }
 			}
 		}
 	],

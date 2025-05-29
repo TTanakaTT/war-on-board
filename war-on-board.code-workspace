@@ -13,14 +13,15 @@
 			"src/**/*.css": "tailwindcss"
 		},
 		"[svelte]": {
-			"editor.defaultFormatter": "dbaeumer.vscode-eslint"
+			"editor.defaultFormatter": "svelte.svelte-vscode"
 		},
 		"[javascript]": {
 			"editor.defaultFormatter": "dbaeumer.vscode-eslint"
 		},
 		"[typescript]": {
-			"editor.defaultFormatter": "dbaeumer.vscode-eslint"
+			"editor.defaultFormatter": "vscode.typescript-language-features"
 		},
-		"eslint.format.enable": true
+		"eslint.format.enable": true,
+		"svelte.enable-ts-plugin": true
 	}
 }

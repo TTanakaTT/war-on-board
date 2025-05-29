@@ -1,16 +1,17 @@
-test-results
-node_modules
-
+node_modules/
+project.inlang/cache/
 tests/e2e/screenshots/
-project.inlang/cache
+test-results/
+playwright-report/
+playwright/.cache/
 
 # Output
 .output
 .vercel
 .netlify
 .wrangler
-/.svelte-kit
-/build
+.svelte-kit/
+build/
 
 # OS
 .DS_Store
@@ -27,7 +28,7 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # Paraglide
-src/lib/paraglide
+src/lib/paraglide/
 
 # Log files
 pnpm-debug.log*
@@ -40,6 +41,3 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
-/test-results/
-/playwright-report/
-/playwright/.cache/
