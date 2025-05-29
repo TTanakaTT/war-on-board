@@ -1,4 +1,5 @@
 # Checkbox
 
-- [ ] `pnpm upgrade`
-- [ ] `pnpm run build`
+- [ ] `pnpm update`
+- [ ] `pnpm run format`
+- [ ] `pnpm run lint`
