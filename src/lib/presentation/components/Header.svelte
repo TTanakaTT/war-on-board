@@ -1,6 +1,14 @@
 <script lang="ts">
 	import Menu from 'svelte-material-icons/Menu.svelte';
-	let { open, isNav, onClickMenu } = $props();
+	let {
+		open,
+		isNav,
+		onClickMenu
+	}: {
+		open: boolean;
+		isNav: boolean;
+		onClickMenu: () => void;
+	} = $props();
 	let headerWidthStyle = $derived.by(() => {
 		if (isNav) {
 			return open ? 'ml-64 w-[calc(100%-(var(--spacing)*64))]' : 'w-screen';

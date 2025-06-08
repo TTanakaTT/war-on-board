@@ -1,6 +1,16 @@
 <script lang="ts">
 	import { locales, setLocale } from '$lib/paraglide/runtime';
-	let { dialog = $bindable(), open, isNav, onClickDialog } = $props();
+	let {
+		dialog = $bindable(),
+		open,
+		isNav,
+		onClickDialog
+	}: {
+		dialog?: HTMLDialogElement;
+		open: boolean;
+		isNav: boolean;
+		onClickDialog: (event: MouseEvent) => void;
+	} = $props();
 	let navTranslateStyle = $derived(open ? 'translate-x-0' : '-translate-x-full');
 </script>
 

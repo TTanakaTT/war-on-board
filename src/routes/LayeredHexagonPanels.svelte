@@ -1,20 +1,14 @@
 <script lang="ts">
 	import HexagonPanel from './HexagonPanel.svelte';
-	import type { Piece } from '$lib/interfaces/Piece';
-	import type { Panel } from '$lib/interfaces/Panel';
-	import { type PanelState, PANELSTATE } from '$lib/enums/PanelStates';
-	import { panelsStore } from '$lib/store/PanelsStore';
-	import { piecesStore } from '$lib/store/PiecesStore';
-	import { get, type Readable } from 'svelte/store';
+	import { PanelPosition } from '$lib/domain/entities/PanelPosition';
 	import { m } from '$lib/paraglide/messages';
+	import { turnState } from '$lib/presentation/state/TurnState.svelte';
+	import { GameService } from '$lib/domain/services/GameService';
+	import { PLAYER } from '$lib/domain/enums/Player';
+	import { layerState } from '$lib/presentation/state/LayerState.svelte';
 
-	let { layer } = $props();
-
-	let selectedPanel: Panel = {
-		horizontalLayer: 1,
-		verticalLayer: 1,
-		panelState: PANELSTATE.SELECTED
-	};
+	let turn = $derived(turnState.get());
+	const layer = $derived(layerState.get());
 
 	function sideRange(): number[] {
 		const horizontalLayer = layer;
@@ -34,80 +28,23 @@
 		const top: number = Math.abs(horizontalLayer) * (height * 0.5) * 1.1;
 		return `left: ${left.toString()}px; top: ${top.toString()}px`;
 	}
-	function generate(): void {
-		pieceChange(-(layer - 1), 0);
-	}
-	function panelChange(horizontalLayer: number, verticalLayer: number): void {
-		const panelState: PanelState = getState(horizontalLayer, verticalLayer);
-		stateChange(horizontalLayer, verticalLayer);
-		switch (panelState) {
-			case undefined:
-				selectedPanel = {
-					horizontalLayer: horizontalLayer,
-					verticalLayer: verticalLayer,
-					panelState: PANELSTATE.UNOCCUPIED
-				};
-				break;
-			case PANELSTATE.MOVABLE:
-				pieceChange(selectedPanel.horizontalLayer, selectedPanel.verticalLayer);
-				pieceChange(horizontalLayer, verticalLayer);
-				break;
-		}
-	}
-	function stateChange(horizontalLayer: number, verticalLayer: number): void {
-		const panelState: PanelState = getState(horizontalLayer, verticalLayer);
-		let panel: Panel;
-		switch (panelState) {
-			case PANELSTATE.UNOCCUPIED:
-				panel = {
-					horizontalLayer: horizontalLayer,
-					verticalLayer: verticalLayer,
-					panelState: PANELSTATE.SELECTED
-				};
-				break;
-			case PANELSTATE.SELECTED:
-			case PANELSTATE.MOVABLE:
-				panel = selectedPanel;
-				break;
-			default:
-				panel = {
-					horizontalLayer: horizontalLayer,
-					verticalLayer: verticalLayer,
-					panelState: PANELSTATE.SELECTED
-				};
-		}
-		panelsStore.update(panel);
-	}
-	function pieceChange(horizontalLayer: number, verticalLayer: number): void {
-		const pieceNames: Readable<string[]> = getPieceNames(horizontalLayer, verticalLayer);
-		const isDelete: boolean = get(pieceNames).length > 0;
 
-		const pieceName: string = isDelete ? get(pieceNames)[0] : 'knight';
-
-		const piece: Piece = {
-			horizontalLayer: horizontalLayer,
-			verticalLayer: verticalLayer,
-			pieceName: pieceName
-		};
-		if (isDelete) {
-			piecesStore.remove(piece);
-		} else {
-			piecesStore.create(piece);
-		}
-	}
-	function getPieceNames(horizontalLayer: number, verticalLayer: number): Readable<string[]> {
-		return piecesStore.getPieceNames(horizontalLayer, verticalLayer);
-	}
-	function getState(horizontalLayer: number, verticalLayer: number): PanelState {
-		return get(panelsStore.getPanelStates(horizontalLayer, verticalLayer))[0];
-	}
+	let turnColor = $derived(
+		turn.player === PLAYER.SELF ? 'text-white border-white' : 'text-black border-black'
+	);
 </script>
 
 <div class="flex justify-center">
 	<button
 		type="button"
-		class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hove hover:ring-primary dark:hover:ring-primary-dark my-2 me-2 mb-2 rounded-3xl border px-5 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none"
-		onclick={() => generate()}>{m.generate()}</button
+		class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hove hover:ring-primary dark:hover:ring-primary-dark m-2 rounded-3xl border px-5 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none"
+		onclick={() => GameService.generate()}>{m.generate()}</button
+	>
+</div>
+<div class="m-2 flex justify-center">
+	<span
+		class="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border-2 p-1.5 text-sm {turnColor}"
+		>turn<span class="text-2xl font-bold">{turn.num}</span> {turn.player}</span
 	>
 </div>
 <div class="relative left-1/2">
@@ -116,9 +53,17 @@
 			{#each { length: layer - Math.abs(hl) }, vl}
 				<div>
 					<HexagonPanel
-						horizontalLayer={hl}
-						verticalLayer={vl}
-						onclick={() => panelChange(hl, vl)}
+						panelPosition={new PanelPosition({
+							horizontalLayer: hl,
+							verticalLayer: vl
+						})}
+						onclick={() =>
+							GameService.panelChange(
+								new PanelPosition({
+									horizontalLayer: hl,
+									verticalLayer: vl
+								})
+							)}
 					/>
 				</div>
 			{/each}

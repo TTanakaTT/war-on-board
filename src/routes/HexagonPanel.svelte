@@ -2,42 +2,54 @@
 
 <script lang="ts">
 	import ChessKnight from 'svelte-material-icons/ChessKnight.svelte';
+	import { PanelsService } from '$lib/data/services/PanelService';
+	import { PiecesRepository } from '$lib/data/repositories/PieceRepository';
 
-	import { type PanelState, PANELSTATE } from '$lib/enums/PanelStates';
-	import { panelsStore } from '$lib/store/PanelsStore';
-	import { piecesStore } from '$lib/store/PiecesStore';
-	import type { Readable } from 'svelte/store';
+	import { type PanelState, PANELSTATE } from '$lib/domain/enums/PanelStates';
 	import { slide } from 'svelte/transition';
+	import { PLAYER } from '$lib/domain/enums/Player';
+	import type { PanelPosition } from '$lib/domain/entities/PanelPosition';
 
-	let { horizontalLayer, verticalLayer, onclick } = $props();
+	let {
+		panelPosition,
+		onclick
+	}: {
+		panelPosition: PanelPosition;
+		onclick: () => void;
+	} = $props();
+
+	let pieces = $derived(PiecesRepository.getPiecesByPosition(panelPosition));
+
+	let panelState = $derived(PanelsService.findPanelState(panelPosition));
+	let panelStyle = $derived(getPanelStyle());
+	let pieceColor = $derived(
+		pieces[0]?.player === PLAYER.SELF ? 'text-white border-white' : 'text-black border-black'
+	);
+
 	function onkeydown(e: KeyboardEvent) {
 		if (!['Enter', ' '].includes(e.key)) return;
-		if ($panelStates?.length) {
-			if (![PANELSTATE.OCCUPIED, PANELSTATE.SELECTED, PANELSTATE.MOVABLE].includes($panelStates[0]))
-				return;
-		} else if ($pieceNames?.length === 0) return;
+		if (
+			panelState &&
+			![PANELSTATE.OCCUPIED, PANELSTATE.SELECTED, PANELSTATE.MOVABLE].includes(panelState)
+		)
+			return;
+
+		if (pieces?.length === 0) return;
 
 		onclick();
 	}
 
-	let pieceNames: Readable<string[]> = piecesStore.getPieceNames(horizontalLayer, verticalLayer);
-	let panelStates: Readable<PanelState[]> = panelsStore.getPanelStates(
-		horizontalLayer,
-		verticalLayer
-	);
-	let panelStyle = $derived(getPanelStyle());
-
 	function getPanelStyle(): string {
-		let panelState: PanelState;
-		if ($panelStates?.length) {
-			panelState = $panelStates[0];
-		} else if ($pieceNames?.length) {
-			panelState = PANELSTATE.OCCUPIED;
+		let _panelState: PanelState;
+		if (panelState) {
+			_panelState = panelState;
+		} else if (pieces?.length) {
+			_panelState = PANELSTATE.OCCUPIED;
 		} else {
-			panelState = PANELSTATE.UNOCCUPIED;
+			_panelState = PANELSTATE.UNOCCUPIED;
 		}
 		let hoverStyle = 'hover:all-el:bg-panel-selected dark:hover:all-el:bg-panel-selected-dark';
-		switch (panelState) {
+		switch (_panelState) {
 			case PANELSTATE.UNOCCUPIED:
 				return 'pointer-events-none all-el:bg-panel-unoccupied dark:all-el:bg-panel-unoccupied-dark';
 			case PANELSTATE.OCCUPIED:
@@ -59,10 +71,20 @@
 	{onclick}
 	{onkeydown}
 >
-	{#each $pieceNames as pieceName (pieceName)}
+	<!-- <div
+		class="text-secondary t-0 absolute inset-0 z-1000 flex-row justify-center text-center text-xs"
+	>
+		<p>
+			{panelState}
+		</p>
+		<p>
+			{panelPosition.horizontalLayer}, {panelPosition.verticalLayer}
+		</p>
+	</div> -->
+	{#each pieces as piece (piece.id)}
 		<i class="z-1" transition:slide={{ duration: 500, axis: 'y' }}>
 			<ChessKnight
-				class="bg-primary-variant dark:bg-primary-variant-dark size-9 rounded-xl border border-white p-1.5 text-white"
+				class="bg-primary-variant dark:bg-primary-variant-dark size-9 rounded-xl border  p-1.5 {pieceColor}"
 			/>
 		</i>
 	{/each}

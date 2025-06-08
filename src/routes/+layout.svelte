@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
-	import Header from '$lib/components/Header.svelte';
-	import Drawer from '$lib/components/Drawer.svelte';
+	import Header from '$lib/presentation/components/Header.svelte';
+	import Drawer from '$lib/presentation/components/Drawer.svelte';
 
 	let { children } = $props();
 	let open = $state(false);
