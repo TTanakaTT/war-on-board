@@ -4,8 +4,10 @@
 	import { m } from '$lib/paraglide/messages';
 	import { turnState } from '$lib/presentation/state/TurnState.svelte';
 	import { GameService } from '$lib/domain/services/GameService';
-	import { PLAYER } from '$lib/domain/enums/Player';
+	import { Player } from '$lib/domain/enums/Player';
+	import { PieceType } from '$lib/domain/enums/PieceType';
 	import { layerState } from '$lib/presentation/state/LayerState.svelte';
+	import GeneratePieceButton from '$lib/presentation/components/GeneratePieceButton.svelte';
 
 	let turn = $derived(turnState.get());
 	const layer = $derived(layerState.get());
@@ -30,16 +32,14 @@
 	}
 
 	let turnColor = $derived(
-		turn.player === PLAYER.SELF ? 'text-white border-white' : 'text-black border-black'
+		turn.player === Player.SELF ? 'text-white border-white' : 'text-black border-black'
 	);
 </script>
 
-<div class="flex justify-center">
-	<button
-		type="button"
-		class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hove hover:ring-primary dark:hover:ring-primary-dark m-2 rounded-3xl border px-5 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none"
-		onclick={() => GameService.generate()}>{m.generate()}</button
-	>
+<div class="my-2 flex justify-center gap-2">
+	<GeneratePieceButton pieceType={PieceType.KNIGHT} />
+	<GeneratePieceButton pieceType={PieceType.ROOK} />
+	<GeneratePieceButton pieceType={PieceType.BISHOP} />
 </div>
 <div class="m-2 flex justify-center">
 	<span

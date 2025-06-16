@@ -2,8 +2,9 @@
 	import '../app.css';
 	import Header from '$lib/presentation/components/Header.svelte';
 	import Drawer from '$lib/presentation/components/Drawer.svelte';
+	import type { Snippet } from 'svelte';
 
-	let { children } = $props();
+	let { children }: { children: Snippet } = $props();
 	let open = $state(false);
 	let dialog = $state<HTMLDialogElement | undefined>(undefined);
 

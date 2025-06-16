@@ -1,5 +1,5 @@
 import { Panel } from '$lib/domain/entities/Panel';
-import { PANELSTATE, type PanelState } from '$lib/domain/enums/PanelStates';
+import { PanelState } from '$lib/domain/enums/PanelState';
 import { PanelPosition } from '$lib/domain/entities/PanelPosition';
 import { panelsState } from '$lib/presentation/state/PanelsState.svelte';
 import { PiecesRepository } from '../repositories/PieceRepository';
@@ -12,7 +12,7 @@ export class PanelsService {
 				panels.push(
 					new Panel({
 						panelPosition: new PanelPosition({ horizontalLayer: hl, verticalLayer: vl }),
-						panelState: PANELSTATE.UNOCCUPIED
+						panelState: PanelState.UNOCCUPIED
 					})
 				);
 			}
@@ -20,7 +20,7 @@ export class PanelsService {
 		return panels;
 	}
 
-	static findPanelState(panelPosition: PanelPosition): PANELSTATE | undefined {
+	static findPanelState(panelPosition: PanelPosition): PanelState | undefined {
 		const panels = panelsState.getAll();
 		const panelStates: PanelState[] = panels
 			.filter((x) => x.panelPosition.equals(panelPosition))
@@ -42,21 +42,21 @@ export class PanelsService {
 
 	static filterMovablePanels(): Panel[] {
 		const panels = panelsState.getAll();
-		return panels.filter((p) => p.panelState === PANELSTATE.MOVABLE);
+		return panels.filter((p) => p.panelState === PanelState.MOVABLE);
 	}
 
 	static clearSelected(): Panel[] {
 		const panels = panelsState.getAll();
 		return panels.map((p) => {
 			switch (p.panelState) {
-				case PANELSTATE.MOVABLE:
-				case PANELSTATE.IMMOVABLE:
-				case PANELSTATE.SELECTED: {
+				case PanelState.MOVABLE:
+				case PanelState.IMMOVABLE:
+				case PanelState.SELECTED: {
 					const hasPiece = PiecesRepository.getPiecesByPosition(p.panelPosition).length > 0;
 
 					return new Panel({
 						panelPosition: p.panelPosition,
-						panelState: hasPiece ? PANELSTATE.OCCUPIED : PANELSTATE.UNOCCUPIED
+						panelState: hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED
 					});
 				}
 				default:

@@ -1,13 +1,12 @@
 <svelte:options customElement="hexagon-panel" />
 
 <script lang="ts">
-	import ChessKnight from 'svelte-material-icons/ChessKnight.svelte';
 	import { PanelsService } from '$lib/data/services/PanelService';
 	import { PiecesRepository } from '$lib/data/repositories/PieceRepository';
 
-	import { type PanelState, PANELSTATE } from '$lib/domain/enums/PanelStates';
+	import { PanelState } from '$lib/domain/enums/PanelState';
 	import { slide } from 'svelte/transition';
-	import { PLAYER } from '$lib/domain/enums/Player';
+	import { Player } from '$lib/domain/enums/Player';
 	import type { PanelPosition } from '$lib/domain/entities/PanelPosition';
 
 	let {
@@ -23,14 +22,14 @@
 	let panelState = $derived(PanelsService.findPanelState(panelPosition));
 	let panelStyle = $derived(getPanelStyle());
 	let pieceColor = $derived(
-		pieces[0]?.player === PLAYER.SELF ? 'text-white border-white' : 'text-black border-black'
+		pieces[0]?.player === Player.SELF ? 'text-white border-white' : 'text-black border-black'
 	);
 
 	function onkeydown(e: KeyboardEvent) {
 		if (!['Enter', ' '].includes(e.key)) return;
 		if (
 			panelState &&
-			![PANELSTATE.OCCUPIED, PANELSTATE.SELECTED, PANELSTATE.MOVABLE].includes(panelState)
+			![PanelState.OCCUPIED, PanelState.SELECTED, PanelState.MOVABLE].includes(panelState)
 		)
 			return;
 
@@ -44,20 +43,20 @@
 		if (panelState) {
 			_panelState = panelState;
 		} else if (pieces?.length) {
-			_panelState = PANELSTATE.OCCUPIED;
+			_panelState = PanelState.OCCUPIED;
 		} else {
-			_panelState = PANELSTATE.UNOCCUPIED;
+			_panelState = PanelState.UNOCCUPIED;
 		}
 		let hoverStyle = 'hover:all-el:bg-panel-selected dark:hover:all-el:bg-panel-selected-dark';
 		switch (_panelState) {
-			case PANELSTATE.UNOCCUPIED:
+			case PanelState.UNOCCUPIED:
 				return 'pointer-events-none all-el:bg-panel-unoccupied dark:all-el:bg-panel-unoccupied-dark';
-			case PANELSTATE.OCCUPIED:
+			case PanelState.OCCUPIED:
 				return `cursor-pointer ${hoverStyle} all-el:bg-panel-occupied dark:all-el:bg-panel-occupied-dark`;
-			case PANELSTATE.SELECTED:
-			case PANELSTATE.MOVABLE:
+			case PanelState.SELECTED:
+			case PanelState.MOVABLE:
 				return `cursor-pointer ${hoverStyle} all-el:bg-panel-movable dark:all-el:bg-panel-movable-dark`;
-			case PANELSTATE.IMMOVABLE:
+			case PanelState.IMMOVABLE:
 			default:
 				return 'pointer-events-none all-el:bg-panel-immovable dark:all-el:bg-panel-immovable-dark';
 		}
@@ -82,10 +81,15 @@
 		</p>
 	</div> -->
 	{#each pieces as piece (piece.id)}
-		<i class="z-1" transition:slide={{ duration: 500, axis: 'y' }}>
-			<ChessKnight
-				class="bg-primary-variant dark:bg-primary-variant-dark size-9 rounded-xl border  p-1.5 {pieceColor}"
+		{#snippet icon()}
+			{@const Icon = piece.pieceType.getComponent()}
+			<Icon
+				class="bg-primary-variant dark:bg-primary-variant-dark size-9 rounded-xl border p-1.5 {pieceColor}"
 			/>
+		{/snippet}
+
+		<i class="z-1" transition:slide={{ duration: 500, axis: 'y' }}>
+			{@render icon()}
 		</i>
 	{/each}
 </div>

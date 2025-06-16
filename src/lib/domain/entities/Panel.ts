@@ -1,4 +1,4 @@
-import type { PanelState } from '$lib/domain/enums/PanelStates';
+import type { PanelState } from '$lib/domain/enums/PanelState';
 import type { PanelPosition } from './PanelPosition';
 
 export class Panel {

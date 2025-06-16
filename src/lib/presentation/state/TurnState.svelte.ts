@@ -1,7 +1,7 @@
 import type { Turn } from '$lib/domain/entities/Turn';
-import { PLAYER } from '$lib/domain/enums/Player';
+import { Player } from '$lib/domain/enums/Player';
 
-let _turn = $state<Turn>({ num: 1, player: PLAYER.SELF });
+let _turn = $state<Turn>({ num: 1, player: Player.SELF });
 
 export function get(): Turn {
 	return _turn;

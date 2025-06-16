@@ -1,5 +1,6 @@
 import type { PanelPosition } from '$lib/domain/entities/PanelPosition';
 import type { Piece } from '$lib/domain/entities/Piece';
+import type { Player } from '$lib/domain/enums/Player';
 
 const _pieces = $state<Piece[]>([]);
 
@@ -21,7 +22,7 @@ function getAll(): Piece[] {
 function getByPosition(panelPosition: PanelPosition): Piece[] {
 	return _pieces.filter((x) => x.panelPosition.equals(panelPosition));
 }
-function getPiecesByPlayer(player: string): Piece[] {
+function getPiecesByPlayer(player: Player): Piece[] {
 	return _pieces.filter((x) => x.player === player);
 }
 
