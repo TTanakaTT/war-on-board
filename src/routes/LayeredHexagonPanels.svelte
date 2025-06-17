@@ -1,7 +1,6 @@
 <script lang="ts">
 	import HexagonPanel from './HexagonPanel.svelte';
 	import { PanelPosition } from '$lib/domain/entities/PanelPosition';
-	import { m } from '$lib/paraglide/messages';
 	import { turnState } from '$lib/presentation/state/TurnState.svelte';
 	import { GameService } from '$lib/domain/services/GameService';
 	import { Player } from '$lib/domain/enums/Player';
