@@ -1,1 +1,12 @@
 * text=auto eol=lf
+
+# Graphics
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.tif      binary
+*.tiff     binary
+*.ico      binary
+# SVG treated as an asset (binary) by default.
+*.svg      text

@@ -1,4 +1,0 @@
-# This is a configuration file for Sider. See <https://help.sider.review/getting-started/custom-configuration/>.
-
-ignore:
-  - "docs/**"

@@ -1,0 +1,66 @@
+@import 'tailwindcss';
+
+@theme {
+	--color-primary: var(--color-lime-600);
+	--color-primary-dark: var(--color-lime-600);
+	--color-primary-variant: var(--color-lime-400);
+	--color-primary-variant-dark: var(--color-lime-700);
+	--color-secondary: oklch(0.971 0.013 17.38);
+	--color-secondary-dark: oklch(0.971 0.013 17.38);
+	--color-secondary-variant: oklch(0.971 0.013 17.38);
+	--color-secondary-variant-dark: oklch(0.971 0.013 17.38);
+	--color-surface: var(--color-stone-200);
+	--color-surface-dark: var(--color-stone-900);
+	--color-background: var(--color-stone-100);
+	--color-background-dark: var(--color-stone-950);
+	--color-outline: var(--color-stone-300);
+	--color-outline-dark: var(--color-stone-600);
+	--color-error: var(--color-red-400);
+	--color-error-dark: var(--color-red-700);
+	--color-onprimary: oklch(0.82 0.13 68);
+	--color-onprimary-dark: oklch(0.82 0.13 68);
+	--color-onsecondary: oklch(0.82 0.13 68);
+	--color-onsecondary-dark: oklch(0.82 0.13 68);
+	--color-onbackground: var(--color-stone-900);
+	--color-onbackground-dark: var(--color-stone-200);
+	--color-onsurface: var(--color-stone-900);
+	--color-onsurface-dark: var(--color-stone-100);
+	--color-onerror: var(--color-stone-900);
+	--color-onerror-dark: var(--color-stone-100);
+
+	--color-panel-unoccupied: var(--color-orange-300);
+	--color-panel-unoccupied-dark: var(--color-orange-700);
+	--color-panel-occupied: var(--color-orange-400);
+	--color-panel-occupied-dark: var(--color-orange-600);
+	--color-panel-selected: var(--color-orange-600);
+	--color-panel-selected-dark: var(--color-orange-400);
+	--color-panel-movable: var(--color-orange-400);
+	--color-panel-movable-dark: var(--color-orange-600);
+	--color-panel-immovable: var(--color-orange-100);
+	--color-panel-immovable-dark: var(--color-orange-900);
+}
+
+@custom-variant pseudo-el {
+	&::before,
+	&::after {
+		@slot;
+	}
+}
+
+@custom-variant all-el {
+	@slot;
+	&::before,
+	&::after {
+		@slot;
+	}
+}
+
+body {
+	@apply bg-background text-onbackground dark:bg-background-dark dark:text-onbackground-dark;
+}
+
+dialog::backdrop {
+	color-scheme: light dark;
+
+	background-color: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1));
+}
