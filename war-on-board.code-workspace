@@ -10,7 +10,7 @@
 		},
 		"editor.formatOnSave": true,
 		"files.associations": {
-			"src/**/*.css": "tailwindcss"
+			"**/war-on-board/src/**/*.css": "tailwindcss"
 		},
 		"[svelte]": {
 			"editor.defaultFormatter": "esbenp.prettier-vscode"

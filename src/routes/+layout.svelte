@@ -44,6 +44,6 @@
 
 <Drawer {open} {isNav} {onClickDialog} bind:dialog />
 <Header {open} {isNav} {onClickMenu} />
-<main class="h-screen overflow-x-hidden pt-16 {mainPaddingStyle}">
+<main class="h-screen pt-16 {mainPaddingStyle}">
 	{@render children()}
 </main>
