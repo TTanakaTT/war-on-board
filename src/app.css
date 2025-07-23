@@ -38,6 +38,9 @@
 	--color-panel-movable-dark: var(--color-orange-600);
 	--color-panel-immovable: var(--color-orange-100);
 	--color-panel-immovable-dark: var(--color-orange-900);
+
+	--color-castle: var(--color-slate-500);
+	--color-resource: var(--color-lime-500);
 }
 
 @custom-variant pseudo-el {

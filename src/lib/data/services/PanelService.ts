@@ -9,10 +9,13 @@ export class PanelsService {
 		const panels: Panel[] = [];
 		for (let hl = -(layer - 1); hl <= layer - 1; hl++) {
 			for (let vl = 0; vl < layer - Math.abs(hl); vl++) {
+				const initResource = Math.abs(hl) === layer - 1 && vl === 0 ? 5 : 0;
 				panels.push(
 					new Panel({
 						panelPosition: new PanelPosition({ horizontalLayer: hl, verticalLayer: vl }),
-						panelState: PanelState.UNOCCUPIED
+						panelState: PanelState.UNOCCUPIED,
+						resource: initResource,
+						castle: initResource
 					})
 				);
 			}
@@ -20,19 +23,14 @@ export class PanelsService {
 		return panels;
 	}
 
-	static findPanelState(panelPosition: PanelPosition): PanelState | undefined {
+	static find(panelPosition: PanelPosition): Panel | undefined {
 		const panels = panelsState.getAll();
-		const panelStates: PanelState[] = panels
-			.filter((x) => x.panelPosition.equals(panelPosition))
-			.map((y) => y.panelState);
-		if (panelStates.length !== 1) {
-			console.warn(
-				`PanelState for ${panelPosition.horizontalLayer}, ${panelPosition.verticalLayer} is not unique:`,
-				panelStates
-			);
-			return undefined;
-		}
-		return panelStates[0];
+		return panels.find((x) => x.panelPosition.equals(panelPosition));
+	}
+
+	static findPanelState(panelPosition: PanelPosition): PanelState | undefined {
+		const panelState = this.find(panelPosition)?.panelState;
+		return panelState;
 	}
 
 	static findAdjacentPanels(panelPosition: PanelPosition): Panel[] {
@@ -56,7 +54,9 @@ export class PanelsService {
 
 					return new Panel({
 						panelPosition: p.panelPosition,
-						panelState: hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED
+						panelState: hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED,
+						resource: p.resource,
+						castle: p.castle
 					});
 				}
 				default:

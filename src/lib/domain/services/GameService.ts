@@ -37,6 +37,38 @@ export class GameService {
 				throw new Error(`Unknown player: ${turn.player}`);
 			}
 		}
+		const playerPieces = PiecesRepository.getPiecesByPlayer(turn.player);
+		playerPieces.forEach((piece) => {
+			const panelPosition = piece.panelPosition;
+			const panel = PanelsService.find(panelPosition);
+
+			if (panel) {
+				switch (piece.pieceType) {
+					case PieceType.BISHOP:
+						panelsState.update(
+							new Panel({
+								panelPosition: panelPosition,
+								panelState: panel.panelState,
+								resource: Math.min(5, (panel.resource || 0) + 1),
+								castle: panel.castle
+							})
+						);
+						break;
+					case PieceType.ROOK:
+						panelsState.update(
+							new Panel({
+								panelPosition: panelPosition,
+								panelState: panel.panelState,
+								resource: panel.resource,
+								castle: Math.min(5, (panel.castle || 0) + 1)
+							})
+						);
+						break;
+					default:
+						break;
+				}
+			}
+		});
 	}
 
 	static doOpponentTurn() {
@@ -80,7 +112,9 @@ export class GameService {
 		panelsState.update(
 			new Panel({
 				panelPosition: generatePosition,
-				panelState: PanelState.OCCUPIED
+				panelState: PanelState.OCCUPIED,
+				resource: 5,
+				castle: 5
 			})
 		);
 		this.nextTurn();
@@ -112,7 +146,9 @@ export class GameService {
 					panelsState.update(
 						new Panel({
 							panelPosition: panelPosition,
-							panelState: PanelState.OCCUPIED
+							panelState: PanelState.OCCUPIED,
+							resource: selectedPanel!.resource,
+							castle: selectedPanel!.castle
 						})
 					);
 				} else {
@@ -125,7 +161,9 @@ export class GameService {
 				selectedPanelState.set(
 					new Panel({
 						panelPosition: panelPosition,
-						panelState: panelState ? panelState : PanelState.SELECTED
+						panelState: panelState ? panelState : PanelState.SELECTED,
+						resource: 0,
+						castle: 0
 					})
 				);
 			}
@@ -134,7 +172,8 @@ export class GameService {
 	}
 
 	static stateChange(panelPosition: PanelPosition) {
-		const panelState = PanelsService.findPanelState(panelPosition);
+		const originalPanel = PanelsService.find(panelPosition);
+		const panelState = originalPanel?.panelState;
 		let panel: Panel;
 
 		switch (panelState) {
@@ -148,7 +187,9 @@ export class GameService {
 			default: {
 				panel = new Panel({
 					panelPosition: panelPosition,
-					panelState: PanelState.SELECTED
+					panelState: PanelState.SELECTED,
+					resource: originalPanel?.resource,
+					castle: originalPanel?.castle
 				});
 				panelsState.update(panel);
 
@@ -161,7 +202,9 @@ export class GameService {
 						panelsState.update(
 							new Panel({
 								panelPosition: adjacentPanel.panelPosition,
-								panelState: hasPiece ? PanelState.OCCUPIED : PanelState.MOVABLE
+								panelState: hasPiece ? PanelState.OCCUPIED : PanelState.MOVABLE,
+								resource: adjacentPanel.resource,
+								castle: adjacentPanel.castle
 							})
 						);
 					});
@@ -177,7 +220,9 @@ export class GameService {
 						panelsState.update(
 							new Panel({
 								panelPosition: p.panelPosition,
-								panelState: PanelState.IMMOVABLE
+								panelState: PanelState.IMMOVABLE,
+								resource: p.resource,
+								castle: p.castle
 							})
 						);
 					}
