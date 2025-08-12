@@ -7,6 +7,7 @@
 	import { PieceType } from '$lib/domain/enums/PieceType';
 	import { layerState } from '$lib/presentation/state/LayerState.svelte';
 	import GeneratePieceButton from '$lib/presentation/components/GeneratePieceButton.svelte';
+	import TurnTimer from '$lib/presentation/components/TurnTimer.svelte';
 
 	let turn = $derived(turnState.get());
 	const layer = layerState.get();
@@ -51,7 +52,9 @@
 		class="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border-2 p-1.5 text-sm {turnColor}"
 		>turn<span class="text-2xl font-bold">{turn.num}</span> {turn.player}</span
 	>
+	<TurnTimer />
 </div>
+
 <div class="m-2 flex justify-center">
 	<div style={layeredPanelWidthStyle}>
 		{#each sideRange() as hl (hl)}

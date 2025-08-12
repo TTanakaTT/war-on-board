@@ -3,17 +3,25 @@ import { PanelState } from '$lib/domain/enums/PanelState';
 import { PanelPosition } from '$lib/domain/entities/PanelPosition';
 import { panelsState } from '$lib/presentation/state/PanelsState.svelte';
 import { PiecesRepository } from '../repositories/PieceRepository';
+import { Player } from '$lib/domain/enums/Player';
 
 export class PanelsService {
 	static initialize(layer: number): Panel[] {
 		const panels: Panel[] = [];
 		for (let hl = -(layer - 1); hl <= layer - 1; hl++) {
 			for (let vl = 0; vl < layer - Math.abs(hl); vl++) {
+				let initPlayer = Player.UNKNOWN;
+				if (hl === -(layer - 1) && vl === 0) {
+					initPlayer = Player.SELF;
+				} else if (hl === layer - 1 && vl === 0) {
+					initPlayer = Player.OPPONENT;
+				}
 				const initResource = Math.abs(hl) === layer - 1 && vl === 0 ? 5 : 0;
 				panels.push(
 					new Panel({
 						panelPosition: new PanelPosition({ horizontalLayer: hl, verticalLayer: vl }),
 						panelState: PanelState.UNOCCUPIED,
+						player: initPlayer,
 						resource: initResource,
 						castle: initResource
 					})
@@ -55,6 +63,7 @@ export class PanelsService {
 					return new Panel({
 						panelPosition: p.panelPosition,
 						panelState: hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED,
+						player: p.player,
 						resource: p.resource,
 						castle: p.castle
 					});

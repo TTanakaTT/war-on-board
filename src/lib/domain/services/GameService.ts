@@ -12,25 +12,34 @@ import { turnState } from '$lib/presentation/state/TurnState.svelte';
 import { layerState } from '$lib/presentation/state/LayerState.svelte';
 import { selectedPanelState } from '$lib/presentation/state/SelectedPanelState.svelte';
 import { PieceService } from '$lib/data/services/PieceService';
+import { timerState } from '$lib/presentation/state/TimerState.svelte';
 
 export class GameService {
 	static initialize({ layer: layer }: { layer: number }) {
 		panelsState.initialize(layer);
 		layerState.set(layer);
+		timerState.startTimer();
+		turnState.set({ player: Player.SELF, num: 1 });
 	}
 
 	static nextTurn() {
+		timerState.stopTimer();
+
 		const turn = turnState.get();
 		switch (turn.player) {
 			case Player.SELF: {
 				turnState.set({ ...turn, player: Player.OPPONENT });
 				setTimeout(() => {
+					timerState.startTimer();
 					this.doOpponentTurn();
-				}, 300);
+				}, 1000);
 				break;
 			}
 			case Player.OPPONENT: {
 				turnState.set({ ...turn, player: Player.SELF, num: turn.num + 1 });
+				setTimeout(() => {
+					timerState.startTimer();
+				}, 1000);
 				break;
 			}
 			default: {
@@ -49,6 +58,7 @@ export class GameService {
 							new Panel({
 								panelPosition: panelPosition,
 								panelState: panel.panelState,
+								player: turn.player,
 								resource: Math.min(5, (panel.resource || 0) + 1),
 								castle: panel.castle
 							})
@@ -59,12 +69,22 @@ export class GameService {
 							new Panel({
 								panelPosition: panelPosition,
 								panelState: panel.panelState,
+								player: turn.player,
 								resource: panel.resource,
 								castle: Math.min(5, (panel.castle || 0) + 1)
 							})
 						);
 						break;
 					default:
+						panelsState.update(
+							new Panel({
+								panelPosition: panelPosition,
+								panelState: panel.panelState,
+								player: turn.player,
+								resource: panel.resource,
+								castle: panel.castle
+							})
+						);
 						break;
 				}
 			}
@@ -72,24 +92,38 @@ export class GameService {
 	}
 
 	static doOpponentTurn() {
-		const opponentPieces = PiecesRepository.getPiecesByPlayer(Player.OPPONENT);
-		if (opponentPieces.length === 0) {
-			this.generate();
+		if (turnState.get().player !== Player.OPPONENT) {
 			return;
 		}
+		const opponentPieces = PiecesRepository.getPiecesByPlayer(Player.OPPONENT);
+		if (opponentPieces.length === 0) {
+			const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
+			const randomPieceType = pieceTypes[Math.floor(Math.random() * pieceTypes.length)];
+			this.generate(randomPieceType);
+			setTimeout(() => this.doOpponentTurn(), 1000);
+			return;
+		}
+
 		const randomPiece = opponentPieces[Math.floor(Math.random() * opponentPieces.length)];
 		this.panelChange(randomPiece.panelPosition);
+
 		setTimeout(() => {
 			const movablePanels = PanelsService.filterMovablePanels();
 			if (movablePanels.length === 0) {
-				this.generate();
+				const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
+				const randomPieceType = pieceTypes[Math.floor(Math.random() * pieceTypes.length)];
+				this.panelChange(randomPiece.panelPosition);
+				this.generate(randomPieceType);
+				setTimeout(() => this.doOpponentTurn(), 1000);
 				return;
 			}
+
 			const randomPanel = movablePanels[Math.floor(Math.random() * movablePanels.length)];
 			this.panelChange(randomPanel.panelPosition);
-		}, 300);
-	}
 
+			setTimeout(() => this.doOpponentTurn(), 1000);
+		}, 1000);
+	}
 	static generate(pieceType: PieceType = PieceType.KNIGHT) {
 		const turn = turnState.get();
 		const layer = layerState.get();
@@ -113,11 +147,11 @@ export class GameService {
 			new Panel({
 				panelPosition: generatePosition,
 				panelState: PanelState.OCCUPIED,
+				player: turn.player,
 				resource: 5,
 				castle: 5
 			})
 		);
-		this.nextTurn();
 	}
 
 	static panelChange(panelPosition: PanelPosition) {
@@ -147,6 +181,7 @@ export class GameService {
 						new Panel({
 							panelPosition: panelPosition,
 							panelState: PanelState.OCCUPIED,
+							player: selectedPiece.player,
 							resource: selectedPanel!.resource,
 							castle: selectedPanel!.castle
 						})
@@ -154,7 +189,6 @@ export class GameService {
 				} else {
 					PieceService.move(panelPosition, selectedPiece);
 				}
-				this.nextTurn();
 				break;
 			}
 			default: {
@@ -162,6 +196,7 @@ export class GameService {
 					new Panel({
 						panelPosition: panelPosition,
 						panelState: panelState ? panelState : PanelState.SELECTED,
+						player: turn.player,
 						resource: 0,
 						castle: 0
 					})
@@ -188,6 +223,7 @@ export class GameService {
 				panel = new Panel({
 					panelPosition: panelPosition,
 					panelState: PanelState.SELECTED,
+					player: originalPanel?.player,
 					resource: originalPanel?.resource,
 					castle: originalPanel?.castle
 				});
@@ -203,6 +239,7 @@ export class GameService {
 							new Panel({
 								panelPosition: adjacentPanel.panelPosition,
 								panelState: hasPiece ? PanelState.OCCUPIED : PanelState.MOVABLE,
+								player: adjacentPanel.player,
 								resource: adjacentPanel.resource,
 								castle: adjacentPanel.castle
 							})
@@ -221,6 +258,7 @@ export class GameService {
 							new Panel({
 								panelPosition: p.panelPosition,
 								panelState: PanelState.IMMOVABLE,
+								player: p.player,
 								resource: p.resource,
 								castle: p.castle
 							})
