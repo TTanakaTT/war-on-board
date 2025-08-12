@@ -1,7 +1,7 @@
 import { Panel } from '$lib/domain/entities/Panel';
 import { PanelState } from '$lib/domain/enums/PanelState';
 import { PanelPosition } from '$lib/domain/entities/PanelPosition';
-import { panelsState } from '$lib/presentation/state/PanelsState.svelte';
+import { PanelRepository } from '$lib/data/repositories/PanelRepository';
 import { PiecesRepository } from '../repositories/PieceRepository';
 import { Player } from '$lib/domain/enums/Player';
 
@@ -32,7 +32,7 @@ export class PanelsService {
 	}
 
 	static find(panelPosition: PanelPosition): Panel | undefined {
-		const panels = panelsState.getAll();
+		const panels = PanelRepository.getAll();
 		return panels.find((x) => x.panelPosition.equals(panelPosition));
 	}
 
@@ -42,17 +42,17 @@ export class PanelsService {
 	}
 
 	static findAdjacentPanels(panelPosition: PanelPosition): Panel[] {
-		const panels = panelsState.getAll();
+		const panels = PanelRepository.getAll();
 		return panels.filter((x) => x.panelPosition.isAdjacent(panelPosition));
 	}
 
 	static filterMovablePanels(): Panel[] {
-		const panels = panelsState.getAll();
+		const panels = PanelRepository.getAll();
 		return panels.filter((p) => p.panelState === PanelState.MOVABLE);
 	}
 
 	static clearSelected(): Panel[] {
-		const panels = panelsState.getAll();
+		const panels = PanelRepository.getAll();
 		return panels.map((p) => {
 			switch (p.panelState) {
 				case PanelState.MOVABLE:

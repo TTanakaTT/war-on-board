@@ -8,37 +8,37 @@ import { PanelPosition } from '$lib/domain/entities/PanelPosition';
 import { PieceType } from '$lib/domain/enums/PieceType';
 import { PanelsService } from '$lib/data/services/PanelService';
 import { PiecesRepository } from '$lib/data/repositories/PieceRepository';
-import { turnState } from '$lib/presentation/state/TurnState.svelte';
-import { layerState } from '$lib/presentation/state/LayerState.svelte';
-import { selectedPanelState } from '$lib/presentation/state/SelectedPanelState.svelte';
+import { TurnRepository } from '$lib/data/repositories/TurnRepository';
+import { LayerRepository } from '$lib/data/repositories/LayerRepository';
+import { SelectedPanelRepository } from '$lib/data/repositories/SelectedPanelRepository';
 import { PieceService } from '$lib/data/services/PieceService';
-import { timerState } from '$lib/presentation/state/TimerState.svelte';
+import { TimerRepository } from '$lib/data/repositories/TimerRepository';
 
 export class GameService {
 	static initialize({ layer: layer }: { layer: number }) {
 		panelsState.initialize(layer);
-		layerState.set(layer);
-		timerState.startTimer();
-		turnState.set({ player: Player.SELF, num: 1 });
+		LayerRepository.set(layer);
+		TimerRepository.start();
+		TurnRepository.set({ player: Player.SELF, num: 1 });
 	}
 
 	static nextTurn() {
-		timerState.stopTimer();
+		TimerRepository.stop();
 
-		const turn = turnState.get();
+		const turn = TurnRepository.get();
 		switch (turn.player) {
 			case Player.SELF: {
-				turnState.set({ ...turn, player: Player.OPPONENT });
+				TurnRepository.set({ ...turn, player: Player.OPPONENT });
 				setTimeout(() => {
-					timerState.startTimer();
+					TimerRepository.start();
 					this.doOpponentTurn();
 				}, 1000);
 				break;
 			}
 			case Player.OPPONENT: {
-				turnState.set({ ...turn, player: Player.SELF, num: turn.num + 1 });
+				TurnRepository.set({ ...turn, player: Player.SELF, num: turn.num + 1 });
 				setTimeout(() => {
-					timerState.startTimer();
+					TimerRepository.start();
 				}, 1000);
 				break;
 			}
@@ -92,7 +92,7 @@ export class GameService {
 	}
 
 	static doOpponentTurn() {
-		if (turnState.get().player !== Player.OPPONENT) {
+		if (TurnRepository.get().player !== Player.OPPONENT) {
 			return;
 		}
 		const opponentPieces = PiecesRepository.getPiecesByPlayer(Player.OPPONENT);
@@ -125,8 +125,8 @@ export class GameService {
 		}, 1000);
 	}
 	static generate(pieceType: PieceType = PieceType.KNIGHT) {
-		const turn = turnState.get();
-		const layer = layerState.get();
+		const turn = TurnRepository.get();
+		const layer = LayerRepository.get();
 		const generatePosition = new PanelPosition({
 			horizontalLayer: turn.player === Player.SELF ? -(layer - 1) : layer - 1,
 			verticalLayer: 0
@@ -155,7 +155,7 @@ export class GameService {
 	}
 
 	static panelChange(panelPosition: PanelPosition) {
-		const turn = turnState.get();
+		const turn = TurnRepository.get();
 		const _selectedPiece = PiecesRepository.getPiecesByPosition(panelPosition)[0];
 		const panelState = PanelsService.findPanelState(panelPosition);
 		if (
@@ -170,7 +170,7 @@ export class GameService {
 				break;
 			}
 			case PanelState.MOVABLE: {
-				const selectedPanel = selectedPanelState.get();
+				const selectedPanel = SelectedPanelRepository.get();
 				const selectedPiece = PiecesRepository.getPiecesByPosition(selectedPanel!.panelPosition)[0];
 				const existingPieces = PiecesRepository.getPiecesByPosition(panelPosition);
 				const existingEnemyPieces = existingPieces.filter((p) => p.player !== selectedPiece.player);
@@ -192,7 +192,7 @@ export class GameService {
 				break;
 			}
 			default: {
-				selectedPanelState.set(
+				SelectedPanelRepository.set(
 					new Panel({
 						panelPosition: panelPosition,
 						panelState: panelState ? panelState : PanelState.SELECTED,
