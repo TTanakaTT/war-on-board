@@ -1,5 +1,12 @@
 # ターンとAI（Turn & AI）
 
+関連コード:
+
+- ターン/AIサービス: `src/lib/domain/services/TurnAndAiService.ts`
+- ゲームルール（移動/生成）: `src/lib/domain/services/GameRulesService.ts`
+- ターン/タイマー/レイヤーの状態: `src/lib/data/repositories/{TurnRepository,TimerRepository,LayerRepository}.ts`
+- 盤面取得/移動候補: `src/lib/data/services/PanelService.ts`
+
 ## ターン進行
 
 - ターン開始: timerState.startTimer()、TURN_TIME_LIMIT=10

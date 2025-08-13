@@ -1,5 +1,12 @@
 # ゲームルール（Game Rules）
 
+関連コード:
+
+- ドメインサービス: `src/lib/domain/services/GameRulesService.ts`
+- 盤面操作: `src/lib/data/services/PanelService.ts`
+- 盤面状態リポジトリ: `src/lib/data/repositories/PanelRepository.ts`
+- 駒関連: `src/lib/data/services/PieceService.ts`, `src/lib/data/repositories/PieceRepository.ts`
+
 ## 盤面（Board）
 
 - 層 layer により六角形グリッドを生成。
@@ -32,8 +39,8 @@
 
 - 初期: { num:1, player: SELF }
 - nextTurn()
-  - SELF -> OPPONENT: 1秒後に AI ターン開始 + タイマー再開
-  - OPPONENT -> SELF: ターン数 +1, 1秒後にタイマー再開
+  - SELF -> OPPONENT: 10秒後に AI ターン開始 + タイマー再開
+  - OPPONENT -> SELF: ターン数 +1, 10秒後にタイマー再開
   - 自軍の各駒のある Panel に対して
     - BISHOP: resource +1 (max 5)
     - ROOK: castle +1 (max 5)

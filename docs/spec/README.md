@@ -13,6 +13,12 @@
 - architecture/ — コード構成・アーキテクチャ
   - domain-model.md — ドメインモデル（エンティティ/列挙/サービス/状態）
 
+コード対応先（主なファイル）:
+
+- ドメインサービス: `src/lib/domain/services/{GameRulesService,TurnAndAiService}.ts`
+- データ/状態: `src/lib/data/repositories/*.ts`, `src/lib/presentation/state/*.svelte.ts`
+- 盤面/駒: `src/lib/data/services/{PanelService,PieceService}.ts`
+
 補足:
 
 - 仕様の追加・変更は各分類内のMDへ追記してください。

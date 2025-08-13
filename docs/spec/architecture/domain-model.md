@@ -2,6 +2,14 @@
 
 この文書はコード構成（アーキテクチャ）観点の仕様です。エンティティ/列挙/サービス/状態ストアの責務と関係を定義します。
 
+関連コード:
+
+- エンティティ: `src/lib/domain/entities/*.ts`
+- 列挙: `src/lib/domain/enums/*.ts`
+- サービス: `src/lib/domain/services/*.ts`
+- データリポジトリ: `src/lib/data/repositories/*.ts`
+- プレゼンテーション状態: `src/lib/presentation/state/*.svelte.ts`
+
 ## エンティティ
 
 - Panel { panelPosition, panelState, player, resource, castle }

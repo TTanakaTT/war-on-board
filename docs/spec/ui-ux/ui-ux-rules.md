@@ -1,5 +1,11 @@
 # UI/UX ルール（UI/UX Rules）
 
+関連コード:
+
+- タイマー表示コンポーネント: `src/lib/presentation/components/TurnTimer.svelte`
+- タイマー状態: `src/lib/presentation/state/TimerState.svelte.ts`
+- 盤面表示（例）: `src/routes/LayeredHexagonPanels.svelte`, `src/routes/HexagonPanel.svelte`
+
 ## タイマー表示
 
 - 残り時間を数値で表示（timerState.getTimeRemaining）
