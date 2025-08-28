@@ -2,9 +2,9 @@
 
 関連コード:
 
-- タイマー表示コンポーネント: `src/lib/presentation/components/TurnTimer.svelte`
-- タイマー状態: `src/lib/presentation/state/TimerState.svelte.ts`
-- 盤面表示（例）: `src/routes/LayeredHexagonPanels.svelte`, `src/routes/HexagonPanel.svelte`
+- タイマー表示コンポーネント: [src/lib/presentation/components/TurnTimer.svelte](../../../src/lib/presentation/components/TurnTimer.svelte)
+- タイマー状態: [src/lib/presentation/state/TimerState.svelte.ts](../../../src/lib/presentation/state/TimerState.svelte.ts)
+- 盤面表示（例）: [src/routes/LayeredHexagonPanels.svelte](../../../src/routes/LayeredHexagonPanels.svelte), [src/routes/HexagonPanel.svelte](../../../src/routes/HexagonPanel.svelte)
 
 ## タイマー表示
 

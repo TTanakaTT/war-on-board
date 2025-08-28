@@ -2,10 +2,10 @@
 
 関連コード:
 
-- ドメインサービス: `src/lib/domain/services/GameRulesService.ts`
-- 盤面操作: `src/lib/data/services/PanelService.ts`
-- 盤面状態リポジトリ: `src/lib/data/repositories/PanelRepository.ts`
-- 駒関連: `src/lib/data/services/PieceService.ts`, `src/lib/data/repositories/PieceRepository.ts`
+- ドメインサービス: [src/lib/domain/services/GameRulesService.ts](../../../src/lib/domain/services/GameRulesService.ts)
+- 盤面操作: [src/lib/data/services/PanelService.ts](../../../src/lib/data/services/PanelService.ts)
+- 盤面状態リポジトリ: [src/lib/data/repositories/PanelRepository.ts](../../../src/lib/data/repositories/PanelRepository.ts)
+- 駒関連: [src/lib/data/services/PieceService.ts](../../../src/lib/data/services/PieceService.ts), [src/lib/data/repositories/PieceRepository.ts](../../../src/lib/data/repositories/PieceRepository.ts)
 
 ## 盤面（Board）
 

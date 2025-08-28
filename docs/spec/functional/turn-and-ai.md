@@ -2,10 +2,10 @@
 
 関連コード:
 
-- ターン/AIサービス: `src/lib/domain/services/TurnAndAiService.ts`
-- ゲームルール（移動/生成）: `src/lib/domain/services/GameRulesService.ts`
-- ターン/タイマー/レイヤーの状態: `src/lib/data/repositories/{TurnRepository,TimerRepository,LayerRepository}.ts`
-- 盤面取得/移動候補: `src/lib/data/services/PanelService.ts`
+- ターン/AIサービス: [src/lib/domain/services/TurnAndAiService.ts](../../../src/lib/domain/services/TurnAndAiService.ts)
+- ゲームルール（移動/生成）: [src/lib/domain/services/GameRulesService.ts](../../../src/lib/domain/services/GameRulesService.ts)
+- ターン/タイマー/レイヤーの状態: [TurnRepository](../../../src/lib/data/repositories/TurnRepository.ts), [TimerRepository](../../../src/lib/data/repositories/TimerRepository.ts), [LayerRepository](../../../src/lib/data/repositories/LayerRepository.ts)
+- 盤面取得/移動候補: [src/lib/data/services/PanelService.ts](../../../src/lib/data/services/PanelService.ts)
 
 ## ターン進行
 

@@ -4,11 +4,11 @@
 
 関連コード:
 
-- エンティティ: `src/lib/domain/entities/*.ts`
-- 列挙: `src/lib/domain/enums/*.ts`
-- サービス: `src/lib/domain/services/*.ts`
-- データリポジトリ: `src/lib/data/repositories/*.ts`
-- プレゼンテーション状態: `src/lib/presentation/state/*.svelte.ts`
+- エンティティ: [src/lib/domain/entities/](../../../src/lib/domain/entities/)
+- 列挙: [src/lib/domain/enums/](../../../src/lib/domain/enums/)
+- サービス: [src/lib/domain/services/](../../../src/lib/domain/services/)
+- データリポジトリ: [src/lib/data/repositories/](../../../src/lib/data/repositories/)
+- プレゼンテーション状態: [src/lib/presentation/state/](../../../src/lib/presentation/state/)
 
 ## エンティティ
 
