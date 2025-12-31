@@ -1,4 +1,4 @@
 {
-	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"generate_piece": "{piece} 生産"
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "generate_piece": "{piece} 生産"
 }

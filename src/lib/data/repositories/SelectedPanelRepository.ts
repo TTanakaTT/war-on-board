@@ -1,11 +1,11 @@
-import type { Panel } from '$lib/domain/entities/Panel';
-import { selectedPanelState } from '$lib/presentation/state/SelectedPanelState.svelte';
+import type { Panel } from "$lib/domain/entities/Panel";
+import { selectedPanelState } from "$lib/presentation/state/SelectedPanelState.svelte";
 
 export class SelectedPanelRepository {
-	static get(): Panel | undefined {
-		return selectedPanelState.get();
-	}
-	static set(panel: Panel | undefined): void {
-		selectedPanelState.set(panel);
-	}
+  static get(): Panel | undefined {
+    return selectedPanelState.get();
+  }
+  static set(panel: Panel | undefined): void {
+    selectedPanelState.set(panel);
+  }
 }

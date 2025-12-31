@@ -1,5 +1,3 @@
-<svelte:options customElement="hexagon-panel" />
-
 <script lang="ts">
 	import { PanelsService } from '$lib/data/services/PanelService';
 	import { PiecesRepository } from '$lib/data/repositories/PieceRepository';
@@ -86,7 +84,7 @@
 </script>
 
 <div
-	class="pseudo-el:content-[''] all-el:transition-all all-el:duration-400 all-el:ease-out hover:all-el:transition-all hover:all-el:duration-200 hover:all-el:ease-out pseudo-el:-top-px pseudo-el:absolute all-el:h-[100px] all-el:w-[calc(100px/1.73)] relative mx-0 my-[calc(100px*0.1)] flex flex-col before:rotate-60 after:-rotate-60 {panelStyle}"
+	class="pseudo-el:content-[''] all-el:transition-all all-el:duration-400 all-el:ease-out hover:all-el:transition-all hover:all-el:duration-200 hover:all-el:ease-out pseudo-el:-top-px pseudo-el:absolute all-el:h-25 all-el:w-[calc(100px/1.73)] relative mx-0 my-2.5 flex flex-col before:rotate-60 after:-rotate-60 {panelStyle}"
 	role="button"
 	tabindex="0"
 	{onclick}

@@ -1,5 +1,3 @@
-<svelte:options customElement="turn-timer" />
-
 <script lang="ts">
 	import { timerState } from '$lib/presentation/state/TimerState.svelte';
 	import Timer from 'svelte-material-icons/Timer.svelte';
