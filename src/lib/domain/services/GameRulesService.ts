@@ -104,7 +104,63 @@ export class GameRulesService {
         PanelRepository.setAll(cleared);
         break;
       }
-      case PanelState.OCCUPIED:
+      case PanelState.OCCUPIED: {
+        const selectedPieces = PiecesRepository.getPiecesByPosition(panelPosition);
+        const selectedPiece = selectedPieces[0];
+        const referencePosition = selectedPiece?.initialPosition ?? panelPosition;
+
+        panel = new Panel({
+          panelPosition: panelPosition,
+          panelState: PanelState.SELECTED,
+          player: originalPanel?.player,
+          resource: originalPanel?.resource,
+          castle: originalPanel?.castle,
+        });
+        PanelRepository.update(panel);
+
+        const adjacentPanels = PanelsService.findAdjacentPanels(referencePosition);
+        const initialPanel = PanelsService.find(referencePosition);
+        const targetPanels = initialPanel ? [initialPanel, ...adjacentPanels] : adjacentPanels;
+
+        targetPanels
+          .filter((p) => !p.panelPosition.equals(panelPosition))
+          .forEach((targetPanel) => {
+            const hasPiece =
+              PiecesRepository.getPiecesByPosition(targetPanel.panelPosition).length > 0;
+            if (!hasPiece) {
+              PanelRepository.update(
+                new Panel({
+                  panelPosition: targetPanel.panelPosition,
+                  panelState: PanelState.MOVABLE,
+                  player: targetPanel.player,
+                  resource: targetPanel.resource,
+                  castle: targetPanel.castle,
+                }),
+              );
+            }
+          });
+        const allPanels = PanelRepository.getAll();
+        const targetPositions = targetPanels.map((p) => p.panelPosition);
+        allPanels.forEach((p) => {
+          if (
+            !p.panelPosition.equals(panelPosition) &&
+            !targetPositions.some((pos) => pos.equals(p.panelPosition)) &&
+            p.panelState !== PanelState.IMMOVABLE &&
+            p.panelState !== PanelState.MOVABLE
+          ) {
+            PanelRepository.update(
+              new Panel({
+                panelPosition: p.panelPosition,
+                panelState: PanelState.IMMOVABLE,
+                player: p.player,
+                resource: p.resource,
+                castle: p.castle,
+              }),
+            );
+          }
+        });
+        break;
+      }
       default: {
         panel = new Panel({
           panelPosition: panelPosition,
@@ -116,6 +172,7 @@ export class GameRulesService {
         PanelRepository.update(panel);
 
         const adjacentPanels = PanelsService.findAdjacentPanels(panelPosition);
+
         adjacentPanels
           .filter((p) => p.panelState === PanelState.UNOCCUPIED)
           .forEach((adjacentPanel) => {
@@ -137,8 +194,9 @@ export class GameRulesService {
         allPanels.forEach((p) => {
           if (
             !p.panelPosition.equals(panelPosition) &&
-            !adjacentPositions.includes(p.panelPosition) &&
-            p.panelState !== PanelState.IMMOVABLE
+            !adjacentPositions.some((pos) => pos.equals(p.panelPosition)) &&
+            p.panelState !== PanelState.IMMOVABLE &&
+            p.panelState !== PanelState.MOVABLE
           ) {
             PanelRepository.update(
               new Panel({

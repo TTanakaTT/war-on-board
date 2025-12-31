@@ -19,12 +19,13 @@ export class PieceService {
   }
 
   static move(panelPosition: PanelPosition, selectedPiece: Piece) {
-    const piece: Piece = new Piece({
+    const newPiece = new Piece({
       panelPosition: panelPosition,
+      initialPosition: selectedPiece.initialPosition,
       player: selectedPiece.player,
       pieceType: selectedPiece.pieceType,
     });
-    piecesState.remove(selectedPiece);
-    piecesState.add(piece);
+    newPiece.id = selectedPiece.id;
+    piecesState.update(newPiece);
   }
 }

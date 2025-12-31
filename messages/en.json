@@ -1,4 +1,5 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-  "generate_piece": "Generate {piece}"
+  "generate_piece": "Generate {piece}",
+  "end_turn": "End Turn"
 }

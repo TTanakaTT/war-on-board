@@ -9,10 +9,9 @@ function add(piece: Piece): void {
 }
 
 function remove(piece: Piece): void {
-  for (let i = _pieces.length - 1; i >= 0; i--) {
-    if (_pieces[i].id === piece.id) {
-      _pieces.splice(i, 1);
-    }
+  const index = _pieces.findIndex((p) => p.id === piece.id);
+  if (index !== -1) {
+    _pieces.splice(index, 1);
   }
 }
 
@@ -30,6 +29,13 @@ function setAll(newPieces: Piece[]): void {
   _pieces.splice(0, _pieces.length, ...newPieces);
 }
 
+function update(piece: Piece): void {
+  const index = _pieces.findIndex((p) => p.id === piece.id);
+  if (index !== -1) {
+    _pieces[index] = piece;
+  }
+}
+
 // PiecesStateはピースのCRUD操作のみ責任を持つ
 export const piecesState = {
   add,
@@ -38,4 +44,5 @@ export const piecesState = {
   getByPosition,
   getPiecesByPlayer,
   setAll,
+  update,
 };
