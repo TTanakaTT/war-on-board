@@ -1,0 +1,33 @@
+name: Playwright Tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install
+      - name: Prepare test
+        run: pnpm exec playwright install
+      - name: Install test dependencies
+        run: pnpm exec playwright install-deps
+      - name: Run Playwright tests
+        run: pnpm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: Screenshots
+          path: tests/e2e/*.spec.ts-snapshots
+          retention-days: 30
