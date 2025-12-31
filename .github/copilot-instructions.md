@@ -51,13 +51,19 @@ CIの想定シーケンス例: format → lint → type check。
 
 ### 層と責務の境界
 
-- domain（`src/lib/domain`）: エンティティ/純粋サービス（副作用なし）。状態遷移や乱数は services に集約。
-- presentation（`src/lib/presentation`）: UI のみ。進行は domain/services を呼ぶ。UI にビジネスロジックを書かない。
-- routes（`src/routes`）: ページ構成のみ。ビジネスロジック禁止。
+- data（`src/lib/data`）: データの取得・保持・永続化。Repository および **State（Source of Truth）** はここに含まれる。
+- domain（`src/lib/domain`）: エンティティおよび純粋なビジネスルール。副作用（State更新、乱数、タイマー）を禁止する。
+- presentation（`src/lib/presentation`）:
+  - components: UI 部品。
+  - state: UI 専用の状態（メニューの開閉など）。ゲームデータは持たない。
+- services（`src/lib/services`）: アプリケーションの進行管理。状態遷移や乱数、非同期処理をここに集約する。
+- routes（`src/routes`）: ページ構成（+page.svelte 等）のみ。コンポーネントは presentation/components へ配置する。
 
 ### 依存関係ルール
 
-- 依存方向は data → domain → presentation の一方向。逆流（presentation → data 直接参照）は禁止。
+- 依存方向は presentation → domain → data の一方向。
+- data/state はアプリケーションの Source of Truth であり、Repository を介して操作される。
+- presentation 層は Repository を介して data/state を参照する。直接の state 更新は原則 Repository に委譲する。
 - 共有ユーティリティは層に応じた場所へ配置（domain 用/ UI 専用を混在させない）。
 
 ### 型・命名・ファイル配置

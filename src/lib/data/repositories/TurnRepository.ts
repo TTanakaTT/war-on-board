@@ -1,5 +1,5 @@
 import type { Turn } from "$lib/domain/entities/Turn";
-import { turnState } from "$lib/presentation/state/TurnState.svelte";
+import { turnState } from "$lib/data/state/TurnState.svelte";
 
 export class TurnRepository {
   static get(): Turn {

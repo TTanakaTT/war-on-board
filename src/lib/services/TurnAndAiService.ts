@@ -1,6 +1,7 @@
 import { Player } from "$lib/domain/enums/Player";
 import { PieceType } from "$lib/domain/enums/PieceType";
-import { PanelsService } from "$lib/data/services/PanelService";
+import { Piece } from "$lib/domain/entities/Piece";
+import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
@@ -51,7 +52,7 @@ export class TurnAndAiService {
     }
 
     // Filter out pieces that have already moved this turn
-    const unmovedPieces = opponentPieces.filter((p) => !this.movedPieceIds.has(p.id));
+    const unmovedPieces = opponentPieces.filter((p: Piece) => !this.movedPieceIds.has(p.id));
 
     // If all pieces have moved, end the turn
     if (unmovedPieces.length === 0) {

@@ -1,8 +1,6 @@
 import type { PieceType } from "$lib/domain/enums/PieceType";
 import type { Player } from "$lib/domain/enums/Player";
 import type { PanelPosition } from "./PanelPosition";
-import { PieceService } from "../../data/services/PieceService";
-
 export class Piece {
   id: number;
   panelPosition: PanelPosition;
@@ -11,18 +9,19 @@ export class Piece {
   pieceType: PieceType;
 
   constructor({
+    id,
     panelPosition,
     initialPosition,
     player,
     pieceType,
   }: {
+    id?: number;
     initialPosition?: PanelPosition;
     panelPosition: PanelPosition;
     player: Player;
     pieceType: PieceType;
   }) {
-    // id生成をサービスに委譲
-    this.id = PieceService.generateNextId();
+    this.id = id ?? 0;
     this.panelPosition = panelPosition;
     this.initialPosition = initialPosition || panelPosition;
     this.player = player;

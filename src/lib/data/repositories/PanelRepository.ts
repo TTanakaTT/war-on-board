@@ -1,13 +1,9 @@
 import type { Panel } from "$lib/domain/entities/Panel";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import type { PanelState } from "$lib/domain/enums/PanelState";
-import { panelsState } from "$lib/presentation/state/PanelsState.svelte";
+import { panelsState } from "$lib/data/state/PanelsState.svelte";
 
 export class PanelRepository {
-  static initialize(layer: number): void {
-    panelsState.initialize(layer);
-  }
-
   static getAll(): Panel[] {
     return panelsState.getAll();
   }

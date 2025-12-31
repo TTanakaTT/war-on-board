@@ -4,14 +4,13 @@ import { PanelState } from "$lib/domain/enums/PanelState";
 import { Player } from "$lib/domain/enums/Player";
 import { Piece } from "$lib/domain/entities/Piece";
 import { PieceType } from "$lib/domain/enums/PieceType";
-import { PanelsService } from "$lib/data/services/PanelService";
+import { PanelsService } from "$lib/services/PanelService";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
 import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
-import { PieceService } from "$lib/data/services/PieceService";
-import { piecesState } from "$lib/presentation/state/PiecesState.svelte";
+import { PieceService } from "$lib/services/PieceService";
 
 export class GameRulesService {
   static generate(pieceType: PieceType = PieceType.KNIGHT) {
@@ -27,8 +26,14 @@ export class GameRulesService {
       );
       return;
     }
-    const piece = new Piece({ panelPosition: generatePosition, player: turn.player, pieceType });
-    piecesState.add(piece);
+    const id = PieceService.generateNextId();
+    const piece = new Piece({
+      id,
+      panelPosition: generatePosition,
+      player: turn.player,
+      pieceType,
+    });
+    PiecesRepository.add(piece);
     PanelRepository.update(
       new Panel({
         panelPosition: generatePosition,
@@ -59,10 +64,12 @@ export class GameRulesService {
         const selectedPanel = SelectedPanelRepository.get();
         const selectedPiece = PiecesRepository.getPiecesByPosition(selectedPanel!.panelPosition)[0];
         const existingPieces = PiecesRepository.getPiecesByPosition(panelPosition);
-        const existingEnemyPieces = existingPieces.filter((p) => p.player !== selectedPiece.player);
+        const existingEnemyPieces = existingPieces.filter(
+          (p: Piece) => p.player !== selectedPiece.player,
+        );
         if (existingEnemyPieces.length > 0) {
-          piecesState.remove(selectedPiece);
-          existingEnemyPieces.forEach((p) => piecesState.remove(p));
+          PiecesRepository.remove(selectedPiece);
+          existingEnemyPieces.forEach((p: Piece) => PiecesRepository.remove(p));
           PanelRepository.update(
             new Panel({
               panelPosition: panelPosition,
@@ -123,8 +130,8 @@ export class GameRulesService {
         const targetPanels = initialPanel ? [initialPanel, ...adjacentPanels] : adjacentPanels;
 
         targetPanels
-          .filter((p) => !p.panelPosition.equals(panelPosition))
-          .forEach((targetPanel) => {
+          .filter((p: Panel) => !p.panelPosition.equals(panelPosition))
+          .forEach((targetPanel: Panel) => {
             const hasPiece =
               PiecesRepository.getPiecesByPosition(targetPanel.panelPosition).length > 0;
             if (!hasPiece) {
@@ -140,11 +147,11 @@ export class GameRulesService {
             }
           });
         const allPanels = PanelRepository.getAll();
-        const targetPositions = targetPanels.map((p) => p.panelPosition);
-        allPanels.forEach((p) => {
+        const targetPositions = targetPanels.map((p: Panel) => p.panelPosition);
+        allPanels.forEach((p: Panel) => {
           if (
             !p.panelPosition.equals(panelPosition) &&
-            !targetPositions.some((pos) => pos.equals(p.panelPosition)) &&
+            !targetPositions.some((pos: PanelPosition) => pos.equals(p.panelPosition)) &&
             p.panelState !== PanelState.IMMOVABLE &&
             p.panelState !== PanelState.MOVABLE
           ) {
@@ -174,8 +181,8 @@ export class GameRulesService {
         const adjacentPanels = PanelsService.findAdjacentPanels(panelPosition);
 
         adjacentPanels
-          .filter((p) => p.panelState === PanelState.UNOCCUPIED)
-          .forEach((adjacentPanel) => {
+          .filter((p: Panel) => p.panelState === PanelState.UNOCCUPIED)
+          .forEach((adjacentPanel: Panel) => {
             const hasPiece =
               PiecesRepository.getPiecesByPosition(adjacentPanel.panelPosition).length > 0;
             PanelRepository.update(
@@ -190,11 +197,11 @@ export class GameRulesService {
           });
         // 隣接パネル以外をIMMOVABLEにする
         const allPanels = PanelRepository.getAll();
-        const adjacentPositions = adjacentPanels.map((p) => p.panelPosition);
-        allPanels.forEach((p) => {
+        const adjacentPositions = adjacentPanels.map((p: Panel) => p.panelPosition);
+        allPanels.forEach((p: Panel) => {
           if (
             !p.panelPosition.equals(panelPosition) &&
-            !adjacentPositions.some((pos) => pos.equals(p.panelPosition)) &&
+            !adjacentPositions.some((pos: PanelPosition) => pos.equals(p.panelPosition)) &&
             p.panelState !== PanelState.IMMOVABLE &&
             p.panelState !== PanelState.MOVABLE
           ) {

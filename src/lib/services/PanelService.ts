@@ -2,7 +2,7 @@ import { Panel } from "$lib/domain/entities/Panel";
 import { PanelState } from "$lib/domain/enums/PanelState";
 import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { PiecesRepository } from "../repositories/PieceRepository";
+import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { Player } from "$lib/domain/enums/Player";
 
 export class PanelsService {

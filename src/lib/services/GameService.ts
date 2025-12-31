@@ -1,9 +1,8 @@
-import { panelsState } from "$lib/presentation/state/PanelsState.svelte";
-import { piecesState } from "$lib/presentation/state/PiecesState.svelte";
 import { Panel } from "$lib/domain/entities/Panel";
 import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { PieceType } from "$lib/domain/enums/PieceType";
-import { PanelsService } from "$lib/data/services/PanelService";
+import { PanelsService } from "$lib/services/PanelService";
+import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
@@ -13,7 +12,8 @@ import { Piece } from "$lib/domain/entities/Piece";
 
 export class GameService {
   static initialize({ layer: layer }: { layer: number }) {
-    panelsState.initialize(layer);
+    const panels = PanelsService.initialize(layer);
+    PanelRepository.setAll(panels);
     LayerRepository.set(layer);
     TurnAndAiService.setOnTurnEnd(() => GameService.nextTurn());
     TurnAndAiService.initializeTurn();
@@ -25,26 +25,26 @@ export class GameService {
 
     // Reset initial positions for all pieces at turn start (preserve ids)
     const allPieces = PiecesRepository.getPiecesByPlayer(turn.player);
-    allPieces.forEach((piece) => {
+    allPieces.forEach((piece: Piece) => {
       const newPiece = new Piece({
+        id: piece.id,
         panelPosition: piece.panelPosition,
         initialPosition: piece.panelPosition,
         player: piece.player,
         pieceType: piece.pieceType,
       });
-      newPiece.id = piece.id;
-      piecesState.update(newPiece);
+      PiecesRepository.update(newPiece);
     });
 
     const playerPieces = PiecesRepository.getPiecesByPlayer(turn.player);
-    playerPieces.forEach((piece) => {
+    playerPieces.forEach((piece: Piece) => {
       const panelPosition = piece.panelPosition;
       const panel = PanelsService.find(panelPosition);
 
       if (panel) {
         switch (piece.pieceType) {
           case PieceType.BISHOP:
-            panelsState.update(
+            PanelRepository.update(
               new Panel({
                 panelPosition: panelPosition,
                 panelState: panel.panelState,
@@ -55,7 +55,7 @@ export class GameService {
             );
             break;
           case PieceType.ROOK:
-            panelsState.update(
+            PanelRepository.update(
               new Panel({
                 panelPosition: panelPosition,
                 panelState: panel.panelState,
@@ -66,7 +66,7 @@ export class GameService {
             );
             break;
           default:
-            panelsState.update(
+            PanelRepository.update(
               new Panel({
                 panelPosition: panelPosition,
                 panelState: panel.panelState,

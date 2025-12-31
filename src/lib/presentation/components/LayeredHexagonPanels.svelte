@@ -1,16 +1,16 @@
 <script lang="ts">
   import HexagonPanel from "./HexagonPanel.svelte";
   import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-  import { turnState } from "$lib/presentation/state/TurnState.svelte";
-  import { GameService } from "$lib/domain/services/GameService";
+  import { TurnRepository } from "$lib/data/repositories/TurnRepository";
+  import { GameService } from "$lib/services/GameService";
   import { Player } from "$lib/domain/enums/Player";
   import { PieceType } from "$lib/domain/enums/PieceType";
-  import { layerState } from "$lib/presentation/state/LayerState.svelte";
+  import { LayerRepository } from "$lib/data/repositories/LayerRepository";
   import GeneratePieceButton from "$lib/presentation/components/GeneratePieceButton.svelte";
   import EndTurnButton from "$lib/presentation/components/EndTurnButton.svelte";
 
-  let turn = $derived(turnState.get());
-  const layer = layerState.get();
+  let turn = $derived(TurnRepository.get());
+  const layer = LayerRepository.get();
 
   function sideRange(): number[] {
     const horizontalLayer = layer;

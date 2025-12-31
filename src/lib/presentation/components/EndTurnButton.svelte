@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { GameService } from "$lib/domain/services/GameService";
-  import { turnState } from "$lib/presentation/state/TurnState.svelte";
+  import { GameService } from "$lib/services/GameService";
+  import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { Player } from "$lib/domain/enums/Player";
   import { m } from "$lib/paraglide/messages";
   import SkipNext from "svelte-material-icons/SkipNext.svelte";
 
-  let currentPlayer = $derived(turnState.get().player);
+  let currentPlayer = $derived(TurnRepository.get().player);
   let isPlayerTurn = $derived(currentPlayer === Player.SELF);
 
   function handleEndTurn() {
