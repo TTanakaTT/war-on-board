@@ -28,4 +28,16 @@ export class PieceType {
         return "chess_knight";
     }
   }
+
+  getCost(): number {
+    switch (this._value) {
+      case PIECETYPE.ROOK:
+        return 5;
+      case PIECETYPE.BISHOP:
+        return 5;
+      case PIECETYPE.KNIGHT:
+      default:
+        return 4;
+    }
+  }
 }

@@ -63,11 +63,26 @@ export class TurnAndAiService {
 
     const opponentPieces = PiecesRepository.getPiecesByPlayer(Player.OPPONENT);
     if (opponentPieces.length === 0) {
+      const turn = TurnRepository.get();
+      const currentResources = turn.resources[String(Player.OPPONENT)] ?? 0;
       const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
-      const randomPieceType = pieceTypes[Math.floor(Math.random() * pieceTypes.length)];
-      GameRulesService.generate(randomPieceType);
-      setTimeout(() => this.doOpponentTurn(), 1000);
-      return;
+      const affordablePieceTypes = pieceTypes.filter((t) => t.getCost() <= currentResources);
+
+      if (affordablePieceTypes.length > 0) {
+        const randomPieceType =
+          affordablePieceTypes[Math.floor(Math.random() * affordablePieceTypes.length)];
+        GameRulesService.generate(randomPieceType);
+        setTimeout(() => this.doOpponentTurn(), 1000);
+        return;
+      } else {
+        // Cannot afford any piece and has no pieces, end turn
+        setTimeout(() => {
+          const panels = PanelsService.clearSelected();
+          PanelRepository.setAll(panels);
+          this.onTurnEnd?.();
+        }, 1000);
+        return;
+      }
     }
 
     // Filter out pieces that have already moved this turn

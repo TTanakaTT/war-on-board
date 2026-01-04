@@ -15,6 +15,16 @@ import { PieceService } from "$lib/services/PieceService";
 export class GameRulesService {
   static generate(pieceType: PieceType = PieceType.KNIGHT) {
     const turn = TurnRepository.get();
+    const cost = pieceType.getCost();
+    const currentResources = turn.resources[String(turn.player)] ?? 0;
+
+    if (currentResources < cost) {
+      console.warn(
+        `Not enough resources to generate ${pieceType}. Cost: ${cost}, Current: ${currentResources}`,
+      );
+      return;
+    }
+
     const layer = LayerRepository.get();
     const generatePosition = new PanelPosition({
       horizontalLayer: turn.player === Player.SELF ? -(layer - 1) : layer - 1,
@@ -26,6 +36,12 @@ export class GameRulesService {
       );
       return;
     }
+
+    // Consume resources
+    const newResources = { ...turn.resources };
+    newResources[String(turn.player)] = currentResources - cost;
+    TurnRepository.set({ ...turn, resources: newResources });
+
     const id = PieceService.generateNextId();
     const piece = new Piece({
       id,
