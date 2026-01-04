@@ -91,9 +91,7 @@
 >
   <div class="text-castle z-1 flex flex-1 items-start">
     {#if castle && castle > 0}
-      <i transition:slide={{ duration: 500, axis: "y" }}>
-        <Icon icon="castle" size={24} additionalClass="my-0.5" />
-      </i>
+      <Icon icon="castle" size={24} />
       <p
         class="bg-castle flex size-6 items-center justify-center rounded-xl border {resourceColor}"
       >
@@ -105,26 +103,18 @@
   <div class="z-1 flex items-center justify-center">
     <div class="flex flex-row gap-2">
       {#each pieces as piece (piece.id)}
-        {#snippet icon()}
-          <Icon
-            icon={piece.pieceType.getIconName()}
-            size={22}
-            additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {pieceColor}"
-          />
-        {/snippet}
-
-        <i transition:slide={{ duration: 500, axis: "y" }}>
-          {@render icon()}
-        </i>
+        <Icon
+          icon={piece.pieceType.getIconName()}
+          size={22}
+          additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {pieceColor}"
+        />
       {/each}
     </div>
   </div>
 
   <div class="text-resource z-1 flex flex-1 items-end">
     {#if resource && resource > 0}
-      <i transition:slide={{ duration: 500, axis: "y" }}>
-        <Icon icon="home" size={24} additionalClass="my-0.5" />
-      </i>
+      <Icon icon="home" size={24} />
       <p
         class="bg-resource flex size-6 items-center justify-center rounded-xl border {resourceColor}"
       >

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { slide } from "svelte/transition";
+
   export let icon: string = "";
   export let size: number = 48;
   export let fill: boolean = false;
@@ -8,6 +10,10 @@
   $: styleAttr = `font-size:${size}px;`;
 </script>
 
-<span class={`material-symbols-outlined ${additionalClass}`} style="{font} {styleAttr}">
+<span
+  class={`material-symbols-outlined ${additionalClass}`}
+  style="{font} {styleAttr}"
+  transition:slide={{ duration: 500, axis: "y" }}
+>
   {icon}
 </span>
