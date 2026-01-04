@@ -8,8 +8,12 @@
   import { LayerRepository } from "$lib/data/repositories/LayerRepository";
   import GeneratePieceButton from "$lib/presentation/components/GeneratePieceButton.svelte";
   import EndTurnButton from "$lib/presentation/components/EndTurnButton.svelte";
+  import Icon from "$lib/presentation/components/Icon.svelte";
 
   let turn = $derived(TurnRepository.get());
+  let selfResources = $derived(turn.resources[String(Player.SELF)] ?? 0);
+  let opponentResources = $derived(turn.resources[String(Player.OPPONENT)] ?? 0);
+
   const layer = LayerRepository.get();
 
   function sideRange(): number[] {
@@ -82,7 +86,23 @@
 </div>
 
 <div class="my-2 flex justify-center gap-2">
+  <div
+    class="bg-resource pl-1 pr-2 gap-1 flex items-center justify-center rounded-lg border-2 text-white border-white"
+  >
+    <Icon icon="home" size={24} />
+
+    <div class="text-2xl">{selfResources}</div>
+  </div>
+
   <GeneratePieceButton pieceType={PieceType.KNIGHT} />
   <GeneratePieceButton pieceType={PieceType.ROOK} />
   <GeneratePieceButton pieceType={PieceType.BISHOP} />
+
+  <div
+    class="bg-resource pl-1 pr-2 gap-1 flex items-center justify-center rounded-lg border-2 text-black border-black"
+  >
+    <Icon icon="home" size={24} />
+
+    <div class="text-2xl">{opponentResources}</div>
+  </div>
 </div>

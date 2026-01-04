@@ -91,12 +91,13 @@
 >
   <div class="text-castle z-1 flex flex-1 items-start">
     {#if castle && castle > 0}
-      <Icon icon="castle" size={24} />
-      <p
-        class="bg-castle flex size-6 items-center justify-center rounded-xl border {resourceColor}"
+      <div
+        class="bg-castle pl-0.5 pr-1.5 gap-0.5 flex items-center justify-center rounded-lg border {resourceColor}"
       >
-        {castle}
-      </p>
+        <Icon icon="castle" size={12} />
+
+        <div>{castle}</div>
+      </div>
     {/if}
   </div>
 
@@ -114,12 +115,13 @@
 
   <div class="text-resource z-1 flex flex-1 items-end">
     {#if resource && resource > 0}
-      <Icon icon="home" size={24} />
-      <p
-        class="bg-resource flex size-6 items-center justify-center rounded-xl border {resourceColor}"
+      <div
+        class="bg-resource pl-0.5 pr-1.5 gap-0.5 flex items-center justify-center rounded-lg border {resourceColor}"
       >
-        {resource}
-      </p>
+        <Icon icon="home" size={12} />
+
+        <div>{resource}</div>
+      </div>
     {/if}
   </div>
 </div>

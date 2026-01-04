@@ -79,6 +79,8 @@ export class GameService {
         }
       }
     });
+
+    TurnAndAiService.addResources(turn.player);
   }
 
   static doOpponentTurn() {

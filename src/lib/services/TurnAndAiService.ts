@@ -12,7 +12,15 @@ export class TurnAndAiService {
   private static onTurnEnd?: () => void;
 
   static initializeTurn() {
-    TurnRepository.set({ player: Player.SELF, num: 1 });
+    TurnRepository.set({
+      player: Player.SELF,
+      num: 1,
+      resources: {
+        [String(Player.SELF)]: 0,
+        [String(Player.OPPONENT)]: 0,
+      },
+    });
+    this.addResources(Player.SELF);
   }
 
   static setOnTurnEnd(handler: () => void) {
@@ -37,6 +45,17 @@ export class TurnAndAiService {
       default:
         throw new Error(`Unknown player: ${turn.player}`);
     }
+  }
+
+  static addResources(player: Player) {
+    const turn = TurnRepository.get();
+    const panels = PanelRepository.getAll().filter((p) => p.player === player);
+    const totalResource = panels.reduce((sum, p) => sum + (p.resource || 0), 0);
+
+    const newResources = { ...turn.resources };
+    newResources[String(player)] = (newResources[String(player)] || 0) + totalResource;
+
+    TurnRepository.set({ ...turn, resources: newResources });
   }
 
   static doOpponentTurn() {

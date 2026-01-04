@@ -40,6 +40,7 @@
         "text": "Create an English commit message in a single line, following the Semantic Commit Message and Commit Message Guideline.",
       },
     ],
+    "chat.agent.maxRequests": 100,
   },
   "extensions": {
     "recommendations": [
