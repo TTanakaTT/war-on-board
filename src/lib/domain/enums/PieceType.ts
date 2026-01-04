@@ -1,6 +1,3 @@
-import ChessKnight from "svelte-material-icons/ChessKnight.svelte";
-import ChessRook from "svelte-material-icons/ChessRook.svelte";
-import ChessBishop from "svelte-material-icons/ChessBishop.svelte";
 import { EnumClass } from "./EnumFactory";
 
 enum PIECETYPE {
@@ -20,15 +17,15 @@ export class PieceType {
     this._value = value;
   }
 
-  getComponent() {
+  getIconName(): string {
     switch (this._value) {
       case PIECETYPE.ROOK:
-        return ChessRook;
+        return "chess_rook";
       case PIECETYPE.BISHOP:
-        return ChessBishop;
+        return "chess_bishop";
       case PIECETYPE.KNIGHT:
       default:
-        return ChessKnight;
+        return "chess_knight";
     }
   }
 }

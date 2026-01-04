@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Menu from "svelte-material-icons/Menu.svelte";
+  import Icon from "$lib/presentation/components/Icon.svelte";
   let {
     open,
     isNav,
@@ -27,7 +27,7 @@
       class="text-onsurface dark:text-onsurface-dark hover:bg-outline dark:hover:bg-outline-dark inline-flex h-8 w-8 items-center justify-center rounded-lg p-1"
       onclick={onClickMenu}
     >
-      <Menu class="size-6" />
+      <Icon icon="menu" size={24} />
     </button>
   </div>
 </header>

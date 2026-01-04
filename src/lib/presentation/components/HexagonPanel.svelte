@@ -6,8 +6,7 @@
   import { slide } from "svelte/transition";
   import { Player } from "$lib/domain/enums/Player";
   import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-  import Sprout from "svelte-material-icons/Sprout.svelte";
-  import Castle from "svelte-material-icons/Castle.svelte";
+  import Icon from "$lib/presentation/components/Icon.svelte";
 
   let {
     panelPosition,
@@ -93,10 +92,7 @@
   <div class="text-castle z-1 flex flex-1 items-start">
     {#if castle && castle > 0}
       <i transition:slide={{ duration: 500, axis: "y" }}>
-        <Castle
-          class="
-				 my-0.5 size-6"
-        />
+        <Icon icon="castle" size={24} additionalClass="my-0.5" />
       </i>
       <p
         class="bg-castle flex size-6 items-center justify-center rounded-xl border {resourceColor}"
@@ -110,9 +106,10 @@
     <div class="flex flex-row gap-2">
       {#each pieces as piece (piece.id)}
         {#snippet icon()}
-          {@const Icon = piece.pieceType.getComponent()}
           <Icon
-            class="bg-primary-variant dark:bg-primary-variant-dark size-9 rounded-xl border p-1 {pieceColor}"
+            icon={piece.pieceType.getIconName()}
+            size={22}
+            additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {pieceColor}"
           />
         {/snippet}
 
@@ -126,10 +123,7 @@
   <div class="text-resource z-1 flex flex-1 items-end">
     {#if resource && resource > 0}
       <i transition:slide={{ duration: 500, axis: "y" }}>
-        <Sprout
-          class=" 
-				 my-0.5 size-6"
-        />
+        <Icon icon="home" size={24} additionalClass="my-0.5" />
       </i>
       <p
         class="bg-resource flex size-6 items-center justify-center rounded-xl border {resourceColor}"
