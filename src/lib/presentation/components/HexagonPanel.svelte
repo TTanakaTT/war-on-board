@@ -3,10 +3,10 @@
   import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 
   import { PanelState } from "$lib/domain/enums/PanelState";
-  import { slide } from "svelte/transition";
   import { Player } from "$lib/domain/enums/Player";
   import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
   import Icon from "$lib/presentation/components/Icon.svelte";
+  import { slide } from "svelte/transition";
 
   let {
     panelPosition,
@@ -92,9 +92,14 @@
   <div class="text-castle z-1 flex flex-1 items-start">
     {#if castle && castle > 0}
       <div
-        class="bg-castle pl-0.5 pr-1.5 gap-0.5 flex items-center justify-center rounded-lg border {resourceColor}"
+        class="bg-castle flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
       >
-        <Icon icon="castle" size={12} />
+        <Icon
+          icon="castle"
+          size={12}
+          transition={slide}
+          transitionParams={{ duration: 500, axis: "y" }}
+        />
 
         <div>{castle}</div>
       </div>
@@ -105,7 +110,7 @@
     <div class="flex flex-row gap-2">
       {#each pieces as piece (piece.id)}
         <div class="flex flex-col items-center">
-          <div class="mb-1 h-1 w-6 overflow-hidden rounded-full bg-outline dark:bg-outline-dark">
+          <div class="bg-outline dark:bg-outline-dark mb-1 h-1 w-6 overflow-hidden rounded-full">
             <div
               class="h-full bg-white transition-all duration-300"
               style="width: {(piece.hp / piece.pieceType.config.maxHp) * 100}%"
@@ -114,6 +119,8 @@
           <Icon
             icon={piece.pieceType.config.iconName}
             size={22}
+            transition={slide}
+            transitionParams={{ duration: 500, axis: "y" }}
             additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {pieceColor}"
           />
         </div>
@@ -124,9 +131,14 @@
   <div class="text-resource z-1 flex flex-1 items-end">
     {#if resource && resource > 0}
       <div
-        class="bg-resource pl-0.5 pr-1.5 gap-0.5 flex items-center justify-center rounded-lg border {resourceColor}"
+        class="bg-resource flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
       >
-        <Icon icon="home" size={12} />
+        <Icon
+          icon="home"
+          size={12}
+          transition={slide}
+          transitionParams={{ duration: 500, axis: "y" }}
+        />
 
         <div>{resource}</div>
       </div>

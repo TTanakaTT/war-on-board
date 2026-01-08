@@ -9,6 +9,7 @@
   import GeneratePieceButton from "$lib/presentation/components/GeneratePieceButton.svelte";
   import EndTurnButton from "$lib/presentation/components/EndTurnButton.svelte";
   import Icon from "$lib/presentation/components/Icon.svelte";
+  import { slide } from "svelte/transition";
 
   let turn = $derived(TurnRepository.get());
   let selfResources = $derived(turn.resources[String(Player.SELF)] ?? 0);
@@ -51,7 +52,7 @@
   );
 </script>
 
-<div class="m-2 flex gap-4 justify-center">
+<div class="m-2 flex justify-center gap-4">
   <span
     class="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border-2 p-1.5 text-sm {turnColor}"
     >turn<span class="text-2xl font-bold">{turn.num}</span> {turn.player}</span
@@ -87,9 +88,14 @@
 
 <div class="my-2 flex justify-center gap-2">
   <div
-    class="bg-resource pl-1 pr-2 gap-1 flex items-center justify-center rounded-lg border-2 text-white border-white"
+    class="bg-resource flex items-center justify-center gap-1 rounded-lg border-2 border-white pr-2 pl-1 text-white"
   >
-    <Icon icon="home" size={24} />
+    <Icon
+      icon="home"
+      size={24}
+      transition={slide}
+      transitionParams={{ duration: 500, axis: "y" }}
+    />
 
     <div class="text-2xl">{selfResources}</div>
   </div>
@@ -99,9 +105,14 @@
   <GeneratePieceButton pieceType={PieceType.BISHOP} />
 
   <div
-    class="bg-resource pl-1 pr-2 gap-1 flex items-center justify-center rounded-lg border-2 text-black border-black"
+    class="bg-resource flex items-center justify-center gap-1 rounded-lg border-2 border-black pr-2 pl-1 text-black"
   >
-    <Icon icon="home" size={24} />
+    <Icon
+      icon="home"
+      size={24}
+      transition={slide}
+      transitionParams={{ duration: 500, axis: "y" }}
+    />
 
     <div class="text-2xl">{opponentResources}</div>
   </div>

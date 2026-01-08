@@ -86,8 +86,8 @@ CIの想定シーケンス例: format → lint → type check。
 
 ### 変更・PR チェックリスト（LLM 用）
 
-2. 既存の型/関数/構造に整合。
-3. CSV 変更時は Repository 同期・README/docs 更新を確認。更新。
+1. 既存の型/関数/構造に整合。
+2. CSV 変更時は Repository 同期・README/docs 更新を確認。更新。
 
 ### 禁止事項
 
