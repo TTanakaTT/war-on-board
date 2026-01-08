@@ -1,4 +1,6 @@
 {
-	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"generate_piece": "Generate {piece}"
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "produce": "Produce",
+  "piece_cost_tooltip": "{piece} (Cost: {cost}, HP: {hp}, AP-Piece: {apPiece}, AP-Wall: {apWall})",
+  "end_turn": "End Turn"
 }

@@ -1,4 +1,6 @@
 {
-	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"generate_piece": "{piece} 生産"
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "produce": "生産",
+  "piece_cost_tooltip": "{piece} (コスト: {cost}, HP: {hp}, 対駒攻撃力: {apPiece}, 対城壁攻撃力: {apWall})",
+  "end_turn": "ターン終了"
 }

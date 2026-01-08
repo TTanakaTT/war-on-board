@@ -1,16 +1,16 @@
-import type { Panel } from '$lib/domain/entities/Panel';
+import type { Panel } from "$lib/domain/entities/Panel";
 
 let _selectedPanel = $state<Panel | undefined>(undefined);
 
 function set(panel: Panel | undefined) {
-	_selectedPanel = panel;
+  _selectedPanel = panel;
 }
 
 function get(): Panel | undefined {
-	return _selectedPanel;
+  return _selectedPanel;
 }
 
 export const selectedPanelState = {
-	set,
-	get
+  set,
+  get,
 };
