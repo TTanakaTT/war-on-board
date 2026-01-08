@@ -15,7 +15,7 @@ import { PieceService } from "$lib/services/PieceService";
 export class GameRulesService {
   static generate(pieceType: PieceType = PieceType.KNIGHT) {
     const turn = TurnRepository.get();
-    const cost = pieceType.getCost();
+    const cost = pieceType.config.cost;
     const currentResources = turn.resources[String(turn.player)] ?? 0;
 
     if (currentResources < cost) {
@@ -79,25 +79,61 @@ export class GameRulesService {
       case PanelState.MOVABLE: {
         const selectedPanel = SelectedPanelRepository.get();
         const selectedPiece = PiecesRepository.getPiecesByPosition(selectedPanel!.panelPosition)[0];
+        const targetPanel = PanelsService.find(panelPosition);
         const existingPieces = PiecesRepository.getPiecesByPosition(panelPosition);
         const existingEnemyPieces = existingPieces.filter(
           (p: Piece) => p.player !== selectedPiece.player,
         );
+
+        let attackerDead = false;
+        let defenderDead = false;
+        let currentAttacker = selectedPiece;
+        let currentTargetPanel = targetPanel;
+
         if (existingEnemyPieces.length > 0) {
-          PiecesRepository.remove(selectedPiece);
-          existingEnemyPieces.forEach((p: Piece) => PiecesRepository.remove(p));
-          PanelRepository.update(
-            new Panel({
-              panelPosition: panelPosition,
-              panelState: PanelState.OCCUPIED,
-              player: selectedPiece.player,
-              resource: selectedPanel!.resource,
-              castle: selectedPanel!.castle,
-            }),
-          );
-        } else {
-          PieceService.move(panelPosition, selectedPiece);
+          const combatResult = PieceService.attackPiece(currentAttacker, existingEnemyPieces[0]);
+          attackerDead = combatResult.attackerDead;
+          defenderDead = combatResult.defenderDead;
+          if (!attackerDead) {
+            currentAttacker = PiecesRepository.getPiecesByPosition(selectedPanel!.panelPosition)[0];
+          }
         }
+
+        // Only attack wall if no enemy pieces are left and attacker is still alive
+        if (
+          !attackerDead &&
+          (existingEnemyPieces.length === 0 || defenderDead) &&
+          currentTargetPanel &&
+          currentTargetPanel.player !== currentAttacker.player &&
+          currentTargetPanel.castle > 0
+        ) {
+          PieceService.attackWall(currentAttacker, currentTargetPanel);
+          // Fetch updated panel (with new castle value)
+          currentTargetPanel = PanelsService.find(panelPosition) || targetPanel;
+        }
+
+        if (!attackerDead) {
+          const noMoreEnemies = existingEnemyPieces.length === 0 || defenderDead;
+          const noMoreWall =
+            !currentTargetPanel ||
+            currentTargetPanel.player === currentAttacker.player ||
+            currentTargetPanel.player === Player.UNKNOWN ||
+            currentTargetPanel.castle <= 0;
+
+          if (noMoreEnemies && noMoreWall) {
+            PieceService.move(panelPosition, currentAttacker);
+            PanelRepository.update(
+              new Panel({
+                panelPosition: panelPosition,
+                panelState: PanelState.OCCUPIED,
+                player: currentAttacker.player,
+                resource: currentTargetPanel?.resource ?? 0,
+                castle: currentTargetPanel?.castle ?? 0,
+              }),
+            );
+          }
+        }
+
         break;
       }
       default: {
@@ -148,9 +184,10 @@ export class GameRulesService {
         targetPanels
           .filter((p: Panel) => !p.panelPosition.equals(panelPosition))
           .forEach((targetPanel: Panel) => {
-            const hasPiece =
-              PiecesRepository.getPiecesByPosition(targetPanel.panelPosition).length > 0;
-            if (!hasPiece) {
+            const pieces = PiecesRepository.getPiecesByPosition(targetPanel.panelPosition);
+            const hasFriendlyPiece = pieces.some((p) => p.player === selectedPiece.player);
+
+            if (!hasFriendlyPiece) {
               PanelRepository.update(
                 new Panel({
                   panelPosition: targetPanel.panelPosition,

@@ -7,6 +7,7 @@ export class Piece {
   initialPosition: PanelPosition;
   player: Player;
   pieceType: PieceType;
+  hp: number;
 
   constructor({
     id,
@@ -14,18 +15,21 @@ export class Piece {
     initialPosition,
     player,
     pieceType,
+    hp,
   }: {
     id?: number;
     initialPosition?: PanelPosition;
     panelPosition: PanelPosition;
     player: Player;
     pieceType: PieceType;
+    hp?: number;
   }) {
     this.id = id ?? 0;
     this.panelPosition = panelPosition;
     this.initialPosition = initialPosition || panelPosition;
     this.player = player;
     this.pieceType = pieceType;
+    this.hp = hp ?? pieceType.config.maxHp;
   }
 
   equals(other: Piece): boolean {

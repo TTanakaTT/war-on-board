@@ -32,6 +32,7 @@ export class GameService {
         initialPosition: piece.panelPosition,
         player: piece.player,
         pieceType: piece.pieceType,
+        hp: piece.hp,
       });
       PiecesRepository.update(newPiece);
     });

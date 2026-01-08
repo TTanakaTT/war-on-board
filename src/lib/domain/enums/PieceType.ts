@@ -6,6 +6,38 @@ enum PIECETYPE {
   BISHOP = "bishop",
 }
 
+interface PieceConfig {
+  readonly iconName: string;
+  readonly cost: number;
+  readonly maxHp: number;
+  readonly attackPowerAgainstPiece: number;
+  readonly attackPowerAgainstWall: number;
+}
+
+const CONFIGS: Record<PIECETYPE, PieceConfig> = {
+  [PIECETYPE.KNIGHT]: {
+    iconName: "chess_knight",
+    cost: 4,
+    maxHp: 10,
+    attackPowerAgainstPiece: 5,
+    attackPowerAgainstWall: 2,
+  },
+  [PIECETYPE.ROOK]: {
+    iconName: "chess_rook",
+    cost: 5,
+    maxHp: 10,
+    attackPowerAgainstPiece: 0,
+    attackPowerAgainstWall: 2,
+  },
+  [PIECETYPE.BISHOP]: {
+    iconName: "chess_bishop",
+    cost: 5,
+    maxHp: 5,
+    attackPowerAgainstPiece: 0,
+    attackPowerAgainstWall: 0,
+  },
+} as const;
+
 @EnumClass(PIECETYPE)
 export class PieceType {
   static KNIGHT: PieceType;
@@ -17,27 +49,7 @@ export class PieceType {
     this._value = value;
   }
 
-  getIconName(): string {
-    switch (this._value) {
-      case PIECETYPE.ROOK:
-        return "chess_rook";
-      case PIECETYPE.BISHOP:
-        return "chess_bishop";
-      case PIECETYPE.KNIGHT:
-      default:
-        return "chess_knight";
-    }
-  }
-
-  getCost(): number {
-    switch (this._value) {
-      case PIECETYPE.ROOK:
-        return 5;
-      case PIECETYPE.BISHOP:
-        return 5;
-      case PIECETYPE.KNIGHT:
-      default:
-        return 4;
-    }
+  get config(): PieceConfig {
+    return CONFIGS[this._value];
   }
 }

@@ -104,11 +104,19 @@
   <div class="z-1 flex items-center justify-center">
     <div class="flex flex-row gap-2">
       {#each pieces as piece (piece.id)}
-        <Icon
-          icon={piece.pieceType.getIconName()}
-          size={22}
-          additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {pieceColor}"
-        />
+        <div class="flex flex-col items-center">
+          <div class="mb-1 h-1 w-6 overflow-hidden rounded-full bg-outline dark:bg-outline-dark">
+            <div
+              class="h-full bg-white transition-all duration-300"
+              style="width: {(piece.hp / piece.pieceType.config.maxHp) * 100}%"
+            ></div>
+          </div>
+          <Icon
+            icon={piece.pieceType.config.iconName}
+            size={22}
+            additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {pieceColor}"
+          />
+        </div>
       {/each}
     </div>
   </div>

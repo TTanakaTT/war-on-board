@@ -66,7 +66,7 @@ export class TurnAndAiService {
       const turn = TurnRepository.get();
       const currentResources = turn.resources[String(Player.OPPONENT)] ?? 0;
       const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
-      const affordablePieceTypes = pieceTypes.filter((t) => t.getCost() <= currentResources);
+      const affordablePieceTypes = pieceTypes.filter((t) => t.config.cost <= currentResources);
 
       if (affordablePieceTypes.length > 0) {
         const randomPieceType =
