@@ -248,7 +248,7 @@ export class GameRulesService {
               }),
             );
           });
-        // 隣接パネル以外をIMMOVABLEにする
+        // Set all non-adjacent panels to IMMOVABLE
         const allPanels = PanelRepository.getAll();
         const adjacentPositions = adjacentPanels.map((p: Panel) => p.panelPosition);
         allPanels.forEach((p: Panel) => {
