@@ -25,9 +25,7 @@
 
   let panelState = $derived(panel?.panelState);
   let panelStyle = $derived(getPanelStyle());
-  let pieceColor = $derived(
-    pieces[0]?.player === Player.SELF ? "text-white border-white" : "text-black border-black",
-  );
+
   let resourceColor = $derived(
     panel?.player === Player.SELF ? "text-white border-white" : "text-black border-black",
   );
@@ -109,7 +107,7 @@
   <div class="z-1 flex items-center justify-center">
     <div class="flex flex-row gap-2">
       {#each pieces as piece (piece.id)}
-        <div class="flex flex-col items-center">
+        <div class="relative flex flex-col items-center {piece.targetPosition ? 'opacity-40' : ''}">
           <div class="bg-outline dark:bg-outline-dark mb-1 h-1 w-6 overflow-hidden rounded-full">
             <div
               class="h-full bg-white transition-all duration-300"
@@ -121,7 +119,10 @@
             size={22}
             transition={slide}
             transitionParams={{ duration: 500, axis: "y" }}
-            additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {pieceColor}"
+            additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {piece.player ===
+            Player.SELF
+              ? 'text-white border-white'
+              : 'text-black border-black'}"
           />
         </div>
       {/each}

@@ -74,66 +74,37 @@ export class GameRulesService {
     }
     switch (panelState) {
       case PanelState.SELECTED: {
+        const selectedPiece = PiecesRepository.getPiecesByPosition(panelPosition)[0];
+        if (selectedPiece && selectedPiece.targetPosition) {
+          const updatedPiece = new Piece({
+            id: selectedPiece.id,
+            panelPosition: selectedPiece.panelPosition,
+            initialPosition: selectedPiece.initialPosition,
+            targetPosition: undefined,
+            player: selectedPiece.player,
+            pieceType: selectedPiece.pieceType,
+            hp: selectedPiece.hp,
+          });
+          PiecesRepository.update(updatedPiece);
+        }
         break;
       }
       case PanelState.MOVABLE: {
         const selectedPanel = SelectedPanelRepository.get();
         const selectedPiece = PiecesRepository.getPiecesByPosition(selectedPanel!.panelPosition)[0];
-        const targetPanel = PanelsService.find(panelPosition);
-        const existingPieces = PiecesRepository.getPiecesByPosition(panelPosition);
-        const existingEnemyPieces = existingPieces.filter(
-          (p: Piece) => p.player !== selectedPiece.player,
-        );
 
-        let attackerDead = false;
-        let defenderDead = false;
-        let currentAttacker = selectedPiece;
-        let currentTargetPanel = targetPanel;
-
-        if (existingEnemyPieces.length > 0) {
-          const combatResult = PieceService.attackPiece(currentAttacker, existingEnemyPieces[0]);
-          attackerDead = combatResult.attackerDead;
-          defenderDead = combatResult.defenderDead;
-          if (!attackerDead) {
-            currentAttacker = PiecesRepository.getPiecesByPosition(selectedPanel!.panelPosition)[0];
-          }
+        if (selectedPiece) {
+          const updatedPiece = new Piece({
+            id: selectedPiece.id,
+            panelPosition: selectedPiece.panelPosition,
+            initialPosition: selectedPiece.initialPosition,
+            targetPosition: panelPosition,
+            player: selectedPiece.player,
+            pieceType: selectedPiece.pieceType,
+            hp: selectedPiece.hp,
+          });
+          PiecesRepository.update(updatedPiece);
         }
-
-        // Only attack wall if no enemy pieces are left and attacker is still alive
-        if (
-          !attackerDead &&
-          (existingEnemyPieces.length === 0 || defenderDead) &&
-          currentTargetPanel &&
-          currentTargetPanel.player !== currentAttacker.player &&
-          currentTargetPanel.castle > 0
-        ) {
-          PieceService.attackWall(currentAttacker, currentTargetPanel);
-          // Fetch updated panel (with new castle value)
-          currentTargetPanel = PanelsService.find(panelPosition) || targetPanel;
-        }
-
-        if (!attackerDead) {
-          const noMoreEnemies = existingEnemyPieces.length === 0 || defenderDead;
-          const noMoreWall =
-            !currentTargetPanel ||
-            currentTargetPanel.player === currentAttacker.player ||
-            currentTargetPanel.player === Player.UNKNOWN ||
-            currentTargetPanel.castle <= 0;
-
-          if (noMoreEnemies && noMoreWall) {
-            PieceService.move(panelPosition, currentAttacker);
-            PanelRepository.update(
-              new Panel({
-                panelPosition: panelPosition,
-                panelState: PanelState.OCCUPIED,
-                player: currentAttacker.player,
-                resource: currentTargetPanel?.resource ?? 0,
-                castle: currentTargetPanel?.castle ?? 0,
-              }),
-            );
-          }
-        }
-
         break;
       }
       default: {

@@ -9,7 +9,9 @@
   import GeneratePieceButton from "$lib/presentation/components/GeneratePieceButton.svelte";
   import EndTurnButton from "$lib/presentation/components/EndTurnButton.svelte";
   import Icon from "$lib/presentation/components/Icon.svelte";
+  import MoveArrows from "./MoveArrows.svelte";
   import { slide } from "svelte/transition";
+  import { BoardLayoutService } from "$lib/services/BoardLayoutService";
 
   let turn = $derived(TurnRepository.get());
   let selfResources = $derived(turn.resources[String(Player.SELF)] ?? 0);
@@ -26,25 +28,20 @@
     return range;
   }
 
-  const height = 100;
+  const width = $derived(BoardLayoutService.boardWidth);
+  const height = $derived(BoardLayoutService.boardHeight);
+  const layeredPanelContainerStyle = $derived(
+    `width: ${width}px; height: ${height}px; position: relative;`,
+  );
 
-  const horizontalSideLength = height / Math.sqrt(3);
-  const hypotenuseHorizontalLength = height / 2 / Math.sqrt(3);
-  const horizontalLength = horizontalSideLength + hypotenuseHorizontalLength;
-  const horizontalMargin = (height * 0.1 * Math.sqrt(3)) / 2;
-
-  const width =
-    horizontalLength * (layer * 2 - 1) +
-    horizontalMargin * (layer * 2 - 2) +
-    hypotenuseHorizontalLength;
-  const layeredPanelWidthStyle = `width: ${width.toString()}px; `;
-
-  function panelPositionStyle(horizontalLayer: number): string {
-    const left =
-      hypotenuseHorizontalLength * (layer + horizontalLayer) +
-      horizontalMargin * (layer + horizontalLayer - 1);
-    const top = Math.abs(horizontalLayer) * (height / 2) * 1.1;
-    return `left: ${left.toString()}px; top: ${top.toString()}px`;
+  function panelPositionStyle(hl: number, vl: number): string {
+    const coords = BoardLayoutService.getCoordinates(
+      new PanelPosition({ horizontalLayer: hl, verticalLayer: vl }),
+    );
+    // Adjust from center to top-left
+    const left = coords.x - BoardLayoutService.HEIGHT / 1.73 / 2;
+    const top = coords.y - BoardLayoutService.HEIGHT / 2 - 5;
+    return `position: absolute; left: ${left}px; top: ${top}px;`;
   }
 
   let turnColor = $derived(
@@ -61,28 +58,27 @@
 </div>
 
 <div class="m-2 flex justify-center">
-  <div style={layeredPanelWidthStyle}>
+  <div style={layeredPanelContainerStyle}>
     {#each sideRange() as hl (hl)}
-      <div class="relative float-left" style={panelPositionStyle(hl)}>
-        {#each { length: layer - Math.abs(hl) }, vl}
-          <div>
-            <HexagonPanel
-              panelPosition={new PanelPosition({
-                horizontalLayer: hl,
-                verticalLayer: vl,
-              })}
-              onclick={() =>
-                GameService.panelChange(
-                  new PanelPosition({
-                    horizontalLayer: hl,
-                    verticalLayer: vl,
-                  }),
-                )}
-            />
-          </div>
-        {/each}
-      </div>
+      {#each { length: layer - Math.abs(hl) }, vl}
+        <div style={panelPositionStyle(hl, vl)}>
+          <HexagonPanel
+            panelPosition={new PanelPosition({
+              horizontalLayer: hl,
+              verticalLayer: vl,
+            })}
+            onclick={() =>
+              GameService.panelChange(
+                new PanelPosition({
+                  horizontalLayer: hl,
+                  verticalLayer: vl,
+                }),
+              )}
+          />
+        </div>
+      {/each}
     {/each}
+    <MoveArrows />
   </div>
 </div>
 

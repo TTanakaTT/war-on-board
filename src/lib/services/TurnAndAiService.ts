@@ -1,11 +1,14 @@
 import { Player } from "$lib/domain/enums/Player";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { Piece } from "$lib/domain/entities/Piece";
+import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
+import { LayerRepository } from "$lib/data/repositories/LayerRepository";
 import { GameRulesService } from "./GameRulesService";
+import { PieceService } from "./PieceService";
 
 export class TurnAndAiService {
   private static movedPieceIds: Set<number> = new Set();
@@ -29,21 +32,35 @@ export class TurnAndAiService {
 
   static nextTurn() {
     this.movedPieceIds.clear();
-    const turn = TurnRepository.get();
-    switch (turn.player) {
-      case Player.SELF: {
-        TurnRepository.set({ ...turn, player: Player.OPPONENT });
-        setTimeout(() => {
-          this.doOpponentTurn();
-        }, 1000);
-        break;
-      }
-      case Player.OPPONENT: {
-        TurnRepository.set({ ...turn, player: Player.SELF, num: turn.num + 1 });
-        break;
-      }
-      default:
-        throw new Error(`Unknown player: ${turn.player}`);
+    const currentTurn = TurnRepository.get();
+
+    // 1. Finalize current player's actions
+    PieceService.finalizePlayerMoves(currentTurn.player);
+    PanelsService.refreshPanelStates();
+
+    // 2. Determine next player
+    const nextPlayer = currentTurn.player === Player.SELF ? Player.OPPONENT : Player.SELF;
+    const nextNum = currentTurn.player === Player.OPPONENT ? currentTurn.num + 1 : currentTurn.num;
+
+    // 3. Prepare for next player's turn
+    PieceService.resetInitialPositions(nextPlayer);
+    PieceService.applyPassiveGains(nextPlayer);
+
+    // 4. Update Turn Repository with new player and turn number
+    TurnRepository.set({
+      ...TurnRepository.get(), // Get most recent state
+      player: nextPlayer,
+      num: nextNum,
+    });
+
+    // 5. Add resources for the start of the NEW turn
+    this.addResources(nextPlayer);
+
+    // 6. Handle turn start actions
+    if (nextPlayer === Player.OPPONENT) {
+      setTimeout(() => {
+        this.doOpponentTurn();
+      }, 1000);
     }
   }
 
@@ -59,63 +76,64 @@ export class TurnAndAiService {
   }
 
   static doOpponentTurn() {
-    if (TurnRepository.get().player !== Player.OPPONENT) return;
+    const turn = TurnRepository.get();
+    if (turn.player !== Player.OPPONENT) return;
 
     const opponentPieces = PiecesRepository.getPiecesByPlayer(Player.OPPONENT);
-    if (opponentPieces.length === 0) {
-      const turn = TurnRepository.get();
-      const currentResources = turn.resources[String(Player.OPPONENT)] ?? 0;
+    const opponentResources = turn.resources[String(Player.OPPONENT)] ?? 0;
+
+    // Filter out pieces that have already moved this turn
+    const unmovedPieces = opponentPieces.filter((p: Piece) => !this.movedPieceIds.has(p.id));
+
+    // If there are unmoved pieces, move one
+    if (unmovedPieces.length > 0) {
+      const randomPiece = unmovedPieces[Math.floor(Math.random() * unmovedPieces.length)];
+      GameRulesService.panelChange(randomPiece.panelPosition);
+
+      setTimeout(() => {
+        const movablePanels = PanelsService.filterMovablePanels();
+        if (movablePanels.length === 0) {
+          // No movable panels, so this piece stays in place (mark as moved)
+          this.movedPieceIds.add(randomPiece.id);
+          GameRulesService.panelChange(randomPiece.panelPosition);
+          setTimeout(() => this.doOpponentTurn(), 1000);
+          return;
+        }
+
+        const randomPanel = movablePanels[Math.floor(Math.random() * movablePanels.length)];
+        GameRulesService.panelChange(randomPanel.panelPosition);
+        this.movedPieceIds.add(randomPiece.id);
+
+        setTimeout(() => this.doOpponentTurn(), 1000);
+      }, 1000);
+      return;
+    }
+
+    // After moving pieces, try to produce a piece if the base is empty and we have money
+    const layer = LayerRepository.get();
+    const generatePosition = new PanelPosition({
+      horizontalLayer: layer - 1,
+      verticalLayer: 0,
+    });
+    const isBaseOccupied = PiecesRepository.getPiecesByPosition(generatePosition).length > 0;
+
+    if (!isBaseOccupied) {
       const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
-      const affordablePieceTypes = pieceTypes.filter((t) => t.config.cost <= currentResources);
+      const affordablePieceTypes = pieceTypes.filter((t) => t.config.cost <= opponentResources);
 
       if (affordablePieceTypes.length > 0) {
         const randomPieceType =
           affordablePieceTypes[Math.floor(Math.random() * affordablePieceTypes.length)];
         GameRulesService.generate(randomPieceType);
-        setTimeout(() => this.doOpponentTurn(), 1000);
-        return;
-      } else {
-        // Cannot afford any piece and has no pieces, end turn
-        setTimeout(() => {
-          const panels = PanelsService.clearSelected();
-          PanelRepository.setAll(panels);
-          this.onTurnEnd?.();
-        }, 1000);
-        return;
+        // Turn ends after production in this simple AI
       }
     }
 
-    // Filter out pieces that have already moved this turn
-    const unmovedPieces = opponentPieces.filter((p: Piece) => !this.movedPieceIds.has(p.id));
-
-    // If all pieces have moved, end the turn
-    if (unmovedPieces.length === 0) {
-      setTimeout(() => {
-        const panels = PanelsService.clearSelected();
-        PanelRepository.setAll(panels);
-        this.onTurnEnd?.();
-      }, 1000);
-      return;
-    }
-
-    const randomPiece = unmovedPieces[Math.floor(Math.random() * unmovedPieces.length)];
-    GameRulesService.panelChange(randomPiece.panelPosition);
-
+    // End the turn
     setTimeout(() => {
-      const movablePanels = PanelsService.filterMovablePanels();
-      if (movablePanels.length === 0) {
-        // No movable panels, so this piece stays in place (mark as moved)
-        this.movedPieceIds.add(randomPiece.id);
-        GameRulesService.panelChange(randomPiece.panelPosition);
-        setTimeout(() => this.doOpponentTurn(), 1000);
-        return;
-      }
-
-      const randomPanel = movablePanels[Math.floor(Math.random() * movablePanels.length)];
-      GameRulesService.panelChange(randomPanel.panelPosition);
-      this.movedPieceIds.add(randomPiece.id);
-
-      setTimeout(() => this.doOpponentTurn(), 1000);
+      const panels = PanelsService.clearSelected();
+      PanelRepository.setAll(panels);
+      this.onTurnEnd?.();
     }, 1000);
   }
 }

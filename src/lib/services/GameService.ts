@@ -21,67 +21,6 @@ export class GameService {
 
   static nextTurn() {
     TurnAndAiService.nextTurn();
-    const turn = TurnRepository.get();
-
-    // Reset initial positions for all pieces at turn start (preserve ids)
-    const allPieces = PiecesRepository.getPiecesByPlayer(turn.player);
-    allPieces.forEach((piece: Piece) => {
-      const newPiece = new Piece({
-        id: piece.id,
-        panelPosition: piece.panelPosition,
-        initialPosition: piece.panelPosition,
-        player: piece.player,
-        pieceType: piece.pieceType,
-        hp: piece.hp,
-      });
-      PiecesRepository.update(newPiece);
-    });
-
-    const playerPieces = PiecesRepository.getPiecesByPlayer(turn.player);
-    playerPieces.forEach((piece: Piece) => {
-      const panelPosition = piece.panelPosition;
-      const panel = PanelsService.find(panelPosition);
-
-      if (panel) {
-        switch (piece.pieceType) {
-          case PieceType.BISHOP:
-            PanelRepository.update(
-              new Panel({
-                panelPosition: panelPosition,
-                panelState: panel.panelState,
-                player: turn.player,
-                resource: Math.min(5, (panel.resource || 0) + 1),
-                castle: panel.castle,
-              }),
-            );
-            break;
-          case PieceType.ROOK:
-            PanelRepository.update(
-              new Panel({
-                panelPosition: panelPosition,
-                panelState: panel.panelState,
-                player: turn.player,
-                resource: panel.resource,
-                castle: Math.min(5, (panel.castle || 0) + 1),
-              }),
-            );
-            break;
-          default:
-            PanelRepository.update(
-              new Panel({
-                panelPosition: panelPosition,
-                panelState: panel.panelState,
-                player: turn.player,
-                resource: panel.resource,
-                castle: panel.castle,
-              }),
-            );
-            break;
-        }
-      }
-    });
-
-    TurnAndAiService.addResources(turn.player);
   }
 
   static doOpponentTurn() {

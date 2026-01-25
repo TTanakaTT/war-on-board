@@ -73,4 +73,20 @@ export class PanelsService {
       }
     });
   }
+
+  static refreshPanelStates(): void {
+    const panels = PanelRepository.getAll();
+    const newPanels = panels.map((p) => {
+      const pieces = PiecesRepository.getPiecesByPosition(p.panelPosition);
+      const hasPiece = pieces.length > 0;
+      return new Panel({
+        panelPosition: p.panelPosition,
+        panelState: hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED,
+        player: hasPiece ? pieces[0].player : p.player,
+        resource: p.resource,
+        castle: p.castle,
+      });
+    });
+    PanelRepository.setAll(newPanels);
+  }
 }
