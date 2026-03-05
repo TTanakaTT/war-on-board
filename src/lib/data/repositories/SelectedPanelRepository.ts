@@ -5,7 +5,10 @@ export class SelectedPanelRepository {
   static get(): Panel | undefined {
     return selectedPanelState.get();
   }
-  static set(panel: Panel | undefined): void {
-    selectedPanelState.set(panel);
+  static getPieceId(): number | undefined {
+    return selectedPanelState.getPieceId();
+  }
+  static set(panel: Panel | undefined, pieceId?: number): void {
+    selectedPanelState.set(panel, pieceId);
   }
 }

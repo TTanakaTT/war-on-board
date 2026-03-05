@@ -1,16 +1,30 @@
 import type { Panel } from "$lib/domain/entities/Panel";
 
-let _selectedPanel = $state<Panel | undefined>(undefined);
+interface SelectedState {
+  panel: Panel | undefined;
+  pieceId: number | undefined;
+}
 
-function set(panel: Panel | undefined) {
-  _selectedPanel = panel;
+const _selectedState = $state<SelectedState>({
+  panel: undefined,
+  pieceId: undefined,
+});
+
+function set(panel: Panel | undefined, pieceId?: number) {
+  _selectedState.panel = panel;
+  _selectedState.pieceId = pieceId;
 }
 
 function get(): Panel | undefined {
-  return _selectedPanel;
+  return _selectedState.panel;
+}
+
+function getPieceId(): number | undefined {
+  return _selectedState.pieceId;
 }
 
 export const selectedPanelState = {
   set,
   get,
+  getPieceId,
 };

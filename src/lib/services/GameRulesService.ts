@@ -30,9 +30,10 @@ export class GameRulesService {
       horizontalLayer: turn.player === Player.SELF ? -(layer - 1) : layer - 1,
       verticalLayer: 0,
     });
-    if (PiecesRepository.getPiecesByPosition(generatePosition).length > 0) {
+    const maxPieces = turn.maxPiecesPerPanel[String(turn.player)] ?? 2;
+    if (PiecesRepository.getPiecesByPosition(generatePosition).length >= maxPieces) {
       console.warn(
-        `Cannot generate piece at ${generatePosition.horizontalLayer}, ${generatePosition.verticalLayer} because it is already occupied.`,
+        `Cannot generate piece at ${generatePosition.horizontalLayer}, ${generatePosition.verticalLayer} because it has reached the maximum number of pieces.`,
       );
       return;
     }
@@ -62,19 +63,12 @@ export class GameRulesService {
   }
 
   static panelChange(panelPosition: PanelPosition) {
-    const turn = TurnRepository.get();
-    const _selectedPiece = PiecesRepository.getPiecesByPosition(panelPosition)[0];
     const panelState = PanelsService.findPanelState(panelPosition);
-    if (
-      panelState != PanelState.MOVABLE &&
-      _selectedPiece &&
-      _selectedPiece.player !== turn.player
-    ) {
-      return;
-    }
+
     switch (panelState) {
       case PanelState.SELECTED: {
-        const selectedPiece = PiecesRepository.getPiecesByPosition(panelPosition)[0];
+        const selectedPieceId = SelectedPanelRepository.getPieceId();
+        const selectedPiece = PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
         if (selectedPiece && selectedPiece.targetPosition) {
           const updatedPiece = new Piece({
             id: selectedPiece.id,
@@ -90,8 +84,8 @@ export class GameRulesService {
         break;
       }
       case PanelState.MOVABLE: {
-        const selectedPanel = SelectedPanelRepository.get();
-        const selectedPiece = PiecesRepository.getPiecesByPosition(selectedPanel!.panelPosition)[0];
+        const selectedPieceId = SelectedPanelRepository.getPieceId();
+        const selectedPiece = PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
 
         if (selectedPiece) {
           const updatedPiece = new Piece({
@@ -108,18 +102,29 @@ export class GameRulesService {
         break;
       }
       default: {
-        SelectedPanelRepository.set(
-          new Panel({
-            panelPosition: panelPosition,
-            panelState: panelState ? panelState : PanelState.SELECTED,
-            player: turn.player,
-            resource: 0,
-            castle: 0,
-          }),
-        );
+        // Do nothing for panel background clicks when not in MOVABLE/SELECTED state
+        // This satisfies "駒のクリックのみで移動を開始してください"
+        return;
       }
     }
     this.stateChange(panelPosition);
+  }
+
+  static pieceChange(piece: Piece) {
+    const turn = TurnRepository.get();
+    if (piece.player !== turn.player) return;
+
+    SelectedPanelRepository.set(
+      new Panel({
+        panelPosition: piece.panelPosition,
+        panelState: PanelState.SELECTED,
+        player: piece.player,
+        resource: 0,
+        castle: 0,
+      }),
+      piece.id,
+    );
+    this.stateChange(piece.panelPosition);
   }
 
   static stateChange(panelPosition: PanelPosition) {
@@ -136,7 +141,9 @@ export class GameRulesService {
       }
       case PanelState.OCCUPIED: {
         const selectedPieces = PiecesRepository.getPiecesByPosition(panelPosition);
-        const selectedPiece = selectedPieces[0];
+        const selectedPieceId = SelectedPanelRepository.getPieceId();
+        const selectedPiece =
+          selectedPieces.find((p) => p.id === selectedPieceId) ?? selectedPieces[0];
         const referencePosition = selectedPiece?.initialPosition ?? panelPosition;
 
         panel = new Panel({
@@ -152,13 +159,16 @@ export class GameRulesService {
         const initialPanel = PanelsService.find(referencePosition);
         const targetPanels = initialPanel ? [initialPanel, ...adjacentPanels] : adjacentPanels;
 
+        const turn = TurnRepository.get();
+        const maxPieces = turn.maxPiecesPerPanel[String(selectedPiece.player)] ?? 2;
+
         targetPanels
           .filter((p: Panel) => !p.panelPosition.equals(panelPosition))
           .forEach((targetPanel: Panel) => {
             const pieces = PiecesRepository.getPiecesByPosition(targetPanel.panelPosition);
-            const hasFriendlyPiece = pieces.some((p) => p.player === selectedPiece.player);
+            const friendlyPieces = pieces.filter((p) => p.player === selectedPiece.player);
 
-            if (!hasFriendlyPiece) {
+            if (friendlyPieces.length < maxPieces) {
               PanelRepository.update(
                 new Panel({
                   panelPosition: targetPanel.panelPosition,

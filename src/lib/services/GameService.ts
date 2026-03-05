@@ -1,14 +1,11 @@
-import { Panel } from "$lib/domain/entities/Panel";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
 import { GameRulesService } from "./GameRulesService";
 import { TurnAndAiService } from "./TurnAndAiService";
-import { Piece } from "$lib/domain/entities/Piece";
+import type { Piece } from "$lib/domain/entities/Piece";
 
 export class GameService {
   static initialize({ layer: layer }: { layer: number }) {
@@ -32,6 +29,10 @@ export class GameService {
 
   static panelChange(panelPosition: PanelPosition) {
     GameRulesService.panelChange(panelPosition);
+  }
+
+  static pieceChange(piece: Piece) {
+    GameRulesService.pieceChange(piece);
   }
 
   static stateChange(panelPosition: PanelPosition) {

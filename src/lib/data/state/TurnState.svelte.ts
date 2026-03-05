@@ -8,6 +8,10 @@ let _turn = $state<Turn>({
     [String(Player.SELF)]: 0,
     [String(Player.OPPONENT)]: 0,
   },
+  maxPiecesPerPanel: {
+    [String(Player.SELF)]: 2,
+    [String(Player.OPPONENT)]: 2,
+  },
 });
 
 export function get(): Turn {

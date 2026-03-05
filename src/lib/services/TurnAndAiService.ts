@@ -22,6 +22,10 @@ export class TurnAndAiService {
         [String(Player.SELF)]: 0,
         [String(Player.OPPONENT)]: 0,
       },
+      maxPiecesPerPanel: {
+        [String(Player.SELF)]: 2,
+        [String(Player.OPPONENT)]: 2,
+      },
     });
     this.addResources(Player.SELF);
   }
@@ -88,7 +92,7 @@ export class TurnAndAiService {
     // If there are unmoved pieces, move one
     if (unmovedPieces.length > 0) {
       const randomPiece = unmovedPieces[Math.floor(Math.random() * unmovedPieces.length)];
-      GameRulesService.panelChange(randomPiece.panelPosition);
+      GameRulesService.pieceChange(randomPiece);
 
       setTimeout(() => {
         const movablePanels = PanelsService.filterMovablePanels();
@@ -115,9 +119,10 @@ export class TurnAndAiService {
       horizontalLayer: layer - 1,
       verticalLayer: 0,
     });
-    const isBaseOccupied = PiecesRepository.getPiecesByPosition(generatePosition).length > 0;
+    const maxPieces = turn.maxPiecesPerPanel[String(Player.OPPONENT)] ?? 2;
+    const isBaseFull = PiecesRepository.getPiecesByPosition(generatePosition).length >= maxPieces;
 
-    if (!isBaseOccupied) {
+    if (!isBaseFull) {
       const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
       const affordablePieceTypes = pieceTypes.filter((t) => t.config.cost <= opponentResources);
 
