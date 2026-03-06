@@ -12,6 +12,8 @@
   import MoveArrows from "./MoveArrows.svelte";
   import { slide } from "svelte/transition";
   import { BoardLayoutService } from "$lib/services/BoardLayoutService";
+  import { m } from "$lib/paraglide/messages";
+  import type { GenerationMode } from "$lib/domain/entities/Turn";
 
   let turn = $derived(TurnRepository.get());
   let selfResources = $derived(turn.resources[String(Player.SELF)] ?? 0);
@@ -47,6 +49,23 @@
   let turnColor = $derived(
     turn.player === Player.SELF ? "text-white border-white" : "text-black border-black",
   );
+
+  let generationMode = $derived<GenerationMode>(
+    (turn.generationMode[String(Player.SELF)] as GenerationMode) ?? "rear",
+  );
+
+  function toggleGenerationMode() {
+    const currentTurn = TurnRepository.get();
+    const currentMode = currentTurn.generationMode[String(Player.SELF)] ?? "rear";
+    const newMode: GenerationMode = currentMode === "rear" ? "front" : "rear";
+    TurnRepository.set({
+      ...currentTurn,
+      generationMode: {
+        ...currentTurn.generationMode,
+        [String(Player.SELF)]: newMode,
+      },
+    });
+  }
 </script>
 
 <div class="m-2 flex justify-center gap-4">
@@ -95,7 +114,16 @@
 
     <div class="text-2xl">{selfResources}</div>
   </div>
-
+  <button
+    type="button"
+    class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hover:ring-primary dark:hover:ring-primary-dark flex items-center gap-1 rounded-3xl border px-3 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none"
+    onclick={toggleGenerationMode}
+  >
+    <Icon icon={generationMode === "rear" ? "arrow_back" : "arrow_forward"} size={20} />
+    <span class="text-sm"
+      >{generationMode === "rear" ? m.generation_rear() : m.generation_front()}</span
+    >
+  </button>
   <GeneratePieceButton pieceType={PieceType.KNIGHT} />
   <GeneratePieceButton pieceType={PieceType.ROOK} />
   <GeneratePieceButton pieceType={PieceType.BISHOP} />

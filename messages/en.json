@@ -2,5 +2,11 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "produce": "Produce",
   "piece_cost_tooltip": "{piece} (Cost: {cost}, HP: {hp}, AP-Piece: {apPiece}, AP-Wall: {apWall})",
-  "end_turn": "End Turn"
+  "end_turn": "End Turn",
+  "victory_title": "Victory",
+  "victory_message": "You captured the enemy base!",
+  "defeat_title": "Defeat",
+  "defeat_message": "Your base has been captured...",
+  "generation_front": "Front",
+  "generation_rear": "Rear"
 }

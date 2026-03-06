@@ -16,14 +16,16 @@ export class PanelsService {
         } else if (hl === layer - 1 && vl === 0) {
           initPlayer = Player.OPPONENT;
         }
-        const initResource = Math.abs(hl) === layer - 1 && vl === 0 ? 5 : 0;
+        const isHomeBase = Math.abs(hl) === layer - 1 && vl === 0;
+        const initResource = isHomeBase ? 5 : 0;
+        const initCastle = isHomeBase ? 10 : 0;
         panels.push(
           new Panel({
             panelPosition: new PanelPosition({ horizontalLayer: hl, verticalLayer: vl }),
             panelState: PanelState.UNOCCUPIED,
             player: initPlayer,
             resource: initResource,
-            castle: initResource,
+            castle: initCastle,
           }),
         );
       }

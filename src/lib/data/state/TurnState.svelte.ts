@@ -12,6 +12,11 @@ let _turn = $state<Turn>({
     [String(Player.SELF)]: 2,
     [String(Player.OPPONENT)]: 2,
   },
+  generationMode: {
+    [String(Player.SELF)]: "rear",
+    [String(Player.OPPONENT)]: "rear",
+  },
+  winner: null,
 });
 
 export function get(): Turn {

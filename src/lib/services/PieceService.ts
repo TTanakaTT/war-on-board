@@ -50,22 +50,46 @@ export class PieceService {
     }
   }
 
+  /**
+   * Execute a move action for a piece toward a target panel.
+   *
+   * Castle-first rule: if the target panel has castle > 0 and belongs to an
+   * enemy, only the wall is attacked — units behind it cannot be attacked
+   * and the attacker stays in place.
+   */
   static executeMove(attacker: Piece, targetPosition: PanelPosition): void {
     const targetPanel = PanelRepository.find(targetPosition);
+    let currentAttacker = attacker;
+
+    // Castle-first rule: wall must be destroyed before attacking units or moving in
+    if (
+      targetPanel &&
+      targetPanel.player !== currentAttacker.player &&
+      targetPanel.player !== Player.UNKNOWN &&
+      targetPanel.castle > 0
+    ) {
+      this.attackWall(currentAttacker, targetPanel);
+      // Piece stays in current position after siege
+      const updatedPiece = new Piece({
+        ...currentAttacker,
+        targetPosition: undefined,
+      });
+      PiecesRepository.update(updatedPiece);
+      return;
+    }
+
+    // No castle — proceed with normal combat
     const existingPieces = PiecesRepository.getPiecesByPosition(targetPosition);
     const existingEnemyPieces = existingPieces.filter((p) => p.player !== attacker.player);
 
     let attackerDead = false;
     let defenderDead = false;
-    let currentAttacker = attacker;
-    let currentTargetPanel = targetPanel;
 
     if (existingEnemyPieces.length > 0) {
       const combatResult = this.attackPiece(currentAttacker, existingEnemyPieces[0]);
       attackerDead = combatResult.attackerDead;
       defenderDead = combatResult.defenderDead;
       if (!attackerDead) {
-        // Refetch attacker as its HP might have changed
         const updatedAttacker = PiecesRepository.getAll().find((p) => p.id === currentAttacker.id);
         if (updatedAttacker) {
           currentAttacker = updatedAttacker;
@@ -73,26 +97,13 @@ export class PieceService {
       }
     }
 
-    // Only attack wall if no enemy pieces are left and attacker is still alive
-    if (
-      !attackerDead &&
-      (existingEnemyPieces.length === 0 || defenderDead) &&
-      currentTargetPanel &&
-      currentTargetPanel.player !== currentAttacker.player &&
-      currentTargetPanel.castle > 0
-    ) {
-      this.attackWall(currentAttacker, currentTargetPanel);
-      // Fetch updated panel (with new castle value)
-      currentTargetPanel = PanelRepository.find(targetPosition) || targetPanel;
-    }
-
     if (!attackerDead) {
       const noMoreEnemies = existingEnemyPieces.length === 0 || defenderDead;
       const noMoreWall =
-        !currentTargetPanel ||
-        currentTargetPanel.player === currentAttacker.player ||
-        currentTargetPanel.player === Player.UNKNOWN ||
-        currentTargetPanel.castle <= 0;
+        !targetPanel ||
+        targetPanel.player === currentAttacker.player ||
+        targetPanel.player === Player.UNKNOWN ||
+        targetPanel.castle <= 0;
 
       if (noMoreEnemies && noMoreWall) {
         this.move(targetPosition, currentAttacker);
@@ -101,12 +112,11 @@ export class PieceService {
             panelPosition: targetPosition,
             panelState: targetPanel?.panelState ?? PanelState.OCCUPIED,
             player: currentAttacker.player,
-            resource: currentTargetPanel?.resource ?? 0,
-            castle: currentTargetPanel?.castle ?? 0,
+            resource: targetPanel?.resource ?? 0,
+            castle: targetPanel?.castle ?? 0,
           }),
         );
       } else {
-        // Did not move, but maybe HP changed, so update it and clear target
         const updatedPiece = new Piece({
           ...currentAttacker,
           targetPosition: undefined,
@@ -130,10 +140,12 @@ export class PieceService {
           }),
         );
       } else if (piece.pieceType === PieceType.ROOK) {
+        // Increase castle by 1, cap growth at 5 but never reduce existing values above 5 (e.g. home base=10)
+        const increased = Math.min(5, (panel.castle || 0) + 1);
         PanelRepository.update(
           new Panel({
             ...panel,
-            castle: Math.min(5, (panel.castle || 0) + 1),
+            castle: Math.max(panel.castle, increased),
           }),
         );
       } else {

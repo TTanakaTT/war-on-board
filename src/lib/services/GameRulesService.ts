@@ -8,11 +8,93 @@ import { PanelsService } from "$lib/services/PanelService";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { LayerRepository } from "$lib/data/repositories/LayerRepository";
+import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
 import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
 import { PieceService } from "$lib/services/PieceService";
 
+const RESOURCE_THRESHOLD_FOR_GENERATION = 5;
+
 export class GameRulesService {
+  /**
+   * Check if a panel has enemy presence (enemy pieces or castle) for a given player.
+   */
+  static hasEnemyPresence(position: PanelPosition, player: Player): boolean {
+    const enemyPieces = PiecesRepository.getPiecesByPosition(position).filter(
+      (p) => p.player !== player && p.player !== Player.UNKNOWN,
+    );
+    if (enemyPieces.length > 0) return true;
+    const panel = PanelRepository.find(position);
+    return (
+      !!panel && panel.player !== player && panel.player !== Player.UNKNOWN && panel.castle > 0
+    );
+  }
+
+  /**
+   * Compute projected friendly piece count at a position after all planned moves resolve.
+   * Pieces targeting enemy panels (with enemy pieces or castle) are conservatively
+   * counted at their current position since combat may prevent them from moving.
+   */
+  static projectedFriendlyCount(
+    position: PanelPosition,
+    player: Player,
+    excludePieceId?: number,
+  ): number {
+    const allFriendly = PiecesRepository.getPiecesByPlayer(player);
+    let count = 0;
+    for (const piece of allFriendly) {
+      if (piece.id === excludePieceId) continue;
+      let destination: PanelPosition;
+      if (piece.targetPosition) {
+        const isAttack = this.hasEnemyPresence(piece.targetPosition, player);
+        destination = isAttack ? piece.panelPosition : piece.targetPosition;
+      } else {
+        destination = piece.panelPosition;
+      }
+      if (destination.equals(position)) count++;
+    }
+    return count;
+  }
+
+  /**
+   * Find the best panel for unit generation.
+   * "rear" mode: home base > higher |horizontalLayer| (closer to home).
+   * "front" mode: home base > lower |horizontalLayer| (closer to enemy).
+   * Conditions: owned by player, resource >= 5, not at max capacity.
+   */
+  static findGenerationPanel(player: Player): PanelPosition | null {
+    const turn = TurnRepository.get();
+    const maxPieces = turn.maxPiecesPerPanel[String(player)] ?? 2;
+    const homeBase = HomeBaseRepository.getByPlayer(player);
+    const mode = turn.generationMode[String(player)] ?? "rear";
+
+    const candidates = PanelRepository.getAll().filter((panel) => {
+      if (panel.player !== player) return false;
+      if (panel.resource < RESOURCE_THRESHOLD_FOR_GENERATION) return false;
+      if (PiecesRepository.getPiecesByPosition(panel.panelPosition).length >= maxPieces)
+        return false;
+      return true;
+    });
+
+    if (candidates.length === 0) return null;
+
+    candidates.sort((a, b) => {
+      // Home base priority only in rear mode
+      if (mode === "rear") {
+        const aIsHome = homeBase?.panelPosition.equals(a.panelPosition) ? 0 : 1;
+        const bIsHome = homeBase?.panelPosition.equals(b.panelPosition) ? 0 : 1;
+        if (aIsHome !== bIsHome) return aIsHome - bIsHome;
+      }
+
+      const aAbsHL = Math.abs(a.panelPosition.horizontalLayer);
+      const bAbsHL = Math.abs(b.panelPosition.horizontalLayer);
+      if (aAbsHL !== bAbsHL) return mode === "rear" ? bAbsHL - aAbsHL : aAbsHL - bAbsHL;
+
+      return a.panelPosition.verticalLayer - b.panelPosition.verticalLayer;
+    });
+
+    return candidates[0].panelPosition;
+  }
+
   static generate(pieceType: PieceType = PieceType.KNIGHT) {
     const turn = TurnRepository.get();
     const cost = pieceType.config.cost;
@@ -25,18 +107,13 @@ export class GameRulesService {
       return;
     }
 
-    const layer = LayerRepository.get();
-    const generatePosition = new PanelPosition({
-      horizontalLayer: turn.player === Player.SELF ? -(layer - 1) : layer - 1,
-      verticalLayer: 0,
-    });
-    const maxPieces = turn.maxPiecesPerPanel[String(turn.player)] ?? 2;
-    if (PiecesRepository.getPiecesByPosition(generatePosition).length >= maxPieces) {
-      console.warn(
-        `Cannot generate piece at ${generatePosition.horizontalLayer}, ${generatePosition.verticalLayer} because it has reached the maximum number of pieces.`,
-      );
+    const generatePosition = this.findGenerationPanel(turn.player);
+    if (!generatePosition) {
+      console.warn(`No available panel for unit generation.`);
       return;
     }
+
+    const existingPanel = PanelRepository.find(generatePosition);
 
     // Consume resources
     const newResources = { ...turn.resources };
@@ -56,8 +133,8 @@ export class GameRulesService {
         panelPosition: generatePosition,
         panelState: PanelState.OCCUPIED,
         player: turn.player,
-        resource: 5,
-        castle: 5,
+        resource: existingPanel?.resource ?? 5,
+        castle: existingPanel?.castle ?? 0,
       }),
     );
   }
@@ -70,6 +147,18 @@ export class GameRulesService {
         const selectedPieceId = SelectedPanelRepository.getPieceId();
         const selectedPiece = PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
         if (selectedPiece && selectedPiece.targetPosition) {
+          // Prevent cancel if it would cause cap violation at the piece's current panel
+          const turn = TurnRepository.get();
+          const maxPieces = turn.maxPiecesPerPanel[String(selectedPiece.player)] ?? 2;
+          const projectedAtCurrent = this.projectedFriendlyCount(
+            selectedPiece.panelPosition,
+            selectedPiece.player,
+            selectedPiece.id,
+          );
+          if (projectedAtCurrent + 1 > maxPieces) {
+            return;
+          }
+
           const updatedPiece = new Piece({
             id: selectedPiece.id,
             panelPosition: selectedPiece.panelPosition,
@@ -113,6 +202,29 @@ export class GameRulesService {
   static pieceChange(piece: Piece) {
     const turn = TurnRepository.get();
     if (piece.player !== turn.player) return;
+
+    const currentSelectedPieceId = SelectedPanelRepository.getPieceId();
+
+    // Re-clicking the same piece with a pending move: cancel the move
+    if (currentSelectedPieceId === piece.id && piece.targetPosition) {
+      const maxPieces = turn.maxPiecesPerPanel[String(piece.player)] ?? 2;
+      const projectedAtCurrent = this.projectedFriendlyCount(
+        piece.panelPosition,
+        piece.player,
+        piece.id,
+      );
+      if (projectedAtCurrent + 1 <= maxPieces) {
+        const updatedPiece = new Piece({
+          ...piece,
+          targetPosition: undefined,
+        });
+        PiecesRepository.update(updatedPiece);
+      }
+      const cleared = PanelsService.clearSelected();
+      PanelRepository.setAll(cleared);
+      SelectedPanelRepository.set(undefined);
+      return;
+    }
 
     SelectedPanelRepository.set(
       new Panel({
@@ -165,20 +277,26 @@ export class GameRulesService {
         targetPanels
           .filter((p: Panel) => !p.panelPosition.equals(panelPosition))
           .forEach((targetPanel: Panel) => {
-            const pieces = PiecesRepository.getPiecesByPosition(targetPanel.panelPosition);
-            const friendlyPieces = pieces.filter((p) => p.player === selectedPiece.player);
-
-            if (friendlyPieces.length < maxPieces) {
-              PanelRepository.update(
-                new Panel({
-                  panelPosition: targetPanel.panelPosition,
-                  panelState: PanelState.MOVABLE,
-                  player: targetPanel.player,
-                  resource: targetPanel.resource,
-                  castle: targetPanel.castle,
-                }),
+            // Enemy panels are always movable (attack target, cap irrelevant)
+            const isAttack = this.hasEnemyPresence(targetPanel.panelPosition, selectedPiece.player);
+            if (!isAttack) {
+              const projectedCount = this.projectedFriendlyCount(
+                targetPanel.panelPosition,
+                selectedPiece.player,
+                selectedPiece.id,
               );
+              if (projectedCount + 1 > maxPieces) return;
             }
+
+            PanelRepository.update(
+              new Panel({
+                panelPosition: targetPanel.panelPosition,
+                panelState: PanelState.MOVABLE,
+                player: targetPanel.player,
+                resource: targetPanel.resource,
+                castle: targetPanel.castle,
+              }),
+            );
           });
         const allPanels = PanelRepository.getAll();
         const targetPositions = targetPanels.map((p: Panel) => p.panelPosition);

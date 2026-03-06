@@ -1,14 +1,13 @@
 import { Player } from "$lib/domain/enums/Player";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { Piece } from "$lib/domain/entities/Piece";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { LayerRepository } from "$lib/data/repositories/LayerRepository";
 import { GameRulesService } from "./GameRulesService";
 import { PieceService } from "./PieceService";
+import { VictoryService } from "./VictoryService";
 
 export class TurnAndAiService {
   private static movedPieceIds: Set<number> = new Set();
@@ -26,6 +25,11 @@ export class TurnAndAiService {
         [String(Player.SELF)]: 2,
         [String(Player.OPPONENT)]: 2,
       },
+      generationMode: {
+        [String(Player.SELF)]: "rear",
+        [String(Player.OPPONENT)]: "rear",
+      },
+      winner: null,
     });
     this.addResources(Player.SELF);
   }
@@ -38,29 +42,36 @@ export class TurnAndAiService {
     this.movedPieceIds.clear();
     const currentTurn = TurnRepository.get();
 
+    // Do not proceed if game is over
+    if (currentTurn.winner) return;
+
     // 1. Finalize current player's actions
     PieceService.finalizePlayerMoves(currentTurn.player);
     PanelsService.refreshPanelStates();
 
-    // 2. Determine next player
+    // 2. Check victory after moves are resolved
+    VictoryService.applyVictory();
+    if (TurnRepository.get().winner) return;
+
+    // 3. Determine next player
     const nextPlayer = currentTurn.player === Player.SELF ? Player.OPPONENT : Player.SELF;
     const nextNum = currentTurn.player === Player.OPPONENT ? currentTurn.num + 1 : currentTurn.num;
 
-    // 3. Prepare for next player's turn
+    // 4. Prepare for next player's turn
     PieceService.resetInitialPositions(nextPlayer);
     PieceService.applyPassiveGains(nextPlayer);
 
-    // 4. Update Turn Repository with new player and turn number
+    // 5. Update Turn Repository with new player and turn number
     TurnRepository.set({
-      ...TurnRepository.get(), // Get most recent state
+      ...TurnRepository.get(),
       player: nextPlayer,
       num: nextNum,
     });
 
-    // 5. Add resources for the start of the NEW turn
+    // 6. Add resources for the start of the NEW turn
     this.addResources(nextPlayer);
 
-    // 6. Handle turn start actions
+    // 7. Handle turn start actions
     if (nextPlayer === Player.OPPONENT) {
       setTimeout(() => {
         this.doOpponentTurn();
@@ -81,7 +92,7 @@ export class TurnAndAiService {
 
   static doOpponentTurn() {
     const turn = TurnRepository.get();
-    if (turn.player !== Player.OPPONENT) return;
+    if (turn.player !== Player.OPPONENT || turn.winner) return;
 
     const opponentPieces = PiecesRepository.getPiecesByPlayer(Player.OPPONENT);
     const opponentResources = turn.resources[String(Player.OPPONENT)] ?? 0;
@@ -113,16 +124,9 @@ export class TurnAndAiService {
       return;
     }
 
-    // After moving pieces, try to produce a piece if the base is empty and we have money
-    const layer = LayerRepository.get();
-    const generatePosition = new PanelPosition({
-      horizontalLayer: layer - 1,
-      verticalLayer: 0,
-    });
-    const maxPieces = turn.maxPiecesPerPanel[String(Player.OPPONENT)] ?? 2;
-    const isBaseFull = PiecesRepository.getPiecesByPosition(generatePosition).length >= maxPieces;
-
-    if (!isBaseFull) {
+    // After moving pieces, try to produce a piece using the new generation logic
+    const generatePosition = GameRulesService.findGenerationPanel(Player.OPPONENT);
+    if (generatePosition) {
       const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
       const affordablePieceTypes = pieceTypes.filter((t) => t.config.cost <= opponentResources);
 
@@ -130,7 +134,6 @@ export class TurnAndAiService {
         const randomPieceType =
           affordablePieceTypes[Math.floor(Math.random() * affordablePieceTypes.length)];
         GameRulesService.generate(randomPieceType);
-        // Turn ends after production in this simple AI
       }
     }
 

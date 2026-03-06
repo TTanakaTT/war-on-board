@@ -1,8 +1,11 @@
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { PieceType } from "$lib/domain/enums/PieceType";
+import { Player } from "$lib/domain/enums/Player";
+import { HomeBase } from "$lib/domain/entities/HomeBase";
 import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
+import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
 import { GameRulesService } from "./GameRulesService";
 import { TurnAndAiService } from "./TurnAndAiService";
 import type { Piece } from "$lib/domain/entities/Piece";
@@ -12,6 +15,18 @@ export class GameService {
     const panels = PanelsService.initialize(layer);
     PanelRepository.setAll(panels);
     LayerRepository.set(layer);
+
+    HomeBaseRepository.setAll([
+      new HomeBase({
+        player: Player.SELF,
+        panelPosition: new PanelPosition({ horizontalLayer: -(layer - 1), verticalLayer: 0 }),
+      }),
+      new HomeBase({
+        player: Player.OPPONENT,
+        panelPosition: new PanelPosition({ horizontalLayer: layer - 1, verticalLayer: 0 }),
+      }),
+    ]);
+
     TurnAndAiService.setOnTurnEnd(() => GameService.nextTurn());
     TurnAndAiService.initializeTurn();
   }
