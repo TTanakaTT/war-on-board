@@ -6,7 +6,8 @@ import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
 import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
-import { GameRulesService } from "./GameRulesService";
+import { InteractionService } from "./InteractionService";
+import { GenerationService } from "./GenerationService";
 import { TurnAndAiService } from "./TurnAndAiService";
 import type { Piece } from "$lib/domain/entities/Piece";
 
@@ -39,18 +40,18 @@ export class GameService {
     TurnAndAiService.doOpponentTurn();
   }
   static generate(pieceType: PieceType = PieceType.KNIGHT) {
-    GameRulesService.generate(pieceType);
+    GenerationService.generate(pieceType);
   }
 
   static panelChange(panelPosition: PanelPosition) {
-    GameRulesService.panelChange(panelPosition);
+    InteractionService.panelChange(panelPosition);
   }
 
   static pieceChange(piece: Piece) {
-    GameRulesService.pieceChange(piece);
+    InteractionService.pieceChange(piece);
   }
 
   static stateChange(panelPosition: PanelPosition) {
-    GameRulesService.stateChange(panelPosition);
+    InteractionService.stateChange(panelPosition);
   }
 }

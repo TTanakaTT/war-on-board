@@ -5,8 +5,9 @@ import { Player } from "$lib/domain/enums/Player";
 import { Panel } from "$lib/domain/entities/Panel";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PanelState } from "$lib/domain/enums/PanelState";
-
 import { PieceType } from "$lib/domain/enums/PieceType";
+import { CombatService } from "$lib/services/CombatService";
+import { PASSIVE_RESOURCE_CAP, PASSIVE_CASTLE_CAP } from "$lib/domain/constants/GameConstants";
 
 export class PieceService {
   static find(panelPosition: PanelPosition): Piece | undefined {
@@ -68,7 +69,7 @@ export class PieceService {
       targetPanel.player !== Player.UNKNOWN &&
       targetPanel.castle > 0
     ) {
-      this.attackWall(currentAttacker, targetPanel);
+      CombatService.attackWall(currentAttacker, targetPanel);
       // Piece stays in current position after siege
       const updatedPiece = new Piece({
         ...currentAttacker,
@@ -86,7 +87,7 @@ export class PieceService {
     let defenderDead = false;
 
     if (existingEnemyPieces.length > 0) {
-      const combatResult = this.attackPiece(currentAttacker, existingEnemyPieces[0]);
+      const combatResult = CombatService.attackPiece(currentAttacker, existingEnemyPieces[0]);
       attackerDead = combatResult.attackerDead;
       defenderDead = combatResult.defenderDead;
       if (!attackerDead) {
@@ -136,12 +137,12 @@ export class PieceService {
         PanelRepository.update(
           new Panel({
             ...panel,
-            resource: Math.min(5, (panel.resource || 0) + 1),
+            resource: Math.min(PASSIVE_RESOURCE_CAP, (panel.resource || 0) + 1),
           }),
         );
       } else if (piece.pieceType === PieceType.ROOK) {
-        // Increase castle by 1, cap growth at 5 but never reduce existing values above 5 (e.g. home base=10)
-        const increased = Math.min(5, (panel.castle || 0) + 1);
+        // Increase castle by 1, cap growth at PASSIVE_CASTLE_CAP but never reduce existing values above it (e.g. home base=10)
+        const increased = Math.min(PASSIVE_CASTLE_CAP, (panel.castle || 0) + 1);
         PanelRepository.update(
           new Panel({
             ...panel,
@@ -170,72 +171,5 @@ export class PieceService {
         this.executeMove(piece, piece.targetPosition);
       }
     }
-  }
-
-  static attackPiece(
-    attacker: Piece,
-    defender: Piece,
-  ): { attackerDead: boolean; defenderDead: boolean } {
-    const damageToDefender = attacker.pieceType.config.attackPowerAgainstPiece;
-    const damageToAttacker = defender.pieceType.config.attackPowerAgainstPiece;
-
-    const newDefenderHp = defender.hp - damageToDefender;
-    const newAttackerHp = attacker.hp - damageToAttacker;
-
-    let attackerDead = false;
-    let defenderDead = false;
-
-    if (newDefenderHp <= 0) {
-      PiecesRepository.remove(defender);
-      defenderDead = true;
-    } else {
-      const newDefender = new Piece({
-        id: defender.id,
-        panelPosition: defender.panelPosition,
-        initialPosition: defender.initialPosition,
-        player: defender.player,
-        pieceType: defender.pieceType,
-        hp: newDefenderHp,
-      });
-      PiecesRepository.update(newDefender);
-    }
-
-    if (newAttackerHp <= 0) {
-      PiecesRepository.remove(attacker);
-      attackerDead = true;
-    } else {
-      const newAttacker = new Piece({
-        id: attacker.id,
-        panelPosition: attacker.panelPosition,
-        initialPosition: attacker.initialPosition,
-        player: attacker.player,
-        pieceType: attacker.pieceType,
-        hp: newAttackerHp,
-      });
-      PiecesRepository.update(newAttacker);
-    }
-
-    return { attackerDead, defenderDead };
-  }
-
-  static attackWall(attacker: Piece, panel: Panel): { wallDestroyed: boolean } {
-    const damage = attacker.pieceType.config.attackPowerAgainstWall;
-    const newCastleValue = Math.max(0, panel.castle - damage);
-
-    let wallDestroyed = false;
-    if (newCastleValue <= 0) {
-      wallDestroyed = true;
-    }
-
-    const newPanel = new Panel({
-      panelPosition: panel.panelPosition,
-      panelState: panel.panelState,
-      player: panel.player,
-      resource: panel.resource,
-      castle: newCastleValue,
-    });
-
-    PanelRepository.update(newPanel);
-    return { wallDestroyed };
   }
 }

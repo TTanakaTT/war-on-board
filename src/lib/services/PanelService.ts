@@ -4,6 +4,10 @@ import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { Player } from "$lib/domain/enums/Player";
+import {
+  HOME_BASE_INIT_RESOURCE,
+  HOME_BASE_INIT_CASTLE,
+} from "$lib/domain/constants/GameConstants";
 
 export class PanelsService {
   static initialize(layer: number): Panel[] {
@@ -17,8 +21,8 @@ export class PanelsService {
           initPlayer = Player.OPPONENT;
         }
         const isHomeBase = Math.abs(hl) === layer - 1 && vl === 0;
-        const initResource = isHomeBase ? 5 : 0;
-        const initCastle = isHomeBase ? 10 : 0;
+        const initResource = isHomeBase ? HOME_BASE_INIT_RESOURCE : 0;
+        const initCastle = isHomeBase ? HOME_BASE_INIT_CASTLE : 0;
         panels.push(
           new Panel({
             panelPosition: new PanelPosition({ horizontalLayer: hl, verticalLayer: vl }),

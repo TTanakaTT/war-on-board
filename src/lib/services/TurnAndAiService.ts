@@ -5,7 +5,8 @@ import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { GameRulesService } from "./GameRulesService";
+import { InteractionService } from "./InteractionService";
+import { GenerationService } from "./GenerationService";
 import { PieceService } from "./PieceService";
 import { VictoryService } from "./VictoryService";
 
@@ -103,20 +104,20 @@ export class TurnAndAiService {
     // If there are unmoved pieces, move one
     if (unmovedPieces.length > 0) {
       const randomPiece = unmovedPieces[Math.floor(Math.random() * unmovedPieces.length)];
-      GameRulesService.pieceChange(randomPiece);
+      InteractionService.pieceChange(randomPiece);
 
       setTimeout(() => {
         const movablePanels = PanelsService.filterMovablePanels();
         if (movablePanels.length === 0) {
           // No movable panels, so this piece stays in place (mark as moved)
           this.movedPieceIds.add(randomPiece.id);
-          GameRulesService.panelChange(randomPiece.panelPosition);
+          InteractionService.panelChange(randomPiece.panelPosition);
           setTimeout(() => this.doOpponentTurn(), 1000);
           return;
         }
 
         const randomPanel = movablePanels[Math.floor(Math.random() * movablePanels.length)];
-        GameRulesService.panelChange(randomPanel.panelPosition);
+        InteractionService.panelChange(randomPanel.panelPosition);
         this.movedPieceIds.add(randomPiece.id);
 
         setTimeout(() => this.doOpponentTurn(), 1000);
@@ -125,7 +126,7 @@ export class TurnAndAiService {
     }
 
     // After moving pieces, try to produce a piece using the new generation logic
-    const generatePosition = GameRulesService.findGenerationPanel(Player.OPPONENT);
+    const generatePosition = GenerationService.findGenerationPanel(Player.OPPONENT);
     if (generatePosition) {
       const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
       const affordablePieceTypes = pieceTypes.filter((t) => t.config.cost <= opponentResources);
@@ -133,7 +134,7 @@ export class TurnAndAiService {
       if (affordablePieceTypes.length > 0) {
         const randomPieceType =
           affordablePieceTypes[Math.floor(Math.random() * affordablePieceTypes.length)];
-        GameRulesService.generate(randomPieceType);
+        GenerationService.generate(randomPieceType);
       }
     }
 
