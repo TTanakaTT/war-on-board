@@ -1,6 +1,7 @@
 // Board initialization
 export const HOME_BASE_INIT_RESOURCE = 5;
 export const HOME_BASE_INIT_CASTLE = 10;
+export const PLAYER_INIT_RESOURCE = 5;
 
 // Passive growth caps (per-turn gain ceiling, does NOT reduce existing values above cap)
 export const PASSIVE_RESOURCE_CAP = 5;

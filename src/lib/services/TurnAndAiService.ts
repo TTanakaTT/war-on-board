@@ -5,6 +5,7 @@ import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
+import { PLAYER_INIT_RESOURCE } from "$lib/domain/constants/GameConstants";
 import { InteractionService } from "./InteractionService";
 import { GenerationService } from "./GenerationService";
 import { PieceService } from "./PieceService";
@@ -19,8 +20,8 @@ export class TurnAndAiService {
       player: Player.SELF,
       num: 1,
       resources: {
-        [String(Player.SELF)]: 0,
-        [String(Player.OPPONENT)]: 0,
+        [String(Player.SELF)]: PLAYER_INIT_RESOURCE,
+        [String(Player.OPPONENT)]: PLAYER_INIT_RESOURCE,
       },
       maxPiecesPerPanel: {
         [String(Player.SELF)]: 2,
@@ -33,6 +34,7 @@ export class TurnAndAiService {
       winner: null,
     });
     this.addResources(Player.SELF);
+    this.addResources(Player.OPPONENT);
   }
 
   static setOnTurnEnd(handler: () => void) {

@@ -72,10 +72,13 @@ GameService
 
 ### Constants (`domain/constants/GameConstants.ts`)
 
+Game-wide numeric constants must be placed under `src/lib/domain/constants`.
+
 | Constant                            | Value | Usage                                     |
 | ----------------------------------- | ----- | ----------------------------------------- |
 | `HOME_BASE_INIT_RESOURCE`           | 5     | Initial resource on home base panels      |
 | `HOME_BASE_INIT_CASTLE`             | 10    | Initial castle on home base panels        |
+| `PLAYER_INIT_RESOURCE`              | 5     | Initial held resource seed (both players) |
 | `PASSIVE_RESOURCE_CAP`              | 5     | Max resource from BISHOP passive growth   |
 | `PASSIVE_CASTLE_CAP`                | 5     | Max castle from ROOK passive growth       |
 | `RESOURCE_THRESHOLD_FOR_GENERATION` | 5     | Min resource on panel to allow unit spawn |
