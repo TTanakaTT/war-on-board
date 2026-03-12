@@ -26,7 +26,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     iconName: "chess_rook",
     cost: 5,
     maxHp: 10,
-    attackPowerAgainstPiece: 0,
+    attackPowerAgainstPiece: 2,
     attackPowerAgainstWall: 2,
   },
   [PIECETYPE.BISHOP]: {

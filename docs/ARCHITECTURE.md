@@ -26,7 +26,7 @@ Dependencies flow **top → bottom**. No upward imports.
 | **InteractionService**   | `services/InteractionService.ts`   | Board interaction: piece selection, panel click, highlight computation     |
 | **MovementRulesService** | `services/MovementRulesService.ts` | Read-only movement queries: `canMoveTo`, `canCancelMove`, projected counts |
 | **GenerationService**    | `services/GenerationService.ts`    | Unit generation: find best panel, spawn piece, consume resources           |
-| **CombatService**        | `services/CombatService.ts`        | Combat resolution: piece-vs-piece, piece-vs-wall damage                    |
+| **CombatService**        | `services/CombatService.ts`        | Combat resolution: multi-unit simultaneous damage, wall siege              |
 | **PieceService**         | `services/PieceService.ts`         | Piece CRUD, move execution, passive gains (resource/castle growth)         |
 | **PanelService**         | `services/PanelService.ts`         | Panel initialization, adjacent lookup, state clearing, refresh             |
 | **TurnAndAiService**     | `services/TurnAndAiService.ts`     | Turn progression, resource accounting, AI opponent logic                   |
@@ -43,7 +43,7 @@ GameService
   │     └── PieceService.generateNextId
   └── TurnAndAiService.nextTurn / doOpponentTurn
         ├── PieceService.finalizePlayerMoves
-        │     └── CombatService.attackPiece / attackWall
+        │     └── CombatService.resolveCombat / attackWallMulti
         ├── PieceService.applyPassiveGains
         ├── VictoryService.applyVictory
         ├── InteractionService.pieceChange / panelChange
@@ -67,7 +67,7 @@ GameService
 | Type   | Cost | Max HP | AP vs Piece | AP vs Wall | Passive                  |
 | ------ | ---- | ------ | ----------- | ---------- | ------------------------ |
 | KNIGHT | 4    | 10     | 5           | 2          | Claims panel ownership   |
-| ROOK   | 5    | 10     | 0           | 2          | +1 castle/turn (cap 5)   |
+| ROOK   | 5    | 10     | 2           | 2          | +1 castle/turn (cap 5)   |
 | BISHOP | 5    | 5      | 0           | 0          | +1 resource/turn (cap 5) |
 
 ### Constants (`domain/constants/GameConstants.ts`)
@@ -141,17 +141,28 @@ After any selection action, `stateChange()` recomputes all panels:
 
 ---
 
-## Combat Flow (`PieceService.executeMove`)
+## Combat Flow (`PieceService.finalizePlayerMoves`)
 
 ```
-attacker has target →
-  ├── target panel has enemy castle > 0?
-  │     YES → CombatService.attackWall() → attacker stays
-  │     NO  ↓
-  ├── target has enemy pieces?
-  │     YES → CombatService.attackPiece() → simultaneous damage
-  │     NO  ↓
-  └── move attacker to target panel, claim ownership
+1. Snapshot all pieces with pending targetPosition
+2. Group attackers by target panel
+3. For each target panel group:
+   ├── target panel has enemy castle > 0?
+   │     YES → CombatService.attackWallMulti(all attackers, panel)
+   │           → all attackers stay in place
+   │     NO  ↓
+   ├── target has enemy pieces (defenders)?
+   │     YES → CombatService.resolveCombat(attackers, defenders)
+   │           Front-line selection: Rook > Knight > Bishop (low ID tiebreak)
+   │           All attackers deal AP → front-line defender (summed)
+   │           All defenders deal AP → front-line attacker (summed)
+   │           Simultaneous damage application
+   │           Overkill does NOT carry over to other units
+   │     NO  ↓
+   └── After resolution:
+         All enemies eliminated AND castle = 0?
+           YES → surviving attackers move to panel, claim ownership
+           NO  → surviving attackers stay, clear targetPosition
 ```
 
 Castle-first rule: walls must be destroyed before units can be attacked or the panel entered.

@@ -52,78 +52,76 @@ export class PieceService {
   }
 
   /**
-   * Execute a move action for a piece toward a target panel.
+   * Resolve combat/movement for a group of attackers targeting the same panel.
    *
-   * Castle-first rule: if the target panel has castle > 0 and belongs to an
-   * enemy, only the wall is attacked — units behind it cannot be attacked
-   * and the attacker stays in place.
+   * Flow:
+   *   1. Castle-first: if enemy castle > 0, all attackers hit the wall → stay
+   *   2. Multi-unit combat: front-line selection, simultaneous damage
+   *   3. If target cleared (no enemies, no wall): surviving attackers move in
    */
-  static executeMove(attacker: Piece, targetPosition: PanelPosition): void {
+  private static resolveTargetPanel(attackers: Piece[], targetPosition: PanelPosition): void {
     const targetPanel = PanelRepository.find(targetPosition);
-    let currentAttacker = attacker;
+    const attackerPlayer = attackers[0].player;
 
-    // Castle-first rule: wall must be destroyed before attacking units or moving in
-    if (
-      targetPanel &&
-      targetPanel.player !== currentAttacker.player &&
-      targetPanel.player !== Player.UNKNOWN &&
-      targetPanel.castle > 0
-    ) {
-      CombatService.attackWall(currentAttacker, targetPanel);
-      // Piece stays in current position after siege
-      const updatedPiece = new Piece({
-        ...currentAttacker,
-        targetPosition: undefined,
-      });
-      PiecesRepository.update(updatedPiece);
+    const isEnemyPanel =
+      targetPanel && targetPanel.player !== attackerPlayer && targetPanel.player !== Player.UNKNOWN;
+
+    // Castle-first rule: wall must be destroyed before engaging units
+    if (isEnemyPanel && targetPanel.castle > 0) {
+      CombatService.attackWallMulti(attackers, targetPanel);
+      for (const a of attackers) {
+        PiecesRepository.update(new Piece({ ...a, targetPosition: undefined }));
+      }
       return;
     }
 
-    // No castle — proceed with normal combat
-    const existingPieces = PiecesRepository.getPiecesByPosition(targetPosition);
-    const existingEnemyPieces = existingPieces.filter((p) => p.player !== attacker.player);
+    // Identify enemy defenders at the target panel
+    const defenders = PiecesRepository.getPiecesByPosition(targetPosition).filter(
+      (p) => p.player !== attackerPlayer,
+    );
 
-    let attackerDead = false;
-    let defenderDead = false;
+    let deadIds = new Set<number>();
+    if (defenders.length > 0) {
+      const result = CombatService.resolveCombat(attackers, defenders);
+      deadIds = result.deadIds;
+    }
 
-    if (existingEnemyPieces.length > 0) {
-      const combatResult = CombatService.attackPiece(currentAttacker, existingEnemyPieces[0]);
-      attackerDead = combatResult.attackerDead;
-      defenderDead = combatResult.defenderDead;
-      if (!attackerDead) {
-        const updatedAttacker = PiecesRepository.getAll().find((p) => p.id === currentAttacker.id);
-        if (updatedAttacker) {
-          currentAttacker = updatedAttacker;
-        }
+    // Re-read panel (may have been modified)
+    const currentPanel = PanelRepository.find(targetPosition);
+
+    // Check if the target is clear for entry
+    const remainingEnemies = PiecesRepository.getPiecesByPosition(targetPosition).filter(
+      (p) => p.player !== attackerPlayer,
+    );
+    const noWall =
+      !currentPanel ||
+      currentPanel.player === attackerPlayer ||
+      currentPanel.player === Player.UNKNOWN ||
+      currentPanel.castle <= 0;
+    const canEnter = remainingEnemies.length === 0 && noWall;
+
+    for (const atk of attackers) {
+      if (deadIds.has(atk.id)) continue;
+      const current = PiecesRepository.getAll().find((p) => p.id === atk.id);
+      if (!current) continue;
+
+      if (canEnter) {
+        this.move(targetPosition, current);
+      } else {
+        PiecesRepository.update(new Piece({ ...current, targetPosition: undefined }));
       }
     }
 
-    if (!attackerDead) {
-      const noMoreEnemies = existingEnemyPieces.length === 0 || defenderDead;
-      const noMoreWall =
-        !targetPanel ||
-        targetPanel.player === currentAttacker.player ||
-        targetPanel.player === Player.UNKNOWN ||
-        targetPanel.castle <= 0;
-
-      if (noMoreEnemies && noMoreWall) {
-        this.move(targetPosition, currentAttacker);
-        PanelRepository.update(
-          new Panel({
-            panelPosition: targetPosition,
-            panelState: targetPanel?.panelState ?? PanelState.OCCUPIED,
-            player: currentAttacker.player,
-            resource: targetPanel?.resource ?? 0,
-            castle: targetPanel?.castle ?? 0,
-          }),
-        );
-      } else {
-        const updatedPiece = new Piece({
-          ...currentAttacker,
-          targetPosition: undefined,
-        });
-        PiecesRepository.update(updatedPiece);
-      }
+    if (canEnter && currentPanel) {
+      PanelRepository.update(
+        new Panel({
+          panelPosition: targetPosition,
+          panelState: PanelState.OCCUPIED,
+          player: attackerPlayer,
+          resource: currentPanel.resource ?? 0,
+          castle: currentPanel.castle ?? 0,
+        }),
+      );
     }
   }
 
@@ -160,16 +158,31 @@ export class PieceService {
     });
   }
 
+  /**
+   * Finalize all pending moves for a player.
+   *
+   * Groups attackers by target panel, then resolves each group
+   * with simultaneous multi-unit combat.
+   */
   static finalizePlayerMoves(player: Player) {
     const pieces = PiecesRepository.getPiecesByPlayer(player);
-    // Important: we need to use a snapshot of the pieces that have targetPosition
-    // because executeMove will update the repository.
     const piecesWithMoves = pieces.filter((p) => p.targetPosition);
 
+    // Group by target panel position
+    const groups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
     for (const piece of piecesWithMoves) {
-      if (piece.targetPosition) {
-        this.executeMove(piece, piece.targetPosition);
+      const tp = piece.targetPosition!;
+      const key = `${tp.horizontalLayer},${tp.verticalLayer}`;
+      const group = groups.get(key);
+      if (group) {
+        group.attackers.push(piece);
+      } else {
+        groups.set(key, { attackers: [piece], target: tp });
       }
+    }
+
+    for (const { attackers, target } of groups.values()) {
+      this.resolveTargetPanel(attackers, target);
     }
   }
 }
