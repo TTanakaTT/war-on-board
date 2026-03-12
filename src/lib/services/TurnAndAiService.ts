@@ -33,8 +33,11 @@ export class TurnAndAiService {
       },
       winner: null,
     });
-    this.addResources(Player.SELF);
-    this.addResources(Player.OPPONENT);
+    // Add turn-start income for the first player.
+    // The same addResources(turn.player) runs at every turn transition
+    // in nextTurn(), keeping both players symmetric.
+    const turn = TurnRepository.get();
+    this.addResources(turn.player);
   }
 
   static setOnTurnEnd(handler: () => void) {
