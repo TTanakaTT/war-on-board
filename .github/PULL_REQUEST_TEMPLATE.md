@@ -4,4 +4,5 @@
 - [ ] `pnpm outdated`
 - [ ] `pnpm run format`
 - [ ] `pnpm run lint`
+- [ ] `pnpm run check`
 - [ ] version increment at [package.json]
