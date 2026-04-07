@@ -117,11 +117,11 @@
   <div class="z-1 flex items-center justify-center">
     <div class="flex flex-row gap-2">
       {#each pieces as piece (piece.id)}
-        <div
+        <button
           class="relative flex flex-col items-center {piece.targetPosition
             ? 'opacity-40'
             : ''} {piece.player === turn.player ? 'cursor-pointer' : ''}"
-          role="button"
+          type="button"
           tabindex="0"
           onclick={(e) => handlePieceClick(e, piece)}
           onkeydown={(e) => {
@@ -147,7 +147,7 @@
               ? 'text-white border-white'
               : 'text-black border-black'}"
           />
-        </div>
+        </button>
       {/each}
     </div>
   </div>

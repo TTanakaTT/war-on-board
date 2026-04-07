@@ -106,7 +106,7 @@ export class GenerationService {
         panelPosition: generatePosition,
         panelState: PanelState.OCCUPIED,
         player: turn.player,
-        resource: existingPanel?.resource ?? 5,
+        resource: existingPanel?.resource ?? 0,
         castle: existingPanel?.castle ?? 0,
       }),
     );

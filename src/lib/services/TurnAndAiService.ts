@@ -5,7 +5,10 @@ import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { PLAYER_INIT_RESOURCE } from "$lib/domain/constants/GameConstants";
+import {
+  DEFAULT_MAX_PIECES_PER_PANEL,
+  PLAYER_INIT_RESOURCE,
+} from "$lib/domain/constants/GameConstants";
 import { InteractionService } from "./InteractionService";
 import { GenerationService } from "./GenerationService";
 import { PieceService } from "./PieceService";
@@ -24,8 +27,8 @@ export class TurnAndAiService {
         [String(Player.OPPONENT)]: PLAYER_INIT_RESOURCE,
       },
       maxPiecesPerPanel: {
-        [String(Player.SELF)]: 2,
-        [String(Player.OPPONENT)]: 2,
+        [String(Player.SELF)]: DEFAULT_MAX_PIECES_PER_PANEL,
+        [String(Player.OPPONENT)]: DEFAULT_MAX_PIECES_PER_PANEL,
       },
       generationMode: {
         [String(Player.SELF)]: "rear",

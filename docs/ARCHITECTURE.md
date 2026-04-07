@@ -66,9 +66,9 @@ GameService
 
 | Type   | Cost | Max HP | AP vs Piece | AP vs Wall | Passive                  |
 | ------ | ---- | ------ | ----------- | ---------- | ------------------------ |
-| KNIGHT | 4    | 10     | 5           | 2          | Claims panel ownership   |
-| ROOK   | 5    | 10     | 2           | 2          | +1 castle/turn (cap 5)   |
-| BISHOP | 5    | 5      | 0           | 0          | +1 resource/turn (cap 5) |
+| KNIGHT | 8    | 10     | 5           | 2          | Claims panel ownership   |
+| ROOK   | 10   | 10     | 2           | 2          | +1 castle/turn (cap 5)   |
+| BISHOP | 10   | 5      | 0           | 0          | +1 resource/turn (cap 5) |
 
 ### Constants (`domain/constants/GameConstants.ts`)
 

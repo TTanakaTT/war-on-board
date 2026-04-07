@@ -36,13 +36,17 @@
     `width: ${width}px; height: ${height}px; position: relative;`,
   );
 
+  // Ratio between hexagon height and width for a regular pointy-top hexagon.
+  const HEXAGON_HORIZONTAL_RATIO = Math.sqrt(3);
+  // Additional vertical adjustment (in px) to align the rendered panel visually.
+  const PANEL_VERTICAL_PIXEL_OFFSET = 5;
   function panelPositionStyle(hl: number, vl: number): string {
     const coords = BoardLayoutService.getCoordinates(
       new PanelPosition({ horizontalLayer: hl, verticalLayer: vl }),
     );
     // Adjust from center to top-left
-    const left = coords.x - BoardLayoutService.HEIGHT / 1.73 / 2;
-    const top = coords.y - BoardLayoutService.HEIGHT / 2 - 5;
+    const left = coords.x - BoardLayoutService.HEIGHT / HEXAGON_HORIZONTAL_RATIO / 2;
+    const top = coords.y - BoardLayoutService.HEIGHT / 2 - PANEL_VERTICAL_PIXEL_OFFSET;
     return `position: absolute; left: ${left}px; top: ${top}px;`;
   }
 
