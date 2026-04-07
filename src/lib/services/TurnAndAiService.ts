@@ -1,93 +1,11 @@
 import { Player } from "$lib/domain/enums/Player";
 import { PieceType } from "$lib/domain/enums/PieceType";
-import { Piece } from "$lib/domain/entities/Piece";
-import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import {
-  DEFAULT_MAX_PIECES_PER_PANEL,
-  PLAYER_INIT_RESOURCE,
-} from "$lib/domain/constants/GameConstants";
-import { InteractionService } from "./InteractionService";
-import { GenerationService } from "./GenerationService";
-import { PieceService } from "./PieceService";
-import { VictoryService } from "./VictoryService";
+import { GameApi } from "$lib/api/GameApi";
 
 export class TurnAndAiService {
-  private static movedPieceIds: Set<number> = new Set();
-  private static onTurnEnd?: () => void;
-
-  static initializeTurn() {
-    TurnRepository.set({
-      player: Player.SELF,
-      num: 1,
-      resources: {
-        [String(Player.SELF)]: PLAYER_INIT_RESOURCE,
-        [String(Player.OPPONENT)]: PLAYER_INIT_RESOURCE,
-      },
-      maxPiecesPerPanel: {
-        [String(Player.SELF)]: DEFAULT_MAX_PIECES_PER_PANEL,
-        [String(Player.OPPONENT)]: DEFAULT_MAX_PIECES_PER_PANEL,
-      },
-      generationMode: {
-        [String(Player.SELF)]: "rear",
-        [String(Player.OPPONENT)]: "rear",
-      },
-      winner: null,
-    });
-    // Add turn-start income for the first player.
-    // The same addResources(turn.player) runs at every turn transition
-    // in nextTurn(), keeping both players symmetric.
-    const turn = TurnRepository.get();
-    this.addResources(turn.player);
-  }
-
-  static setOnTurnEnd(handler: () => void) {
-    this.onTurnEnd = handler;
-  }
-
-  static nextTurn() {
-    this.movedPieceIds.clear();
-    const currentTurn = TurnRepository.get();
-
-    // Do not proceed if game is over
-    if (currentTurn.winner) return;
-
-    // 1. Finalize current player's actions
-    PieceService.finalizePlayerMoves(currentTurn.player);
-    PanelsService.refreshPanelStates();
-
-    // 2. Check victory after moves are resolved
-    VictoryService.applyVictory();
-    if (TurnRepository.get().winner) return;
-
-    // 3. Determine next player
-    const nextPlayer = currentTurn.player === Player.SELF ? Player.OPPONENT : Player.SELF;
-    const nextNum = currentTurn.player === Player.OPPONENT ? currentTurn.num + 1 : currentTurn.num;
-
-    // 4. Prepare for next player's turn
-    PieceService.resetInitialPositions(nextPlayer);
-    PieceService.applyPassiveGains(nextPlayer);
-
-    // 5. Update Turn Repository with new player and turn number
-    TurnRepository.set({
-      ...TurnRepository.get(),
-      player: nextPlayer,
-      num: nextNum,
-    });
-
-    // 6. Add resources for the start of the NEW turn
-    this.addResources(nextPlayer);
-
-    // 7. Handle turn start actions
-    if (nextPlayer === Player.OPPONENT) {
-      setTimeout(() => {
-        this.doOpponentTurn();
-      }, 1000);
-    }
-  }
-
   static addResources(player: Player) {
     const turn = TurnRepository.get();
     const panels = PanelRepository.getAll().filter((p) => p.player === player);
@@ -99,58 +17,38 @@ export class TurnAndAiService {
     TurnRepository.set({ ...turn, resources: newResources });
   }
 
+  /**
+   * Execute the AI opponent's turn.
+   *
+   * 1. Assign random moves for all opponent pieces.
+   * 2. Attempt to generate a piece if affordable.
+   * 3. End the turn via GameApi.
+   */
   static doOpponentTurn() {
     const turn = TurnRepository.get();
     if (turn.player !== Player.OPPONENT || turn.winner) return;
 
+    // 1. Assign moves for all opponent pieces
     const opponentPieces = PiecesRepository.getPiecesByPlayer(Player.OPPONENT);
-    const opponentResources = turn.resources[String(Player.OPPONENT)] ?? 0;
-
-    // Filter out pieces that have already moved this turn
-    const unmovedPieces = opponentPieces.filter((p: Piece) => !this.movedPieceIds.has(p.id));
-
-    // If there are unmoved pieces, move one
-    if (unmovedPieces.length > 0) {
-      const randomPiece = unmovedPieces[Math.floor(Math.random() * unmovedPieces.length)];
-      InteractionService.pieceChange(randomPiece);
-
-      setTimeout(() => {
-        const movablePanels = PanelsService.filterMovablePanels();
-        if (movablePanels.length === 0) {
-          // No movable panels, so this piece stays in place (mark as moved)
-          this.movedPieceIds.add(randomPiece.id);
-          InteractionService.panelChange(randomPiece.panelPosition);
-          setTimeout(() => this.doOpponentTurn(), 1000);
-          return;
-        }
-
-        const randomPanel = movablePanels[Math.floor(Math.random() * movablePanels.length)];
-        InteractionService.panelChange(randomPanel.panelPosition);
-        this.movedPieceIds.add(randomPiece.id);
-
-        setTimeout(() => this.doOpponentTurn(), 1000);
-      }, 1000);
-      return;
-    }
-
-    // After moving pieces, try to produce a piece using the new generation logic
-    const generatePosition = GenerationService.findGenerationPanel(Player.OPPONENT);
-    if (generatePosition) {
-      const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
-      const affordablePieceTypes = pieceTypes.filter((t) => t.config.cost <= opponentResources);
-
-      if (affordablePieceTypes.length > 0) {
-        const randomPieceType =
-          affordablePieceTypes[Math.floor(Math.random() * affordablePieceTypes.length)];
-        GenerationService.generate(randomPieceType);
+    for (const piece of opponentPieces) {
+      const targets = GameApi.getMovableTargets(piece.id);
+      if (targets.length > 0) {
+        const randomTarget = targets[Math.floor(Math.random() * targets.length)];
+        GameApi.assignMove(Player.OPPONENT, piece.id, randomTarget);
       }
     }
 
-    // End the turn
-    setTimeout(() => {
-      const panels = PanelsService.clearSelected();
-      PanelRepository.setAll(panels);
-      this.onTurnEnd?.();
-    }, 1000);
+    // 2. Try to generate a piece
+    const currentResources = TurnRepository.get().resources[String(Player.OPPONENT)] ?? 0;
+    const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
+    const affordablePieceTypes = pieceTypes.filter((t) => t.config.cost <= currentResources);
+    if (affordablePieceTypes.length > 0) {
+      const randomPieceType =
+        affordablePieceTypes[Math.floor(Math.random() * affordablePieceTypes.length)];
+      GameApi.generatePiece(Player.OPPONENT, randomPieceType);
+    }
+
+    // 3. End the opponent's turn
+    GameApi.endTurn(Player.OPPONENT);
   }
 }

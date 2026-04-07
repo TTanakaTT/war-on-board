@@ -2,7 +2,8 @@
   import HexagonPanel from "./HexagonPanel.svelte";
   import { PanelPosition } from "$lib/domain/entities/PanelPosition";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-  import { GameService } from "$lib/services/GameService";
+  import { GameApi } from "$lib/api/GameApi";
+  import { InteractionService } from "$lib/services/InteractionService";
   import { Player } from "$lib/domain/enums/Player";
   import { PieceType } from "$lib/domain/enums/PieceType";
   import { LayerRepository } from "$lib/data/repositories/LayerRepository";
@@ -62,13 +63,7 @@
     const currentTurn = TurnRepository.get();
     const currentMode = currentTurn.generationMode[String(Player.SELF)] ?? "rear";
     const newMode: GenerationMode = currentMode === "rear" ? "front" : "rear";
-    TurnRepository.set({
-      ...currentTurn,
-      generationMode: {
-        ...currentTurn.generationMode,
-        [String(Player.SELF)]: newMode,
-      },
-    });
+    GameApi.setGenerationMode(Player.SELF, newMode);
   }
 </script>
 
@@ -91,7 +86,7 @@
               verticalLayer: vl,
             })}
             onclick={() =>
-              GameService.panelChange(
+              InteractionService.panelChange(
                 new PanelPosition({
                   horizontalLayer: hl,
                   verticalLayer: vl,

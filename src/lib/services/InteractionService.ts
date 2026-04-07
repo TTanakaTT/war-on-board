@@ -1,7 +1,7 @@
 import { Panel } from "$lib/domain/entities/Panel";
 import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { PanelState } from "$lib/domain/enums/PanelState";
-import { Piece } from "$lib/domain/entities/Piece";
+import type { Piece } from "$lib/domain/entities/Piece";
 import { PanelsService } from "$lib/services/PanelService";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
@@ -9,6 +9,7 @@ import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
 import { MovementRulesService } from "$lib/services/MovementRulesService";
 import { DEFAULT_MAX_PIECES_PER_PANEL } from "$lib/domain/constants/GameConstants";
+import { GameApi } from "$lib/api/GameApi";
 
 /**
  * InteractionService — handles user/AI interaction with the board.
@@ -36,38 +37,16 @@ export class InteractionService {
         const selectedPieceId = SelectedPanelRepository.getPieceId();
         const selectedPiece = PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
         if (selectedPiece && selectedPiece.targetPosition) {
-          const turn = TurnRepository.get();
-          const maxPieces =
-            turn.maxPiecesPerPanel[String(selectedPiece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
-          if (
-            !MovementRulesService.canCancelMove(
-              selectedPiece.panelPosition,
-              selectedPiece.player,
-              selectedPiece.id,
-              maxPieces,
-            )
-          ) {
-            return;
-          }
-          PiecesRepository.update(
-            new Piece({
-              ...selectedPiece,
-              targetPosition: undefined,
-            }),
-          );
+          const result = GameApi.cancelMove(selectedPiece.player, selectedPiece.id);
+          if (!result.ok) return;
         }
         break;
       }
       case PanelState.MOVABLE: {
         const selectedPieceId = SelectedPanelRepository.getPieceId();
-        const selectedPiece = PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
-        if (selectedPiece) {
-          PiecesRepository.update(
-            new Piece({
-              ...selectedPiece,
-              targetPosition: panelPosition,
-            }),
-          );
+        if (selectedPieceId !== undefined) {
+          const turn = TurnRepository.get();
+          GameApi.assignMove(turn.player, selectedPieceId, panelPosition);
         }
         break;
       }
@@ -91,18 +70,7 @@ export class InteractionService {
 
     // Re-clicking the same piece with a pending move: cancel the move
     if (currentSelectedPieceId === piece.id && piece.targetPosition) {
-      const maxPieces =
-        turn.maxPiecesPerPanel[String(piece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
-      if (
-        MovementRulesService.canCancelMove(piece.panelPosition, piece.player, piece.id, maxPieces)
-      ) {
-        PiecesRepository.update(
-          new Piece({
-            ...piece,
-            targetPosition: undefined,
-          }),
-        );
-      }
+      GameApi.cancelMove(piece.player, piece.id);
       const cleared = PanelsService.clearSelected();
       PanelRepository.setAll(cleared);
       SelectedPanelRepository.set(undefined);
