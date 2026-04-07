@@ -1,9 +1,12 @@
 <script lang="ts">
   import { PanelsService } from "$lib/services/PanelService";
   import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
+  import { GameService } from "$lib/services/GameService";
+  import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 
   import { PanelState } from "$lib/domain/enums/PanelState";
   import { Player } from "$lib/domain/enums/Player";
+  import type { Piece } from "$lib/domain/entities/Piece";
   import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
   import Icon from "$lib/presentation/components/Icon.svelte";
   import { slide } from "svelte/transition";
@@ -25,12 +28,17 @@
 
   let panelState = $derived(panel?.panelState);
   let panelStyle = $derived(getPanelStyle());
-  let pieceColor = $derived(
-    pieces[0]?.player === Player.SELF ? "text-white border-white" : "text-black border-black",
-  );
+
+  let turn = $derived(TurnRepository.get());
+
   let resourceColor = $derived(
     panel?.player === Player.SELF ? "text-white border-white" : "text-black border-black",
   );
+
+  function handlePieceClick(e: MouseEvent, piece: Piece) {
+    e.stopPropagation();
+    GameService.pieceChange(piece);
+  }
 
   function onkeydown(e: KeyboardEvent) {
     if (!["Enter", " "].includes(e.key)) return;
@@ -71,7 +79,7 @@
       case PanelState.UNOCCUPIED:
         return `pointer-events-none ${playerStyle} all-el:bg-panel-unoccupied dark:all-el:bg-panel-unoccupied-dark`;
       case PanelState.OCCUPIED:
-        return `cursor-pointer ${playerStyle} ${hoverStyle} all-el:bg-panel-occupied dark:all-el:bg-panel-occupied-dark`;
+        return `${playerStyle} all-el:bg-panel-occupied dark:all-el:bg-panel-occupied-dark`;
       case PanelState.SELECTED:
       case PanelState.MOVABLE:
         return `cursor-pointer ${playerStyle} ${hoverStyle} all-el:bg-panel-movable dark:all-el:bg-panel-movable-dark`;
@@ -109,7 +117,20 @@
   <div class="z-1 flex items-center justify-center">
     <div class="flex flex-row gap-2">
       {#each pieces as piece (piece.id)}
-        <div class="flex flex-col items-center">
+        <button
+          class="relative flex flex-col items-center {piece.targetPosition
+            ? 'opacity-40'
+            : ''} {piece.player === turn.player ? 'cursor-pointer' : ''}"
+          type="button"
+          tabindex="0"
+          onclick={(e) => handlePieceClick(e, piece)}
+          onkeydown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.stopPropagation();
+              GameService.pieceChange(piece);
+            }
+          }}
+        >
           <div class="bg-outline dark:bg-outline-dark mb-1 h-1 w-6 overflow-hidden rounded-full">
             <div
               class="h-full bg-white transition-all duration-300"
@@ -121,9 +142,12 @@
             size={22}
             transition={slide}
             transitionParams={{ duration: 500, axis: "y" }}
-            additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {pieceColor}"
+            additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {piece.player ===
+            Player.SELF
+              ? 'text-white border-white'
+              : 'text-black border-black'}"
           />
-        </div>
+        </button>
       {/each}
     </div>
   </div>

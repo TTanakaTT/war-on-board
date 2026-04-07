@@ -17,21 +17,21 @@ interface PieceConfig {
 const CONFIGS: Record<PIECETYPE, PieceConfig> = {
   [PIECETYPE.KNIGHT]: {
     iconName: "chess_knight",
-    cost: 4,
+    cost: 8,
     maxHp: 10,
     attackPowerAgainstPiece: 5,
     attackPowerAgainstWall: 2,
   },
   [PIECETYPE.ROOK]: {
     iconName: "chess_rook",
-    cost: 5,
+    cost: 10,
     maxHp: 10,
-    attackPowerAgainstPiece: 0,
+    attackPowerAgainstPiece: 2,
     attackPowerAgainstWall: 2,
   },
   [PIECETYPE.BISHOP]: {
     iconName: "chess_bishop",
-    cost: 5,
+    cost: 10,
     maxHp: 5,
     attackPowerAgainstPiece: 0,
     attackPowerAgainstWall: 0,

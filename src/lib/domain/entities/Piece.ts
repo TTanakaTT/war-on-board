@@ -5,6 +5,7 @@ export class Piece {
   id: number;
   panelPosition: PanelPosition;
   initialPosition: PanelPosition;
+  targetPosition?: PanelPosition;
   player: Player;
   pieceType: PieceType;
   hp: number;
@@ -13,6 +14,7 @@ export class Piece {
     id,
     panelPosition,
     initialPosition,
+    targetPosition,
     player,
     pieceType,
     hp,
@@ -20,6 +22,7 @@ export class Piece {
     id?: number;
     initialPosition?: PanelPosition;
     panelPosition: PanelPosition;
+    targetPosition?: PanelPosition;
     player: Player;
     pieceType: PieceType;
     hp?: number;
@@ -27,6 +30,7 @@ export class Piece {
     this.id = id ?? 0;
     this.panelPosition = panelPosition;
     this.initialPosition = initialPosition || panelPosition;
+    this.targetPosition = targetPosition;
     this.player = player;
     this.pieceType = pieceType;
     this.hp = hp ?? pieceType.config.maxHp;
