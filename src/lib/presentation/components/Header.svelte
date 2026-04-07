@@ -19,7 +19,7 @@
 </script>
 
 <header
-  class="bg-surface dark:bg-surface-dark border-outline dark:border-outline-dark fixed start-0 top-0 z-20 border-b shadow-md {headerWidthStyle}"
+  class="bg-surface dark:bg-surface-dark border-outline dark:border-outline-dark fixed inset-s-0 top-0 z-20 border-b shadow-md {headerWidthStyle}"
 >
   <div class="flex flex-wrap items-center justify-between p-4">
     <button
