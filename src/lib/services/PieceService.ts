@@ -1,6 +1,7 @@
 import { Piece } from "$lib/domain/entities/Piece";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import type { CombatOutcome } from "$lib/domain/types/api";
 import { Player } from "$lib/domain/enums/Player";
 import { Panel } from "$lib/domain/entities/Panel";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
@@ -58,8 +59,13 @@ export class PieceService {
    *   1. Castle-first: if enemy castle > 0, all attackers hit the wall → stay
    *   2. Multi-unit combat: front-line selection, simultaneous damage
    *   3. If target cleared (no enemies, no wall): surviving attackers move in
+   *
+   * @returns CombatOutcome if combat occurred, null if no enemies/wall at target.
    */
-  private static resolveTargetPanel(attackers: Piece[], targetPosition: PanelPosition): void {
+  private static resolveTargetPanel(
+    attackers: Piece[],
+    targetPosition: PanelPosition,
+  ): CombatOutcome | null {
     const targetPanel = PanelRepository.find(targetPosition);
     const attackerPlayer = attackers[0].player;
 
@@ -68,11 +74,21 @@ export class PieceService {
 
     // Castle-first rule: wall must be destroyed before engaging units
     if (isEnemyPanel && targetPanel.castle > 0) {
+      const castleBefore = targetPanel.castle;
       CombatService.attackWallMulti(attackers, targetPanel);
+      const castleAfter = PanelRepository.find(targetPosition)?.castle ?? 0;
       for (const a of attackers) {
         PiecesRepository.update(new Piece({ ...a, targetPosition: undefined }));
       }
-      return;
+      return {
+        targetPosition: {
+          horizontalLayer: targetPosition.horizontalLayer,
+          verticalLayer: targetPosition.verticalLayer,
+        },
+        destroyedPieceIds: [],
+        entered: false,
+        wallDamageDealt: castleBefore - castleAfter,
+      };
     }
 
     // Identify enemy defenders at the target panel
@@ -80,8 +96,10 @@ export class PieceService {
       (p) => p.player !== attackerPlayer,
     );
 
+    const hasCombat = defenders.length > 0;
+
     let deadIds = new Set<number>();
-    if (defenders.length > 0) {
+    if (hasCombat) {
       const result = CombatService.resolveCombat(attackers, defenders);
       deadIds = result.deadIds;
     }
@@ -123,6 +141,18 @@ export class PieceService {
         }),
       );
     }
+
+    if (!hasCombat) return null;
+
+    return {
+      targetPosition: {
+        horizontalLayer: targetPosition.horizontalLayer,
+        verticalLayer: targetPosition.verticalLayer,
+      },
+      destroyedPieceIds: [...deadIds],
+      entered: canEnter,
+      wallDamageDealt: 0,
+    };
   }
 
   static applyPassiveGains(player: Player) {
@@ -163,8 +193,10 @@ export class PieceService {
    *
    * Groups attackers by target panel, then resolves each group
    * with simultaneous multi-unit combat.
+   *
+   * @returns Combat outcomes for groups where combat occurred.
    */
-  static finalizePlayerMoves(player: Player) {
+  static finalizePlayerMoves(player: Player): CombatOutcome[] {
     const pieces = PiecesRepository.getPiecesByPlayer(player);
     const piecesWithMoves = pieces.filter((p) => p.targetPosition);
 
@@ -181,8 +213,11 @@ export class PieceService {
       }
     }
 
+    const outcomes: CombatOutcome[] = [];
     for (const { attackers, target } of groups.values()) {
-      this.resolveTargetPanel(attackers, target);
+      const outcome = this.resolveTargetPanel(attackers, target);
+      if (outcome) outcomes.push(outcome);
     }
+    return outcomes;
   }
 }

@@ -2,7 +2,7 @@ import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import type { PieceType } from "$lib/domain/enums/PieceType";
 import type { Player } from "$lib/domain/enums/Player";
 import type { GenerationMode } from "$lib/domain/entities/Turn";
-import type { Result, TurnEndResult, CombatOutcome } from "$lib/domain/types/api";
+import type { Result, TurnEndResult } from "$lib/domain/types/api";
 import { PanelPosition as PanelPositionClass } from "$lib/domain/entities/PanelPosition";
 import { Piece } from "$lib/domain/entities/Piece";
 import { HomeBase } from "$lib/domain/entities/HomeBase";
@@ -336,11 +336,8 @@ export class GameApi {
     if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
     if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
 
-    // Capture combat outcomes by tracking state changes
-    const combatOutcomes: CombatOutcome[] = this.buildCombatOutcomes(player);
-
     // 1. Finalize current player's moves (combat resolution)
-    PieceService.finalizePlayerMoves(player);
+    const combatOutcomes = PieceService.finalizePlayerMoves(player);
 
     // 2. Refresh panel ownership
     PanelsService.refreshPanelStates();
@@ -385,54 +382,6 @@ export class GameApi {
         nextPlayer,
       },
     };
-  }
-
-  /**
-   * Build combat outcome descriptors for pending moves before resolution.
-   */
-  private static buildCombatOutcomes(player: Player): CombatOutcome[] {
-    const pieces = PiecesRepository.getPiecesByPlayer(player);
-    const piecesWithMoves = pieces.filter((p) => p.targetPosition);
-
-    // Group by target position
-    const groups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
-    for (const piece of piecesWithMoves) {
-      const tp = piece.targetPosition!;
-      const key = `${tp.horizontalLayer},${tp.verticalLayer}`;
-      const group = groups.get(key);
-      if (group) {
-        group.attackers.push(piece);
-      } else {
-        groups.set(key, { attackers: [piece], target: tp });
-      }
-    }
-
-    const outcomes: CombatOutcome[] = [];
-    for (const { target } of groups.values()) {
-      const panel = PanelRepository.find(target);
-      const enemyPieces = PiecesRepository.getPiecesByPosition(target).filter(
-        (p) => p.player !== player,
-      );
-      const hasEnemyWall =
-        panel &&
-        panel.player !== player &&
-        panel.player !== PlayerClass.UNKNOWN &&
-        panel.castle > 0;
-
-      if (enemyPieces.length > 0 || hasEnemyWall) {
-        outcomes.push({
-          targetPosition: {
-            horizontalLayer: target.horizontalLayer,
-            verticalLayer: target.verticalLayer,
-          },
-          destroyedPieceIds: [],
-          entered: false,
-          wallDamageDealt: 0,
-        });
-      }
-    }
-
-    return outcomes;
   }
 
   private static addResources(player: Player) {
