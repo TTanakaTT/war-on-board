@@ -42,7 +42,7 @@ This project follows **Clean Architecture** principles. Code is organized into c
 | [**CombatService**](../src/lib/services/CombatService.ts)               | Combat resolution: multi-unit simultaneous damage, wall siege    |
 | [**PieceService**](../src/lib/services/PieceService.ts)                 | Piece CRUD, move execution, passive gains                        |
 | [**PanelService**](../src/lib/services/PanelService.ts)                 | Panel initialization, adjacent lookup, state clearing            |
-| [**TurnAndAiService**](../src/lib/services/TurnAndAiService.ts)         | AI opponent logic                                                |
+| [**AiService**](../src/lib/services/AiService.ts)                       | AI player logic (random strategy)                                |
 | [**VictoryService**](../src/lib/services/VictoryService.ts)             | Win condition check (home base capture)                          |
 | [**BoardLayoutService**](../src/lib/services/BoardLayoutService.ts)     | Hexagon coordinate geometry for rendering                        |
 

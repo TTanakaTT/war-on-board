@@ -1,6 +1,6 @@
 <script lang="ts">
   import { GameApi } from "$lib/api/GameApi";
-  import { TurnAndAiService } from "$lib/services/TurnAndAiService";
+  import { AiService } from "$lib/services/AiService";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
   import { Player } from "$lib/domain/enums/Player";
@@ -15,7 +15,7 @@
     SelectedPanelRepository.set(undefined);
     const result = GameApi.endTurn(Player.SELF);
     if (result.ok && result.value.nextPlayer === Player.OPPONENT && !result.value.winner) {
-      setTimeout(() => TurnAndAiService.doOpponentTurn(), 1000);
+      setTimeout(() => AiService.doAiTurn(Player.OPPONENT), 1000);
     }
   }
 </script>

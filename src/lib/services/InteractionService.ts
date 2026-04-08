@@ -46,7 +46,8 @@ export class InteractionService {
         const selectedPieceId = SelectedPanelRepository.getPieceId();
         if (selectedPieceId !== undefined) {
           const turn = TurnRepository.get();
-          GameApi.assignMove(turn.player, selectedPieceId, panelPosition);
+          const result = GameApi.assignMove(turn.player, selectedPieceId, panelPosition);
+          if (!result.ok) return;
         }
         break;
       }
