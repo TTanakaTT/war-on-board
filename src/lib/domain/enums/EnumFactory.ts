@@ -4,10 +4,10 @@ export function EnumClass<T extends Record<string, string>>(enumObj: T) {
 
   return function <C extends new (...args: any[]) => object>(constructor: C) {
     return class extends constructor {
-      // 元のenumの各値に対応する静的プロパティを作成
+      // Create static properties corresponding to each value of the original enum
       static {
         Object.entries(enumObj).forEach(([key, value]) => {
-          // クラス自身に静的プロパティとしてインスタンスを追加
+          // Add instances as static properties on the class itself
           Object.defineProperty(this, key, {
             value: new this(value),
             writable: false,
@@ -17,7 +17,7 @@ export function EnumClass<T extends Record<string, string>>(enumObj: T) {
         });
       }
 
-      // インスタンスのvalue保持用
+      // Holds the enum value for this instance
       private readonly _value: _enumType;
 
       constructor(...args: any[]) {

@@ -70,7 +70,7 @@
 <div class="m-2 flex justify-center gap-4">
   <span
     class="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border-2 p-1.5 text-sm {turnColor}"
-    >turn<span class="text-2xl font-bold">{turn.num}</span> {turn.player}</span
+    >{m.turn_label()}<span class="text-2xl font-bold">{turn.num}</span> {turn.player}</span
   >
   <EndTurnButton />
 </div>

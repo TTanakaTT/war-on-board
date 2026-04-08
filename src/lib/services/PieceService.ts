@@ -11,16 +11,6 @@ import { CombatService } from "$lib/services/CombatService";
 import { PASSIVE_RESOURCE_CAP, PASSIVE_CASTLE_CAP } from "$lib/domain/constants/GameConstants";
 
 export class PieceService {
-  static find(panelPosition: PanelPosition): Piece | undefined {
-    const pieces = PiecesRepository.getAll();
-    return pieces.find((x: Piece) => x.panelPosition.equals(panelPosition));
-  }
-
-  static findByPlayer(player: Player): Piece | undefined {
-    const pieces = PiecesRepository.getAll();
-    return pieces.find((x: Piece) => x.player === player);
-  }
-
   static generateNextId(): number {
     return (
       PiecesRepository.getAll().reduce((max: number, piece: Piece) => Math.max(max, piece.id), 0) +

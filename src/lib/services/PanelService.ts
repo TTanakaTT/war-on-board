@@ -52,11 +52,6 @@ export class PanelsService {
     return panels.filter((x) => x.panelPosition.isAdjacent(panelPosition));
   }
 
-  static filterMovablePanels(): Panel[] {
-    const panels = PanelRepository.getAll();
-    return panels.filter((p) => p.panelState === PanelState.MOVABLE);
-  }
-
   static clearSelected(): Panel[] {
     const panels = PanelRepository.getAll();
     return panels.map((p) => {

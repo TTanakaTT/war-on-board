@@ -8,5 +8,7 @@
   "defeat_title": "Defeat",
   "defeat_message": "Your base has been captured...",
   "generation_front": "Front",
-  "generation_rear": "Rear"
+  "generation_rear": "Rear",
+  "drawer_title": "Menu",
+  "turn_label": "Turn"
 }

@@ -1,6 +1,5 @@
 import type { Panel } from "$lib/domain/entities/Panel";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import type { PanelState } from "$lib/domain/enums/PanelState";
 import { panelsState } from "$lib/data/state/PanelsState.svelte";
 
 export class PanelRepository {
@@ -22,9 +21,5 @@ export class PanelRepository {
 
   static find(panelPosition: PanelPosition): Panel | undefined {
     return this.getAll().find((x) => x.panelPosition.equals(panelPosition));
-  }
-
-  static findPanelState(panelPosition: PanelPosition): PanelState | undefined {
-    return this.find(panelPosition)?.panelState;
   }
 }
