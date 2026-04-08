@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { GameApi } from "./GameApi";
+import { GameApi } from "$lib/api/GameApi";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
@@ -10,7 +10,7 @@ import { PanelState } from "$lib/domain/enums/PanelState";
 import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { Piece } from "$lib/domain/entities/Piece";
 import { PieceType } from "$lib/domain/enums/PieceType";
-import { ActionError } from "./types";
+import { ActionError } from "$lib/domain/enums/ActionError";
 import {
   HOME_BASE_INIT_RESOURCE,
   HOME_BASE_INIT_CASTLE,

@@ -1,22 +1,34 @@
 # Architecture Overview
 
-## Layers & Dependency Direction
+This project follows **Clean Architecture** principles. Code is organized into concentric layers with strict dependency direction: inner layers never depend on outer layers.
+
+## Layers (inner → outer)
 
 ```
-Routes (+page.svelte)
-  ↓
-Presentation (components, UI state)
-  ↓
-API (GameApi — sole entry point for game state mutations)
-  ↓
-Services (application logic, side-effects)
-  ↓
-Domain (entities, enums, constants)
-  ↓
-Data (repositories, state)
+┌─────────────────────────────────────────┐
+│            Domain (innermost)           │
+│  entities, enums, constants, types      │
+├─────────────────────────────────────────┤
+│            Application                  │
+│  api (GameApi), services                │
+├─────────────────────────────────────────┤
+│            Adapter                      │
+│  data (repositories, state),            │
+│  presentation (components)              │
+├─────────────────────────────────────────┤
+│         Framework (outermost)           │
+│  routes, paraglide                      │
+└─────────────────────────────────────────┘
 ```
 
-Dependencies flow **top → bottom**. No upward imports.
+**Dependency rule**: outer → inner only. No reverse imports.
+
+| Layer           | Directories              | Responsibility                                           |
+| --------------- | ------------------------ | -------------------------------------------------------- |
+| **Domain**      | `domain/`                | Pure business rules, entities, types. No side-effects.   |
+| **Application** | `api/`, `services/`      | Use cases, game operations, orchestration, side-effects. |
+| **Adapter**     | `data/`, `presentation/` | External interfaces: state persistence, UI rendering.    |
+| **Framework**   | `routes/`, `paraglide/`  | SvelteKit routing, i18n generated output.                |
 
 ---
 
@@ -40,16 +52,53 @@ Dependencies flow **top → bottom**. No upward imports.
 
 ```
 src/lib/
-├── api/                 # GameApi (sole game operation entry point) + types
-├── data/
-│   ├── repositories/    # Static API classes wrapping State
-│   └── state/           # Svelte 5 $state stores
-├── domain/
+├── domain/              # Domain layer (innermost)
 │   ├── constants/       # GameConstants.ts
 │   ├── entities/        # Panel, Piece, PanelPosition, Turn, HomeBase
-│   └── enums/           # Player, PanelState, PieceType (with EnumFactory)
-├── presentation/
+│   ├── enums/           # Player, PanelState, PieceType, ActionError, EnumFactory
+│   └── types/           # Shared type definitions (Result, CombatOutcome, etc.)
+├── api/                 # Application layer — GameApi (sole game operation entry point)
+├── services/            # Application layer — orchestration logic
+├── data/                # Adapter layer
+│   ├── repositories/    # Static classes wrapping State
+│   └── state/           # Svelte 5 $state stores
+├── presentation/        # Adapter layer
 │   └── components/      # Svelte components
-├── services/            # Application logic (see table above)
-└── paraglide/           # i18n generated output
+└── paraglide/           # Framework layer — i18n generated output
+
+tests/
+├── unit/                # Vitest — mirrors src/lib/ structure
+│   ├── api/             # GameApi tests
+│   ├── services/        # Service tests
+│   └── domain/
+│       ├── entities/    # Entity tests
+│       └── enums/       # Enum tests
+└── e2e/                 # Playwright (CI only)
 ```
+
+---
+
+## Core Files (changes require careful design review)
+
+- `src/lib/api/GameApi.ts` — Game operation contract.
+- `src/lib/domain/types/api.ts` — API result type definitions.
+- `src/lib/domain/entities/*` — Data structures.
+- `src/lib/domain/enums/*` — Enumerations.
+
+## Extension Points (safe to change / add)
+
+- `src/lib/domain/constants/GameConstants.ts` — Numeric tuning.
+- `src/lib/domain/enums/PieceType.ts` CONFIGS — Unit parameters.
+- `src/lib/presentation/components/` — UI additions.
+- `messages/*.json` — Translation additions.
+
+## Test Coverage
+
+Business logic lives exclusively in the Domain and Application layers. Only these layers require unit tests.
+
+| Layer       | Directories                         | Test location                             | Unit tests   |
+| ----------- | ----------------------------------- | ----------------------------------------- | ------------ |
+| Domain      | `domain/entities/`, `domain/enums/` | `tests/unit/domain/`                      | **Required** |
+| Application | `api/`, `services/`                 | `tests/unit/api/`, `tests/unit/services/` | **Required** |
+| Adapter     | `data/`, `presentation/`            | —                                         | Not required |
+| Framework   | `routes/`, `paraglide/`             | —                                         | Not required |

@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { PieceType } from "./PieceType";
+import { PieceType } from "$lib/domain/enums/PieceType";
 
 describe("PieceType", () => {
   describe("singleton instances", () => {

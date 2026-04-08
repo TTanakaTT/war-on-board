@@ -2,7 +2,7 @@ import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import type { PieceType } from "$lib/domain/enums/PieceType";
 import type { Player } from "$lib/domain/enums/Player";
 import type { GenerationMode } from "$lib/domain/entities/Turn";
-import type { Result, TurnEndResult, CombatOutcome } from "./types";
+import type { Result, TurnEndResult, CombatOutcome } from "$lib/domain/types/api";
 import { PanelPosition as PanelPositionClass } from "$lib/domain/entities/PanelPosition";
 import { Piece } from "$lib/domain/entities/Piece";
 import { HomeBase } from "$lib/domain/entities/HomeBase";
@@ -22,7 +22,7 @@ import {
   PLAYER_INIT_RESOURCE,
   DEFAULT_MAX_PIECES_PER_PANEL,
 } from "$lib/domain/constants/GameConstants";
-import { ActionError } from "./types";
+import { ActionError } from "$lib/domain/enums/ActionError";
 
 /**
  * GameApi — the sole entry point for all game-state-changing operations.

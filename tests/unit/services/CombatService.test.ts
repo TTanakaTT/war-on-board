@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { CombatService } from "./CombatService";
+import { CombatService } from "$lib/services/CombatService";
 import { GameApi } from "$lib/api/GameApi";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
