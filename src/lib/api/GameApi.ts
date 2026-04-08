@@ -13,7 +13,6 @@ import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
-import { TurnAndAiService } from "$lib/services/TurnAndAiService";
 import { MovementRulesService } from "$lib/services/MovementRulesService";
 import { PieceService } from "$lib/services/PieceService";
 import { VictoryService } from "$lib/services/VictoryService";
@@ -153,7 +152,7 @@ export class GameApi {
     });
 
     // Add first player's income
-    TurnAndAiService.addResources(PlayerClass.SELF);
+    this.addResources(PlayerClass.SELF);
 
     return { ok: true, value: undefined };
   }
@@ -376,7 +375,7 @@ export class GameApi {
     });
 
     // 7. Add resource income for the next player
-    TurnAndAiService.addResources(nextPlayer);
+    this.addResources(nextPlayer);
 
     return {
       ok: true,
@@ -434,6 +433,17 @@ export class GameApi {
     }
 
     return outcomes;
+  }
+
+  private static addResources(player: Player) {
+    const turn = TurnRepository.get();
+    const panels = PanelRepository.getAll().filter((p) => p.player === player);
+    const totalResource = panels.reduce((sum, p) => sum + (p.resource || 0), 0);
+
+    const newResources = { ...turn.resources };
+    newResources[String(player)] = (newResources[String(player)] || 0) + totalResource;
+
+    TurnRepository.set({ ...turn, resources: newResources });
   }
 
   // ── Queries ────────────────────────────────────────────────────

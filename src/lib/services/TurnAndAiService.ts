@@ -1,22 +1,10 @@
 import { Player } from "$lib/domain/enums/Player";
 import { PieceType } from "$lib/domain/enums/PieceType";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { GameApi } from "$lib/api/GameApi";
 
 export class TurnAndAiService {
-  static addResources(player: Player) {
-    const turn = TurnRepository.get();
-    const panels = PanelRepository.getAll().filter((p) => p.player === player);
-    const totalResource = panels.reduce((sum, p) => sum + (p.resource || 0), 0);
-
-    const newResources = { ...turn.resources };
-    newResources[String(player)] = (newResources[String(player)] || 0) + totalResource;
-
-    TurnRepository.set({ ...turn, resources: newResources });
-  }
-
   /**
    * Execute the AI opponent's turn.
    *

@@ -42,7 +42,7 @@ This project follows **Clean Architecture** principles. Code is organized into c
 | **CombatService**        | Combat resolution: multi-unit simultaneous damage, wall siege    |
 | **PieceService**         | Piece CRUD, move execution, passive gains                        |
 | **PanelService**         | Panel initialization, adjacent lookup, state clearing            |
-| **TurnAndAiService**     | AI opponent logic, resource accounting                           |
+| **TurnAndAiService**     | AI opponent logic                                                |
 | **VictoryService**       | Win condition check (home base capture)                          |
 | **BoardLayoutService**   | Hexagon coordinate geometry for rendering                        |
 
@@ -80,17 +80,17 @@ tests/
 
 ## Core Files (changes require careful design review)
 
-- `src/lib/api/GameApi.ts` — Game operation contract.
-- `src/lib/domain/types/api.ts` — API result type definitions.
-- `src/lib/domain/entities/*` — Data structures.
-- `src/lib/domain/enums/*` — Enumerations.
+- [`src/lib/api/GameApi.ts`](../src/lib/api/GameApi.ts) — Game operation contract.
+- [`src/lib/domain/types/api.ts`](../src/lib/domain/types/api.ts) — API result type definitions.
+- [`src/lib/domain/entities/`](../src/lib/domain/entities/) — Data structures.
+- [`src/lib/domain/enums/`](../src/lib/domain/enums/) — Enumerations.
 
 ## Extension Points (safe to change / add)
 
-- `src/lib/domain/constants/GameConstants.ts` — Numeric tuning.
-- `src/lib/domain/enums/PieceType.ts` CONFIGS — Unit parameters.
-- `src/lib/presentation/components/` — UI additions.
-- `messages/*.json` — Translation additions.
+- [`src/lib/domain/constants/GameConstants.ts`](../src/lib/domain/constants/GameConstants.ts) — Numeric tuning.
+- [`src/lib/domain/enums/PieceType.ts`](../src/lib/domain/enums/PieceType.ts) CONFIGS — Unit parameters.
+- [`src/lib/presentation/components/`](../src/lib/presentation/components/) — UI additions.
+- [`messages/`](../messages/) — Translation additions.
 
 ## Test Coverage
 
