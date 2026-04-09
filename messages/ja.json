@@ -8,5 +8,7 @@
   "defeat_title": "敗北",
   "defeat_message": "本拠地が占領されました…",
   "generation_front": "前線生産",
-  "generation_rear": "後衛生産"
+  "generation_rear": "後衛生産",
+  "drawer_title": "メニュー",
+  "turn_label": "ターン"
 }

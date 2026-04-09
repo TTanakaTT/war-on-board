@@ -41,6 +41,7 @@
       },
     ],
     "chat.agent.maxRequests": 100,
+    "terminal.integrated.shellIntegration.enabled": true,
   },
   "extensions": {
     "recommendations": [

@@ -74,15 +74,11 @@ export class GenerationService {
     const currentResources = turn.resources[String(turn.player)] ?? 0;
 
     if (currentResources < cost) {
-      console.warn(
-        `Not enough resources to generate ${pieceType}. Cost: ${cost}, Current: ${currentResources}`,
-      );
       return;
     }
 
     const generatePosition = this.findGenerationPanel(turn.player);
     if (!generatePosition) {
-      console.warn(`No available panel for unit generation.`);
       return;
     }
 

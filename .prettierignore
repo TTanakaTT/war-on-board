@@ -1,2 +1,6 @@
 # Package Managers
 pnpm-lock.yaml
+
+# Generated files
+src/lib/paraglide/
+project.inlang/

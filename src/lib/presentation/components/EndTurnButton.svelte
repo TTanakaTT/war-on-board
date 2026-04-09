@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { GameService } from "$lib/services/GameService";
+  import { GameApi } from "$lib/api/GameApi";
+  import { AiService } from "$lib/services/AiService";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
+  import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
   import { Player } from "$lib/domain/enums/Player";
   import { m } from "$lib/paraglide/messages";
   import Icon from "$lib/presentation/components/Icon.svelte";
@@ -9,8 +11,11 @@
   let isPlayerTurn = $derived(currentPlayer === Player.SELF);
 
   function handleEndTurn() {
-    if (isPlayerTurn) {
-      GameService.nextTurn();
+    if (!isPlayerTurn) return;
+    SelectedPanelRepository.set(undefined);
+    const result = GameApi.endTurn(Player.SELF);
+    if (result.ok && result.value.nextPlayer === Player.OPPONENT && !result.value.winner) {
+      setTimeout(() => AiService.doAiTurn(Player.OPPONENT), 1000);
     }
   }
 </script>

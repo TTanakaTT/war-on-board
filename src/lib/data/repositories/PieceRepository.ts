@@ -27,4 +27,8 @@ export class PiecesRepository {
   static getAll(): Piece[] {
     return piecesState.getAll();
   }
+
+  static setAll(pieces: Piece[]): void {
+    piecesState.setAll(pieces);
+  }
 }

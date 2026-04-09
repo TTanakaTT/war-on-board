@@ -2,7 +2,8 @@
 
 - [ ] `pnpm update`
 - [ ] `pnpm outdated`
-- [ ] `pnpm run format`
-- [ ] `pnpm run lint`
-- [ ] `pnpm run check`
+- [ ] `pnpm format`
+- [ ] `pnpm lint`
+- [ ] `pnpm check`
+- [ ] `pnpm test`
 - [ ] version increment at [package.json]

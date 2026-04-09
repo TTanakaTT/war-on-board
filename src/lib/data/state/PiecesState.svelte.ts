@@ -36,7 +36,7 @@ function update(piece: Piece): void {
   }
 }
 
-// PiecesStateはピースのCRUD操作のみ責任を持つ
+// PiecesState manages CRUD operations for pieces only
 export const piecesState = {
   add,
   remove,

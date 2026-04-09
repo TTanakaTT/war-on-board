@@ -2,7 +2,8 @@
   import HexagonPanel from "./HexagonPanel.svelte";
   import { PanelPosition } from "$lib/domain/entities/PanelPosition";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-  import { GameService } from "$lib/services/GameService";
+  import { GameApi } from "$lib/api/GameApi";
+  import { InteractionService } from "$lib/services/InteractionService";
   import { Player } from "$lib/domain/enums/Player";
   import { PieceType } from "$lib/domain/enums/PieceType";
   import { LayerRepository } from "$lib/data/repositories/LayerRepository";
@@ -11,7 +12,7 @@
   import Icon from "$lib/presentation/components/Icon.svelte";
   import MoveArrows from "./MoveArrows.svelte";
   import { slide } from "svelte/transition";
-  import { BoardLayoutService } from "$lib/services/BoardLayoutService";
+  import { BoardLayout } from "$lib/presentation/BoardLayout";
   import { m } from "$lib/paraglide/messages";
   import type { GenerationMode } from "$lib/domain/entities/Turn";
 
@@ -30,8 +31,8 @@
     return range;
   }
 
-  const width = $derived(BoardLayoutService.boardWidth);
-  const height = $derived(BoardLayoutService.boardHeight);
+  const width = $derived(BoardLayout.boardWidth);
+  const height = $derived(BoardLayout.boardHeight);
   const layeredPanelContainerStyle = $derived(
     `width: ${width}px; height: ${height}px; position: relative;`,
   );
@@ -41,12 +42,12 @@
   // Additional vertical adjustment (in px) to align the rendered panel visually.
   const PANEL_VERTICAL_PIXEL_OFFSET = 5;
   function panelPositionStyle(hl: number, vl: number): string {
-    const coords = BoardLayoutService.getCoordinates(
+    const coords = BoardLayout.getCoordinates(
       new PanelPosition({ horizontalLayer: hl, verticalLayer: vl }),
     );
     // Adjust from center to top-left
-    const left = coords.x - BoardLayoutService.HEIGHT / HEXAGON_HORIZONTAL_RATIO / 2;
-    const top = coords.y - BoardLayoutService.HEIGHT / 2 - PANEL_VERTICAL_PIXEL_OFFSET;
+    const left = coords.x - BoardLayout.HEIGHT / HEXAGON_HORIZONTAL_RATIO / 2;
+    const top = coords.y - BoardLayout.HEIGHT / 2 - PANEL_VERTICAL_PIXEL_OFFSET;
     return `position: absolute; left: ${left}px; top: ${top}px;`;
   }
 
@@ -62,20 +63,14 @@
     const currentTurn = TurnRepository.get();
     const currentMode = currentTurn.generationMode[String(Player.SELF)] ?? "rear";
     const newMode: GenerationMode = currentMode === "rear" ? "front" : "rear";
-    TurnRepository.set({
-      ...currentTurn,
-      generationMode: {
-        ...currentTurn.generationMode,
-        [String(Player.SELF)]: newMode,
-      },
-    });
+    GameApi.setGenerationMode(Player.SELF, newMode);
   }
 </script>
 
 <div class="m-2 flex justify-center gap-4">
   <span
     class="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border-2 p-1.5 text-sm {turnColor}"
-    >turn<span class="text-2xl font-bold">{turn.num}</span> {turn.player}</span
+    >{m.turn_label()}<span class="text-2xl font-bold">{turn.num}</span> {turn.player}</span
   >
   <EndTurnButton />
 </div>
@@ -91,7 +86,7 @@
               verticalLayer: vl,
             })}
             onclick={() =>
-              GameService.panelChange(
+              InteractionService.panelChange(
                 new PanelPosition({
                   horizontalLayer: hl,
                   verticalLayer: vl,

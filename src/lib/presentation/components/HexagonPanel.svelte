@@ -1,7 +1,7 @@
 <script lang="ts">
   import { PanelsService } from "$lib/services/PanelService";
   import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-  import { GameService } from "$lib/services/GameService";
+  import { InteractionService } from "$lib/services/InteractionService";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 
   import { PanelState } from "$lib/domain/enums/PanelState";
@@ -37,7 +37,7 @@
 
   function handlePieceClick(e: MouseEvent, piece: Piece) {
     e.stopPropagation();
-    GameService.pieceChange(piece);
+    InteractionService.pieceChange(piece);
   }
 
   function onkeydown(e: KeyboardEvent) {
@@ -127,7 +127,7 @@
           onkeydown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.stopPropagation();
-              GameService.pieceChange(piece);
+              InteractionService.pieceChange(piece);
             }
           }}
         >

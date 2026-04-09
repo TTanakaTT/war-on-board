@@ -1,6 +1,6 @@
 <script lang="ts">
   import { PieceType } from "$lib/domain/enums/PieceType";
-  import { GameService } from "$lib/services/GameService";
+  import { GameApi } from "$lib/api/GameApi";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { Player } from "$lib/domain/enums/Player";
   import { m } from "$lib/paraglide/messages";
@@ -17,7 +17,7 @@
 <button
   type="button"
   class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hover:ring-primary dark:hover:ring-primary-dark flex items-center gap-2 rounded-3xl border px-5 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
-  onclick={() => GameService.generate(pieceType)}
+  onclick={() => GameApi.generatePiece(Player.SELF, pieceType)}
   disabled={!canAfford || !isPlayerTurn}
   title={m.piece_cost_tooltip({
     piece: pieceType.config.iconName,
