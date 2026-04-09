@@ -44,7 +44,6 @@ This project follows **Clean Architecture** principles. Code is organized into c
 | [**PanelService**](../src/lib/services/PanelService.ts)                 | Panel initialization, adjacent lookup, state clearing            |
 | [**AiService**](../src/lib/services/AiService.ts)                       | AI player logic (random strategy)                                |
 | [**VictoryService**](../src/lib/services/VictoryService.ts)             | Win condition check (home base capture)                          |
-| [**BoardLayoutService**](../src/lib/services/BoardLayoutService.ts)     | Hexagon coordinate geometry for rendering                        |
 
 ---
 
@@ -82,7 +81,6 @@ This project follows **Clean Architecture** principles. Code is organized into c
 ## Core Files (changes require careful design review)
 
 - [`src/lib/api/GameApi.ts`](../src/lib/api/GameApi.ts) — Game operation contract.
-- [`src/lib/domain/types/api.ts`](../src/lib/domain/types/api.ts) — API result type definitions.
 - [`src/lib/domain/entities/`](../src/lib/domain/entities/) — Data structures.
 - [`src/lib/domain/enums/`](../src/lib/domain/enums/) — Enumerations.
 

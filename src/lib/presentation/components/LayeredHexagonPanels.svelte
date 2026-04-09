@@ -12,7 +12,7 @@
   import Icon from "$lib/presentation/components/Icon.svelte";
   import MoveArrows from "./MoveArrows.svelte";
   import { slide } from "svelte/transition";
-  import { BoardLayoutService } from "$lib/services/BoardLayoutService";
+  import { BoardLayout } from "$lib/presentation/BoardLayout";
   import { m } from "$lib/paraglide/messages";
   import type { GenerationMode } from "$lib/domain/entities/Turn";
 
@@ -31,8 +31,8 @@
     return range;
   }
 
-  const width = $derived(BoardLayoutService.boardWidth);
-  const height = $derived(BoardLayoutService.boardHeight);
+  const width = $derived(BoardLayout.boardWidth);
+  const height = $derived(BoardLayout.boardHeight);
   const layeredPanelContainerStyle = $derived(
     `width: ${width}px; height: ${height}px; position: relative;`,
   );
@@ -42,12 +42,12 @@
   // Additional vertical adjustment (in px) to align the rendered panel visually.
   const PANEL_VERTICAL_PIXEL_OFFSET = 5;
   function panelPositionStyle(hl: number, vl: number): string {
-    const coords = BoardLayoutService.getCoordinates(
+    const coords = BoardLayout.getCoordinates(
       new PanelPosition({ horizontalLayer: hl, verticalLayer: vl }),
     );
     // Adjust from center to top-left
-    const left = coords.x - BoardLayoutService.HEIGHT / HEXAGON_HORIZONTAL_RATIO / 2;
-    const top = coords.y - BoardLayoutService.HEIGHT / 2 - PANEL_VERTICAL_PIXEL_OFFSET;
+    const left = coords.x - BoardLayout.HEIGHT / HEXAGON_HORIZONTAL_RATIO / 2;
+    const top = coords.y - BoardLayout.HEIGHT / 2 - PANEL_VERTICAL_PIXEL_OFFSET;
     return `position: absolute; left: ${left}px; top: ${top}px;`;
   }
 

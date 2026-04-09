@@ -1,6 +1,6 @@
 <script lang="ts">
   import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-  import { BoardLayoutService } from "$lib/services/BoardLayoutService";
+  import { BoardLayout } from "$lib/presentation/BoardLayout";
   import { Player } from "$lib/domain/enums/Player";
 
   let piecesWithMoves = $derived(PiecesRepository.getAll().filter((p) => p.targetPosition));
@@ -14,8 +14,8 @@
   </defs>
 
   {#each piecesWithMoves as piece (piece.id)}
-    {@const start = BoardLayoutService.getCoordinates(piece.panelPosition)}
-    {@const end = BoardLayoutService.getCoordinates(piece.targetPosition!)}
+    {@const start = BoardLayout.getCoordinates(piece.panelPosition)}
+    {@const end = BoardLayout.getCoordinates(piece.targetPosition!)}
     {@const color = piece.player === Player.SELF ? "stroke-white" : "stroke-black"}
     {@const textColor = piece.player === Player.SELF ? "text-white" : "text-black"}
 

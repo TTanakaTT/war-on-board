@@ -2,7 +2,7 @@ import { LayerRepository } from "$lib/data/repositories/LayerRepository";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { PANEL_HEIGHT, PANEL_MARGIN } from "$lib/presentation/constants/UiConstants";
 
-export class BoardLayoutService {
+export class BoardLayout {
   static readonly HEIGHT = PANEL_HEIGHT;
   static readonly PANEL_MARGIN = PANEL_MARGIN;
   static readonly VERTICAL_SPACING = PANEL_HEIGHT + PANEL_MARGIN;
