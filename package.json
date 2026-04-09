@@ -17,13 +17,13 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@inlang/paraglide-js": "^2.15.3",
     "material-symbols": "^0.44.0",
     "svelte": "^5.55.2"
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.5",
     "@eslint/js": "^10.0.1",
+    "@inlang/paraglide-js": "^2.15.3",
     "@playwright/test": "^1.59.1",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.57.0",
