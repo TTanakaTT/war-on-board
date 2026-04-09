@@ -1,10 +1,11 @@
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import { PANEL_HEIGHT, PANEL_MARGIN } from "$lib/presentation/constants/UiConstants";
 
 export class BoardLayoutService {
-  static readonly HEIGHT = 100;
-  static readonly PANEL_MARGIN = 10;
-  static readonly VERTICAL_SPACING = BoardLayoutService.HEIGHT + BoardLayoutService.PANEL_MARGIN;
+  static readonly HEIGHT = PANEL_HEIGHT;
+  static readonly PANEL_MARGIN = PANEL_MARGIN;
+  static readonly VERTICAL_SPACING = PANEL_HEIGHT + PANEL_MARGIN;
 
   static get layer() {
     return LayerRepository.get();

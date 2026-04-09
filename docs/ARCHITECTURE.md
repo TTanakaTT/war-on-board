@@ -64,6 +64,7 @@ This project follows **Clean Architecture** principles. Code is organized into c
   - [`state/`](../src/lib/data/state/) — Svelte 5 $state stores
 - [`presentation/`](../src/lib/presentation/) — Adapter layer
   - [`components/`](../src/lib/presentation/components/) — Svelte components
+  - [`constants/`](../src/lib/presentation/constants/) — UI rendering constants (UiConstants.ts)
 - [`paraglide/`](../src/lib/paraglide/) — Framework layer — i18n generated output
 
 [`tests/`](../tests/)
