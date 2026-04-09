@@ -121,6 +121,24 @@ describe("MovementRulesService", () => {
       // projected count at (1,0) = 2, + 1 = 3 > DEFAULT_MAX_PIECES_PER_PANEL(2)
       expect(MovementRulesService.canMoveTo(pos(1, 0), Player.SELF, piece.id)).toBe(false);
     });
+
+    test("piece with 0 attack power cannot move to enemy panel", () => {
+      const bishop = new Piece({
+        id: 1,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.BISHOP,
+      });
+      PiecesRepository.add(bishop);
+      addPiece(50, pos(1, 0), Player.OPPONENT);
+      expect(MovementRulesService.canMoveTo(pos(1, 0), Player.SELF, bishop.id)).toBe(false);
+    });
+
+    test("piece with attack power > 0 can move to enemy panel", () => {
+      const knight = addPiece(1, pos(0, 0), Player.SELF);
+      addPiece(50, pos(1, 0), Player.OPPONENT);
+      expect(MovementRulesService.canMoveTo(pos(1, 0), Player.SELF, knight.id)).toBe(true);
+    });
   });
 
   describe("canCancelMove", () => {

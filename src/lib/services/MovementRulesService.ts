@@ -69,7 +69,11 @@ export class MovementRulesService {
     selectedPieceId: number,
     maxPieces: number = DEFAULT_MAX_PIECES_PER_PANEL,
   ): boolean {
-    if (this.hasEnemyPresence(targetPosition, player)) return true;
+    if (this.hasEnemyPresence(targetPosition, player)) {
+      const piece = PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
+      if (piece && !piece.canAttack) return false;
+      return true;
+    }
 
     const projectedCount = this.projectedFriendlyCount(targetPosition, player, selectedPieceId);
     return projectedCount + 1 <= maxPieces;

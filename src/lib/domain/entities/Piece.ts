@@ -33,6 +33,14 @@ export class Piece {
     return this.pieceType.config.attackPowerAgainstWall + (this.stackCount - 1);
   }
 
+  /**
+   * Whether this piece can attack (i.e. move to enemy panels).
+   * A piece with 0 attack power against both pieces and walls cannot attack.
+   */
+  get canAttack(): boolean {
+    return this.attackPowerAgainstPiece > 0 || this.attackPowerAgainstWall > 0;
+  }
+
   constructor({
     id,
     panelPosition,
