@@ -34,3 +34,6 @@ playwright-report/
 
 # Misc
 *.tgz
+# Paraglide
+src/lib/paraglide
+project.inlang/cache/
