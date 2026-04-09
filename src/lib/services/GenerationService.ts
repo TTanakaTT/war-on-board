@@ -28,9 +28,10 @@ export class GenerationService {
    * Mode "front": lower |horizontalLayer| first (closer to enemy).
    *
    * Conditions: owned by player, resource >= RESOURCE_THRESHOLD_FOR_GENERATION,
-   * not at max capacity.
+   * and either not at max capacity OR the panel has a same-type mergeable piece
+   * (merge will consolidate after generation).
    */
-  static findGenerationPanel(player: Player): PanelPosition | null {
+  static findGenerationPanel(player: Player, pieceType?: PieceType): PanelPosition | null {
     const turn = TurnRepository.get();
     const maxPieces = turn.maxPiecesPerPanel[String(player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
     const homeBase = HomeBaseRepository.getByPlayer(player);
@@ -39,9 +40,13 @@ export class GenerationService {
     const candidates = PanelRepository.getAll().filter((panel) => {
       if (panel.player !== player) return false;
       if (panel.resource < RESOURCE_THRESHOLD_FOR_GENERATION) return false;
-      if (PiecesRepository.getPiecesByPosition(panel.panelPosition).length >= maxPieces)
-        return false;
-      return true;
+      const piecesAtPanel = PiecesRepository.getPiecesByPosition(panel.panelPosition);
+      if (piecesAtPanel.length < maxPieces) return true;
+      // At capacity — allow if the new piece would merge with an existing one
+      if (pieceType?.config.mergeable) {
+        return piecesAtPanel.some((p) => p.player === player && p.pieceType === pieceType);
+      }
+      return false;
     });
 
     if (candidates.length === 0) return null;
@@ -77,7 +82,7 @@ export class GenerationService {
       return;
     }
 
-    const generatePosition = this.findGenerationPanel(turn.player);
+    const generatePosition = this.findGenerationPanel(turn.player, pieceType);
     if (!generatePosition) {
       return;
     }

@@ -57,14 +57,8 @@ export class CombatService {
     const frontAttacker = this.selectFrontLine(attackers);
 
     // Accumulate damage
-    const totalDamageToDefender = attackers.reduce(
-      (sum, a) => sum + a.pieceType.config.attackPowerAgainstPiece,
-      0,
-    );
-    const totalDamageToAttacker = defenders.reduce(
-      (sum, d) => sum + d.pieceType.config.attackPowerAgainstPiece,
-      0,
-    );
+    const totalDamageToDefender = attackers.reduce((sum, a) => sum + a.attackPowerAgainstPiece, 0);
+    const totalDamageToAttacker = defenders.reduce((sum, d) => sum + d.attackPowerAgainstPiece, 0);
 
     const newDefenderHp = frontDefender.hp - totalDamageToDefender;
     const newAttackerHp = frontAttacker.hp - totalDamageToAttacker;
@@ -103,10 +97,7 @@ export class CombatService {
    * Total damage = sum of all attackers' wall-attack power.
    */
   static attackWallMulti(attackers: Piece[], panel: Panel): { wallDestroyed: boolean } {
-    const totalDamage = attackers.reduce(
-      (sum, a) => sum + a.pieceType.config.attackPowerAgainstWall,
-      0,
-    );
+    const totalDamage = attackers.reduce((sum, a) => sum + a.attackPowerAgainstWall, 0);
     const newCastleValue = Math.max(0, panel.castle - totalDamage);
 
     PanelRepository.update(

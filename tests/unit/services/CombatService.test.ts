@@ -12,7 +12,14 @@ import { Player } from "$lib/domain/enums/Player";
 const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
 
 function makePiece(
-  overrides: Partial<{ id: number; player: Player; pieceType: PieceType; hp: number }> = {},
+  overrides: Partial<{
+    id: number;
+    player: Player;
+    pieceType: PieceType;
+    hp: number;
+    stackCount: number;
+    maxHp: number;
+  }> = {},
 ): Piece {
   return new Piece({
     id: overrides.id ?? 1,
@@ -20,6 +27,8 @@ function makePiece(
     player: overrides.player ?? Player.SELF,
     pieceType: overrides.pieceType ?? PieceType.KNIGHT,
     hp: overrides.hp,
+    stackCount: overrides.stackCount,
+    maxHp: overrides.maxHp,
   });
 }
 
@@ -218,6 +227,96 @@ describe("CombatService", () => {
 
       CombatService.attackWallMulti([a1, a2], PanelRepository.find(pos(1, 0))!);
       expect(PanelRepository.find(pos(1, 0))!.castle).toBe(0);
+    });
+  });
+
+  describe("stacked unit (stackCount > 1) combat", () => {
+    test("stacked Knight (stackCount=2) has attackPowerAgainstPiece = config.AP + 1", () => {
+      const stacked = makePiece({
+        id: 1,
+        pieceType: PieceType.KNIGHT,
+        stackCount: 2,
+        maxHp: 20,
+        hp: 20,
+      });
+      // stackCount=2 → AP = 5 + (2-1) = 6
+      expect(stacked.attackPowerAgainstPiece).toBe(6);
+    });
+
+    test("stacked Knight (stackCount=2) has attackPowerAgainstWall = config.wallAP + 1", () => {
+      const stacked = makePiece({
+        id: 1,
+        pieceType: PieceType.KNIGHT,
+        stackCount: 2,
+        maxHp: 20,
+        hp: 20,
+      });
+      // stackCount=2 → wall AP = 2 + (2-1) = 3
+      expect(stacked.attackPowerAgainstWall).toBe(3);
+    });
+
+    test("stacked Knight (stackCount=3) deals config.AP + 2 damage to front-line defender", () => {
+      // stackCount=3 Knight: AP = 5 + 2 = 7
+      const stacked = makePiece({
+        id: 1,
+        pieceType: PieceType.KNIGHT,
+        stackCount: 3,
+        maxHp: 30,
+        hp: 30,
+      });
+      const defender = makePiece({ id: 2, pieceType: PieceType.ROOK, hp: 10 });
+      PiecesRepository.add(stacked);
+      PiecesRepository.add(defender);
+
+      CombatService.resolveCombat([stacked], [defender]);
+
+      // Rook HP: 10 - 7 = 3
+      expect(PiecesRepository.getAll().find((p) => p.id === 2)!.hp).toBe(3);
+    });
+
+    test("stacked Knight (stackCount=2) takes counter-attack damage based on defender AP", () => {
+      // stackCount=2 Knight: AP = 6, HP = 20
+      const stacked = makePiece({
+        id: 1,
+        pieceType: PieceType.KNIGHT,
+        stackCount: 2,
+        maxHp: 20,
+        hp: 20,
+      });
+      const defender = makePiece({ id: 2, pieceType: PieceType.KNIGHT, hp: 10 });
+      PiecesRepository.add(stacked);
+      PiecesRepository.add(defender);
+
+      CombatService.resolveCombat([stacked], [defender]);
+
+      // Stacked Knight HP: 20 - 5 (defender AP) = 15
+      expect(PiecesRepository.getAll().find((p) => p.id === 1)!.hp).toBe(15);
+      // Defender HP: 10 - 6 (stacked AP) = 4
+      expect(PiecesRepository.getAll().find((p) => p.id === 2)!.hp).toBe(4);
+    });
+
+    test("stacked Knight (stackCount=2) attacks wall with increased wall AP", () => {
+      const panel = PanelRepository.getAll().find((p) => p.panelPosition.equals(pos(1, 0)))!;
+      PanelRepository.update(
+        new Panel({
+          panelPosition: panel.panelPosition,
+          panelState: panel.panelState,
+          player: Player.OPPONENT,
+          castle: 10,
+        }),
+      );
+      // stackCount=2: wall AP = 2 + 1 = 3
+      const stacked = makePiece({
+        id: 1,
+        pieceType: PieceType.KNIGHT,
+        stackCount: 2,
+        maxHp: 20,
+        hp: 20,
+      });
+
+      CombatService.attackWall(stacked, PanelRepository.find(pos(1, 0))!);
+
+      expect(PanelRepository.find(pos(1, 0))!.castle).toBe(7); // 10 - 3
     });
   });
 });

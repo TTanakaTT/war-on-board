@@ -277,10 +277,11 @@ export class GameApi {
     const currentResources = turn.resources[String(player)] ?? 0;
     if (currentResources < cost) return { ok: false, error: ActionError.INSUFFICIENT_RESOURCES };
 
-    const generatePosition = GenerationService.findGenerationPanel(player);
+    const generatePosition = GenerationService.findGenerationPanel(player, pieceType);
     if (!generatePosition) return { ok: false, error: ActionError.NO_GENERATION_PANEL };
 
     GenerationService.generate(pieceType);
+    PieceService.mergePiecesAtPosition(generatePosition);
     return { ok: true, value: undefined };
   }
 
@@ -338,6 +339,9 @@ export class GameApi {
 
     // 1. Finalize current player's moves (combat resolution)
     const combatOutcomes = PieceService.finalizePlayerMoves(player);
+
+    // 1b. Merge same-type mergeable units that ended up on the same panel
+    PieceService.mergeAllPiecesForPlayer(player);
 
     // 2. Refresh panel ownership
     PanelsService.refreshPanelStates();
@@ -441,6 +445,6 @@ export class GameApi {
     const turn = TurnRepository.get();
     const currentResources = turn.resources[String(player)] ?? 0;
     if (currentResources < pieceType.config.cost) return false;
-    return GenerationService.findGenerationPanel(player) !== null;
+    return GenerationService.findGenerationPanel(player, pieceType) !== null;
   }
 }

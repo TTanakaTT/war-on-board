@@ -9,6 +9,29 @@ export class Piece {
   player: Player;
   pieceType: PieceType;
   hp: number;
+  /** Number of units merged into this piece. Starts at 1. */
+  stackCount: number;
+  /**
+   * Maximum HP for this piece, accounting for merged units.
+   * Equals `pieceType.config.maxHp * stackCount` after merging.
+   */
+  maxHp: number;
+
+  /**
+   * Effective attack power against pieces.
+   * Formula: `config.attackPowerAgainstPiece + (stackCount - 1)`
+   */
+  get attackPowerAgainstPiece(): number {
+    return this.pieceType.config.attackPowerAgainstPiece + (this.stackCount - 1);
+  }
+
+  /**
+   * Effective attack power against walls.
+   * Formula: `config.attackPowerAgainstWall + (stackCount - 1)`
+   */
+  get attackPowerAgainstWall(): number {
+    return this.pieceType.config.attackPowerAgainstWall + (this.stackCount - 1);
+  }
 
   constructor({
     id,
@@ -18,6 +41,8 @@ export class Piece {
     player,
     pieceType,
     hp,
+    stackCount,
+    maxHp,
   }: {
     id?: number;
     initialPosition?: PanelPosition;
@@ -26,6 +51,8 @@ export class Piece {
     player: Player;
     pieceType: PieceType;
     hp?: number;
+    stackCount?: number;
+    maxHp?: number;
   }) {
     this.id = id ?? 0;
     this.panelPosition = panelPosition;
@@ -33,7 +60,9 @@ export class Piece {
     this.targetPosition = targetPosition;
     this.player = player;
     this.pieceType = pieceType;
-    this.hp = hp ?? pieceType.config.maxHp;
+    this.stackCount = stackCount ?? 1;
+    this.maxHp = maxHp ?? pieceType.config.maxHp;
+    this.hp = hp ?? this.maxHp;
   }
 
   equals(other: Piece): boolean {

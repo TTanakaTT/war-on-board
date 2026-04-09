@@ -11,6 +11,72 @@ import { CombatService } from "$lib/services/CombatService";
 import { PASSIVE_RESOURCE_CAP, PASSIVE_CASTLE_CAP } from "$lib/domain/constants/GameConstants";
 
 export class PieceService {
+  /**
+   * Merge all mergeable pieces of the same type and player at the given panel position.
+   *
+   * For each group (player × pieceType) where pieceType.config.mergeable === true
+   * and the group has more than one piece:
+   *   - The piece with the lowest ID becomes the merged unit.
+   *   - HP, maxHp, and stackCount are summed across all pieces in the group.
+   *   - All other pieces in the group are removed from the repository.
+   */
+  static mergePiecesAtPosition(position: PanelPosition): void {
+    const piecesAtPanel = PiecesRepository.getPiecesByPosition(position);
+
+    // Group by player + pieceType
+    const groups = new Map<string, Piece[]>();
+    for (const piece of piecesAtPanel) {
+      if (!piece.pieceType.config.mergeable) continue;
+      const key = `${String(piece.player)}:${piece.pieceType.config.iconName}`;
+      const group = groups.get(key);
+      if (group) {
+        group.push(piece);
+      } else {
+        groups.set(key, [piece]);
+      }
+    }
+
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+
+      // Sort by ID — lowest ID is the base piece
+      group.sort((a, b) => a.id - b.id);
+      const [base, ...rest] = group;
+
+      const totalHp = group.reduce((sum, p) => sum + p.hp, 0);
+      const totalMaxHp = group.reduce((sum, p) => sum + p.maxHp, 0);
+      const totalStackCount = group.reduce((sum, p) => sum + p.stackCount, 0);
+
+      PiecesRepository.update(
+        new Piece({
+          ...base,
+          hp: totalHp,
+          maxHp: totalMaxHp,
+          stackCount: totalStackCount,
+        }),
+      );
+
+      for (const other of rest) {
+        PiecesRepository.remove(other);
+      }
+    }
+  }
+
+  /**
+   * Merge mergeable pieces at every panel position occupied by the given player.
+   */
+  static mergeAllPiecesForPlayer(player: Player): void {
+    const playerPieces = PiecesRepository.getPiecesByPlayer(player);
+    const uniquePositions = new Map<string, PanelPosition>();
+    for (const piece of playerPieces) {
+      const key = `${piece.panelPosition.horizontalLayer},${piece.panelPosition.verticalLayer}`;
+      uniquePositions.set(key, piece.panelPosition);
+    }
+    for (const position of uniquePositions.values()) {
+      this.mergePiecesAtPosition(position);
+    }
+  }
+
   static generateNextId(): number {
     return (
       PiecesRepository.getAll().reduce((max: number, piece: Piece) => Math.max(max, piece.id), 0) +
@@ -27,6 +93,8 @@ export class PieceService {
       player: selectedPiece.player,
       pieceType: selectedPiece.pieceType,
       hp: selectedPiece.hp,
+      stackCount: selectedPiece.stackCount,
+      maxHp: selectedPiece.maxHp,
     });
     PiecesRepository.update(newPiece);
   }

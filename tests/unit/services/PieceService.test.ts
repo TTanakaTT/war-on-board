@@ -104,6 +104,24 @@ describe("PieceService", () => {
       expect(updated.pieceType).toBe(PieceType.ROOK);
       expect(updated.hp).toBe(8);
     });
+
+    test("preserves stackCount and maxHp after move", () => {
+      const piece = makePiece({
+        id: 1,
+        panelPosition: pos(-2, 0),
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+        hp: 20,
+        stackCount: 2,
+        maxHp: 20,
+      });
+      PiecesRepository.add(piece);
+      PieceService.move(pos(-1, 0), piece);
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(updated.stackCount).toBe(2);
+      expect(updated.maxHp).toBe(20);
+      expect(updated.hp).toBe(20);
+    });
   });
 
   describe("resetInitialPositions", () => {
@@ -342,6 +360,249 @@ describe("PieceService", () => {
       const outcomes = PieceService.finalizePlayerMoves(Player.SELF);
       // Both attackers target same panel, so only 1 outcome
       expect(outcomes.length).toBe(1);
+    });
+  });
+
+  describe("mergePiecesAtPosition", () => {
+    test("two mergeable Knights at same position merge into one with summed HP, maxHp, stackCount", () => {
+      const k1 = new Piece({
+        id: 1,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+        hp: 8,
+        maxHp: 10,
+        stackCount: 1,
+      });
+      const k2 = new Piece({
+        id: 2,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+        hp: 6,
+        maxHp: 10,
+        stackCount: 1,
+      });
+      PiecesRepository.add(k1);
+      PiecesRepository.add(k2);
+
+      PieceService.mergePiecesAtPosition(pos(0, 0));
+
+      const remaining = PiecesRepository.getPiecesByPosition(pos(0, 0));
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].id).toBe(1); // lowest ID kept
+      expect(remaining[0].hp).toBe(14);
+      expect(remaining[0].maxHp).toBe(20);
+      expect(remaining[0].stackCount).toBe(2);
+    });
+
+    test("merged Knight has increased attack power equal to AP + stackCount - 1", () => {
+      const k1 = new Piece({
+        id: 1,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      });
+      const k2 = new Piece({
+        id: 2,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      });
+      PiecesRepository.add(k1);
+      PiecesRepository.add(k2);
+
+      PieceService.mergePiecesAtPosition(pos(0, 0));
+
+      const merged = PiecesRepository.getPiecesByPosition(pos(0, 0))[0];
+      expect(merged.stackCount).toBe(2);
+      // AP: config(5) + stackCount(2) - 1 = 6
+      expect(merged.attackPowerAgainstPiece).toBe(6);
+      // Wall AP: config(2) + stackCount(2) - 1 = 3
+      expect(merged.attackPowerAgainstWall).toBe(3);
+    });
+
+    test("three Knights at same position merge into one with combined values", () => {
+      [1, 2, 3].forEach((id) =>
+        PiecesRepository.add(
+          new Piece({
+            id,
+            panelPosition: pos(0, 0),
+            player: Player.SELF,
+            pieceType: PieceType.KNIGHT,
+            hp: 10,
+            maxHp: 10,
+            stackCount: 1,
+          }),
+        ),
+      );
+
+      PieceService.mergePiecesAtPosition(pos(0, 0));
+
+      const remaining = PiecesRepository.getPiecesByPosition(pos(0, 0));
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].stackCount).toBe(3);
+      expect(remaining[0].hp).toBe(30);
+      expect(remaining[0].maxHp).toBe(30);
+      expect(remaining[0].attackPowerAgainstPiece).toBe(7); // 5 + 3 - 1
+    });
+
+    test("non-mergeable Bishops at same position are NOT merged", () => {
+      const b1 = new Piece({
+        id: 1,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.BISHOP,
+      });
+      const b2 = new Piece({
+        id: 2,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.BISHOP,
+      });
+      PiecesRepository.add(b1);
+      PiecesRepository.add(b2);
+
+      PieceService.mergePiecesAtPosition(pos(0, 0));
+
+      expect(PiecesRepository.getPiecesByPosition(pos(0, 0))).toHaveLength(2);
+    });
+
+    test("non-mergeable Rooks at same position are NOT merged", () => {
+      const r1 = new Piece({
+        id: 1,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.ROOK,
+      });
+      const r2 = new Piece({
+        id: 2,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.ROOK,
+      });
+      PiecesRepository.add(r1);
+      PiecesRepository.add(r2);
+
+      PieceService.mergePiecesAtPosition(pos(0, 0));
+
+      expect(PiecesRepository.getPiecesByPosition(pos(0, 0))).toHaveLength(2);
+    });
+
+    test("Knights of different players at same position are NOT merged", () => {
+      const selfKnight = new Piece({
+        id: 1,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      });
+      const oppKnight = new Piece({
+        id: 2,
+        panelPosition: pos(0, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.KNIGHT,
+      });
+      PiecesRepository.add(selfKnight);
+      PiecesRepository.add(oppKnight);
+
+      PieceService.mergePiecesAtPosition(pos(0, 0));
+
+      expect(PiecesRepository.getPiecesByPosition(pos(0, 0))).toHaveLength(2);
+    });
+
+    test("single Knight at position is unchanged", () => {
+      const k = new Piece({
+        id: 1,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+        hp: 7,
+      });
+      PiecesRepository.add(k);
+
+      PieceService.mergePiecesAtPosition(pos(0, 0));
+
+      const pieces = PiecesRepository.getPiecesByPosition(pos(0, 0));
+      expect(pieces).toHaveLength(1);
+      expect(pieces[0].hp).toBe(7);
+      expect(pieces[0].stackCount).toBe(1);
+    });
+
+    test("lowest ID piece is kept as the merged base", () => {
+      const k1 = new Piece({
+        id: 10,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      });
+      const k2 = new Piece({
+        id: 3,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      });
+      const k3 = new Piece({
+        id: 7,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      });
+      PiecesRepository.add(k1);
+      PiecesRepository.add(k2);
+      PiecesRepository.add(k3);
+
+      PieceService.mergePiecesAtPosition(pos(0, 0));
+
+      const remaining = PiecesRepository.getPiecesByPosition(pos(0, 0));
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0].id).toBe(3);
+    });
+  });
+
+  describe("mergeAllPiecesForPlayer", () => {
+    test("merges Knights at multiple positions for the given player", () => {
+      [1, 2].forEach((id) =>
+        PiecesRepository.add(
+          new Piece({
+            id,
+            panelPosition: pos(0, 0),
+            player: Player.SELF,
+            pieceType: PieceType.KNIGHT,
+          }),
+        ),
+      );
+      [3, 4].forEach((id) =>
+        PiecesRepository.add(
+          new Piece({
+            id,
+            panelPosition: pos(0, 1),
+            player: Player.SELF,
+            pieceType: PieceType.KNIGHT,
+          }),
+        ),
+      );
+
+      PieceService.mergeAllPiecesForPlayer(Player.SELF);
+
+      expect(PiecesRepository.getPiecesByPosition(pos(0, 0))).toHaveLength(1);
+      expect(PiecesRepository.getPiecesByPosition(pos(0, 1))).toHaveLength(1);
+    });
+
+    test("does not affect opponent pieces", () => {
+      [1, 2].forEach((id) =>
+        PiecesRepository.add(
+          new Piece({
+            id,
+            panelPosition: pos(0, 0),
+            player: Player.OPPONENT,
+            pieceType: PieceType.KNIGHT,
+          }),
+        ),
+      );
+
+      PieceService.mergeAllPiecesForPlayer(Player.SELF);
+
+      expect(PiecesRepository.getPiecesByPosition(pos(0, 0))).toHaveLength(2);
     });
   });
 });
