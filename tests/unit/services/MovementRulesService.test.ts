@@ -68,35 +68,6 @@ describe("MovementRulesService", () => {
     });
   });
 
-  describe("projectedFriendlyCount", () => {
-    test("counts pieces at current position when no move is assigned", () => {
-      addPiece(100, pos(0, 0), Player.SELF);
-      addPiece(101, pos(0, 0), Player.SELF);
-      expect(MovementRulesService.projectedFriendlyCount(pos(0, 0), Player.SELF)).toBe(2);
-    });
-
-    test("counts pieces at target position when target is friendly", () => {
-      // Piece at (0,0) targeting (1,0) — no enemy at (1,0), so projected at (1,0)
-      addPiece(100, pos(0, 0), Player.SELF, { targetPosition: pos(1, 0) });
-      expect(MovementRulesService.projectedFriendlyCount(pos(1, 0), Player.SELF)).toBe(1);
-      expect(MovementRulesService.projectedFriendlyCount(pos(0, 0), Player.SELF)).toBe(0);
-    });
-
-    test("counts pieces at current position when target is enemy (conservative)", () => {
-      // Piece targeting an enemy panel — counted at current position conservatively
-      addPiece(100, pos(0, 0), Player.SELF, { targetPosition: pos(1, 0) });
-      addPiece(200, pos(1, 0), Player.OPPONENT); // enemy at target
-      expect(MovementRulesService.projectedFriendlyCount(pos(0, 0), Player.SELF)).toBe(1);
-      expect(MovementRulesService.projectedFriendlyCount(pos(1, 0), Player.SELF)).toBe(0);
-    });
-
-    test("excludes the piece specified by excludePieceId", () => {
-      addPiece(100, pos(0, 0), Player.SELF);
-      addPiece(101, pos(0, 0), Player.SELF);
-      expect(MovementRulesService.projectedFriendlyCount(pos(0, 0), Player.SELF, 100)).toBe(1);
-    });
-  });
-
   describe("projectedFriendlyStackCount", () => {
     test("counts multiple incoming mergeable pieces of the same type as one projected stack", () => {
       addPiece(100, pos(0, 0), Player.SELF, {

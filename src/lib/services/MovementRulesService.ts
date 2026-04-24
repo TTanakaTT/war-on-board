@@ -70,37 +70,6 @@ export class MovementRulesService {
   }
 
   /**
-   * Compute projected friendly piece count at <position> after all planned
-   * moves resolve.
-   *
-   * Pieces targeting enemy panels (with enemy pieces or castle) are
-   * conservatively counted at their *current* position because combat may
-   * prevent them from actually moving.
-   *
-   * @param excludePieceId - omit this piece from the count (the piece being moved)
-   */
-  static projectedFriendlyCount(
-    position: PanelPosition,
-    player: Player,
-    excludePieceId?: number,
-  ): number {
-    const allFriendly = PiecesRepository.getPiecesByPlayer(player);
-    let count = 0;
-    for (const piece of allFriendly) {
-      if (piece.id === excludePieceId) continue;
-      let destination: PanelPosition;
-      if (piece.targetPosition) {
-        const isAttack = this.hasEnemyPresence(piece.targetPosition, player);
-        destination = isAttack ? piece.panelPosition : piece.targetPosition;
-      } else {
-        destination = piece.panelPosition;
-      }
-      if (destination.equals(position)) count++;
-    }
-    return count;
-  }
-
-  /**
    * Determine whether <player>'s piece (id = selectedPieceId) can move to <targetPosition>.
    *
    * - Enemy panels → always movable (attack target; capacity is irrelevant).
