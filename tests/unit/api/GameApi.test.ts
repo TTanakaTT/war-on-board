@@ -201,14 +201,19 @@ describe("GameApi.initializeGame", () => {
 
 describe("GameApi.assignMove", () => {
   // Helper: place a piece for SELF at (0,0) with initialPosition=(0,0)
-  function setupSelfPieceAt(hl: number, vl: number, id = 1): Piece {
+  function setupSelfPieceAt(
+    hl: number,
+    vl: number,
+    id = 1,
+    pieceType: PieceType = PieceType.KNIGHT,
+  ): Piece {
     const pos = new PanelPosition({ horizontalLayer: hl, verticalLayer: vl });
     const piece = new Piece({
       id,
       panelPosition: pos,
       initialPosition: pos,
       player: Player.SELF,
-      pieceType: PieceType.KNIGHT,
+      pieceType,
     });
     PiecesRepository.add(piece);
     return piece;
@@ -288,9 +293,8 @@ describe("GameApi.assignMove", () => {
       expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
     });
 
-    test("when target is a friendly panel and projectedFriendlyCount + 1 > maxPiecesPerPanel, returns TARGET_NOT_REACHABLE", () => {
+    test("when target is a full friendly panel and no resident piece can merge, returns TARGET_NOT_REACHABLE", () => {
       GameApi.initializeGame({ layer: 4 });
-      // Place maxPiecesPerPanel(2) pieces at (0,1), then try to move another one there
       const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
       PiecesRepository.add(
         new Piece({
@@ -298,7 +302,7 @@ describe("GameApi.assignMove", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.ROOK,
         }),
       );
       PiecesRepository.add(
@@ -307,10 +311,9 @@ describe("GameApi.assignMove", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.BISHOP,
         }),
       );
-      // Piece at (0,0) tries to move to (0,1) which already has 2 friendly pieces
       setupSelfPieceAt(0, 0, 1);
 
       const result = GameApi.assignMove(Player.SELF, 1, target);
@@ -330,6 +333,67 @@ describe("GameApi.assignMove", () => {
       const updated = PiecesRepository.getAll().find((p) => p.id === 1);
       expect(updated!.targetPosition).toBeDefined();
       expect(updated!.targetPosition!.equals(target)).toBe(true);
+    });
+
+    test("when target is a full friendly panel but a resident friendly piece can merge, assignment succeeds", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 10,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 11,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ROOK,
+        }),
+      );
+      setupSelfPieceAt(0, 0, 1, PieceType.KNIGHT);
+
+      const result = GameApi.assignMove(Player.SELF, 1, target);
+      expect(result).toEqual({ ok: true, value: undefined });
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(updated!.targetPosition?.equals(target)).toBe(true);
+    });
+
+    test("when one resident piece exists, two incoming mergeable pieces of the same type can both be assigned to that full panel", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 10,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ROOK,
+        }),
+      );
+      setupSelfPieceAt(0, 0, 1, PieceType.KNIGHT);
+      setupSelfPieceAt(1, 0, 2, PieceType.KNIGHT);
+
+      expect(GameApi.assignMove(Player.SELF, 1, target)).toEqual({ ok: true, value: undefined });
+      expect(GameApi.assignMove(Player.SELF, 2, target)).toEqual({ ok: true, value: undefined });
+    });
+
+    test("when target is empty, two incoming mergeable pieces and one other incoming piece can all be assigned within merged capacity", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      setupSelfPieceAt(0, 0, 1, PieceType.KNIGHT);
+      setupSelfPieceAt(1, 0, 2, PieceType.KNIGHT);
+      setupSelfPieceAt(-1, 1, 3, PieceType.ROOK);
+
+      expect(GameApi.assignMove(Player.SELF, 3, target)).toEqual({ ok: true, value: undefined });
+      expect(GameApi.assignMove(Player.SELF, 1, target)).toEqual({ ok: true, value: undefined });
+      expect(GameApi.assignMove(Player.SELF, 2, target)).toEqual({ ok: true, value: undefined });
     });
 
     test("when target panel has enemy pieces (hasEnemyPresence=true), assignment succeeds regardless of friendly capacity", () => {
@@ -1342,7 +1406,7 @@ describe("GameApi.getMovableTargets", () => {
     expect(targets.some((t) => t.equals(pos))).toBe(true);
   });
 
-  test("when adjacent friendly panel is at maxPiecesPerPanel capacity, that panel is excluded from results", () => {
+  test("when adjacent friendly panel is full and no resident piece can merge, that panel is excluded from results", () => {
     GameApi.initializeGame({ layer: 4 });
     const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
     const fullPanel = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
@@ -1362,6 +1426,42 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: fullPanel,
         initialPosition: fullPanel,
         player: Player.SELF,
+        pieceType: PieceType.ROOK,
+      }),
+    );
+    PiecesRepository.add(
+      new Piece({
+        id: 11,
+        panelPosition: fullPanel,
+        initialPosition: fullPanel,
+        player: Player.SELF,
+        pieceType: PieceType.BISHOP,
+      }),
+    );
+
+    const targets = GameApi.getMovableTargets(1);
+    expect(targets.some((t) => t.equals(fullPanel))).toBe(false);
+  });
+
+  test("when adjacent friendly panel is full but a resident piece can merge, that panel is included in results", () => {
+    GameApi.initializeGame({ layer: 4 });
+    const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+    const fullPanel = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+    PiecesRepository.add(
+      new Piece({
+        id: 1,
+        panelPosition: pos,
+        initialPosition: pos,
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      }),
+    );
+    PiecesRepository.add(
+      new Piece({
+        id: 10,
+        panelPosition: fullPanel,
+        initialPosition: fullPanel,
+        player: Player.SELF,
         pieceType: PieceType.KNIGHT,
       }),
     );
@@ -1371,12 +1471,12 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: fullPanel,
         initialPosition: fullPanel,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.ROOK,
       }),
     );
 
     const targets = GameApi.getMovableTargets(1);
-    expect(targets.some((t) => t.equals(fullPanel))).toBe(false);
+    expect(targets.some((t) => t.equals(fullPanel))).toBe(true);
   });
 
   test("when adjacent panel has enemy presence, it is always included regardless of capacity", () => {

@@ -11,6 +11,49 @@ import { DEFAULT_MAX_PIECES_PER_PANEL } from "$lib/domain/constants/GameConstant
  * queries used by InteractionService when computing which panels are MOVABLE.
  */
 export class MovementRulesService {
+  static projectedFriendlyStackCount(
+    targetPosition: PanelPosition,
+    player: Player,
+    excludePieceId?: number,
+    includePieceId?: number,
+  ): number {
+    const projectedMergeableTypes = new Set<string>();
+    let projectedStackCount = 0;
+
+    for (const piece of PiecesRepository.getPiecesByPlayer(player)) {
+      if (piece.id === excludePieceId) continue;
+
+      let destination: PanelPosition;
+      if (piece.targetPosition) {
+        const isAttack = this.hasEnemyPresence(piece.targetPosition, player);
+        destination = isAttack ? piece.panelPosition : piece.targetPosition;
+      } else {
+        destination = piece.panelPosition;
+      }
+
+      if (!destination.equals(targetPosition)) continue;
+
+      if (piece.pieceType.config.mergeable) {
+        projectedMergeableTypes.add(String(piece.pieceType));
+      } else {
+        projectedStackCount += 1;
+      }
+    }
+
+    if (includePieceId !== undefined) {
+      const piece = PiecesRepository.getAll().find((candidate) => candidate.id === includePieceId);
+      if (piece) {
+        if (piece.pieceType.config.mergeable) {
+          projectedMergeableTypes.add(String(piece.pieceType));
+        } else {
+          projectedStackCount += 1;
+        }
+      }
+    }
+
+    return projectedStackCount + projectedMergeableTypes.size;
+  }
+
   /**
    * Check if a panel has enemy presence (enemy pieces or enemy-owned castle)
    * from the perspective of <player>.
@@ -61,7 +104,7 @@ export class MovementRulesService {
    * Determine whether <player>'s piece (id = selectedPieceId) can move to <targetPosition>.
    *
    * - Enemy panels → always movable (attack target; capacity is irrelevant).
-   * - Friendly panels → movable only if projected count + 1 <= maxPieces.
+   * - Friendly panels → movable only if projected post-merge stack count <= maxPieces.
    */
   static canMoveTo(
     targetPosition: PanelPosition,
@@ -75,8 +118,21 @@ export class MovementRulesService {
       return true;
     }
 
-    const projectedCount = this.projectedFriendlyCount(targetPosition, player, selectedPieceId);
-    return projectedCount + 1 <= maxPieces;
+    const piece = PiecesRepository.getAll().find((candidate) => candidate.id === selectedPieceId);
+    if (!piece) return false;
+    if (piece.panelPosition.equals(targetPosition)) {
+      const projectedCount = this.projectedFriendlyCount(targetPosition, player, selectedPieceId);
+      return projectedCount + 1 <= maxPieces;
+    }
+
+    const projectedStackCount = this.projectedFriendlyStackCount(
+      targetPosition,
+      player,
+      selectedPieceId,
+      selectedPieceId,
+    );
+
+    return projectedStackCount <= maxPieces;
   }
 
   /**
