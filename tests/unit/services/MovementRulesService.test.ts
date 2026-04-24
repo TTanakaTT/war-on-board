@@ -219,11 +219,25 @@ describe("MovementRulesService", () => {
 
     test("blocks cancel when returning piece would exceed current panel capacity", () => {
       // 2 pieces already projected at (0,0), plus the cancelling piece would make 3
-      addPiece(100, pos(0, 0), Player.SELF);
-      addPiece(101, pos(0, 0), Player.SELF);
-      const piece = addPiece(200, pos(0, 0), Player.SELF, { targetPosition: pos(1, 0) });
-      // projected at (0,0) without piece 200: counts 100 + 101 = 2; +1 = 3 > 2
+      addPiece(100, pos(0, 0), Player.SELF, { pieceType: PieceType.ROOK });
+      addPiece(101, pos(0, 0), Player.SELF, { pieceType: PieceType.BISHOP });
+      const piece = addPiece(200, pos(0, 0), Player.SELF, {
+        pieceType: PieceType.KNIGHT,
+        targetPosition: pos(1, 0),
+      });
+      // projected stack count at (0,0) without piece 200 is 2; including it makes 3 > 2
       expect(MovementRulesService.canCancelMove(pos(0, 0), Player.SELF, piece.id)).toBe(false);
+    });
+
+    test("allows cancel when returning mergeable piece collapses into an existing stack on a full panel", () => {
+      addPiece(100, pos(0, 0), Player.SELF, { pieceType: PieceType.KNIGHT });
+      addPiece(101, pos(0, 0), Player.SELF, { pieceType: PieceType.ROOK });
+      const piece = addPiece(200, pos(0, 0), Player.SELF, {
+        pieceType: PieceType.KNIGHT,
+        targetPosition: pos(1, 0),
+      });
+
+      expect(MovementRulesService.canCancelMove(pos(0, 0), Player.SELF, piece.id)).toBe(true);
     });
   });
 });

@@ -151,7 +151,12 @@ export class MovementRulesService {
     pieceId: number,
     maxPieces: number = DEFAULT_MAX_PIECES_PER_PANEL,
   ): boolean {
-    const projectedAtCurrent = this.projectedFriendlyCount(pieceCurrentPosition, player, pieceId);
-    return projectedAtCurrent + 1 <= maxPieces;
+    const projectedStackCount = this.projectedFriendlyStackCount(
+      pieceCurrentPosition,
+      player,
+      pieceId,
+      pieceId,
+    );
+    return projectedStackCount <= maxPieces;
   }
 }

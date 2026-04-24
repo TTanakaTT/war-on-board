@@ -580,7 +580,7 @@ describe("GameApi.cancelMove", () => {
           panelPosition: origin,
           initialPosition: origin,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.ROOK,
         }),
       );
       PiecesRepository.add(
@@ -589,7 +589,7 @@ describe("GameApi.cancelMove", () => {
           panelPosition: origin,
           initialPosition: origin,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.BISHOP,
         }),
       );
       // Piece 1 has been assigned to move away from origin
@@ -606,6 +606,46 @@ describe("GameApi.cancelMove", () => {
 
       const result = GameApi.cancelMove(Player.SELF, 1);
       expect(result).toEqual({ ok: false, error: ActionError.CANNOT_CANCEL });
+    });
+
+    test("when returning piece merges into an existing stack on a full panel, cancelMove returns ok", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 10,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 11,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: PieceType.ROOK,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+
+      const result = GameApi.cancelMove(Player.SELF, 1);
+      expect(result).toEqual({ ok: true, value: undefined });
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(updated!.targetPosition).toBeUndefined();
     });
   });
 
