@@ -143,7 +143,8 @@ export class PieceService {
       wallDamageDealt = wallAttackResult.wallDamageDealt;
 
       if (wallAttackResult.overflowPieceDamage > 0 && defenders.length > 0) {
-        const overflowResult = CombatService.distributeDamage(
+        const overflowResult = CombatService.resolveOverflowCombat(
+          attackers,
           defenders,
           wallAttackResult.overflowPieceDamage,
         );

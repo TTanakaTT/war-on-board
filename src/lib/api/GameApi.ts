@@ -61,18 +61,18 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  * the target panel in the same action.
  *
  * Overflow wall damage is distributed across all enemy units in proportion to their
- * current HP and may leave fractional HP values.
+ * current HP and may leave fractional HP values. During that same overflow resolution,
+ * defenders counterattack with their full `attackPowerAgainstPiece`; defender damage is
+ * not scaled down by the wall overflow ratio and still occurs even if a defender is also removed.
  *
  * ### Multi-unit simultaneous combat
  * When castle = 0 before the attack and enemy pieces are present:
- *   1. **Front-line selection** — priority: Rook > Knight > Bishop; ties broken by lowest ID.
- *      Applied symmetrically to both attacker and defender groups.
- *   2. **Damage accumulation** — all attackers' `attackPowerAgainstPiece` is summed and dealt
- *      to the front-line defender. All defenders' AP is summed and dealt to the front-line attacker.
+ *   1. **Damage accumulation** — all attackers' `attackPowerAgainstPiece` is summed, and all defenders'
+ *      `attackPowerAgainstPiece` is summed.
+ *   2. **Proportional distribution** — each side's incoming damage is split across that side's current units
+ *      in proportion to their current HP.
  *   3. **Simultaneous application** — damage is applied at the same time. Units with HP <= 0 are removed.
- *   4. **No overkill carry-over** — excess damage on a killed unit does NOT transfer to others.
- *      This restriction applies to normal unit combat only; wall-overflow damage follows the
- *      proportional distribution rule above.
+ *   4. **Fractional HP** — proportional damage may leave fractional HP values on surviving units.
  *
  * ### Entry condition
  * After wall resolution and any resulting unit damage, attackers enter the panel only if ALL of:

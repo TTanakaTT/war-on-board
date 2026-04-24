@@ -938,7 +938,7 @@ describe("GameApi.endTurn", () => {
       );
     });
 
-    test("when wall is destroyed, overflow wall damage is converted into piece damage and attackers stay if defenders remain", () => {
+    test("when wall is destroyed, overflow piece combat damages both sides and attackers stay if defenders remain", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
       const targetPanel = PanelRepository.find(target)!;
@@ -971,11 +971,14 @@ describe("GameApi.endTurn", () => {
       expect(defender.hp).toBeCloseTo(7.5);
 
       const piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(piece.hp).toBe(
+        PieceType.KNIGHT.config.maxHp - PieceType.KNIGHT.config.attackPowerAgainstPiece,
+      );
       expect(piece.panelPosition.equals(origin)).toBe(true);
       expect(piece.targetPosition).toBeUndefined();
     });
 
-    test("when overflow damage defeats the last defender, the attacker enters the panel", () => {
+    test("when overflow damage defeats the last defender, the attacker still takes counterattack and then enters the panel", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
       const targetPanel = PanelRepository.find(target)!;
@@ -1009,12 +1012,53 @@ describe("GameApi.endTurn", () => {
       expect(defender).toBeUndefined();
 
       const attacker = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(attacker.hp).toBe(
+        PieceType.KNIGHT.config.maxHp - PieceType.KNIGHT.config.attackPowerAgainstPiece,
+      );
       expect(attacker.panelPosition.equals(target)).toBe(true);
       expect(attacker.targetPosition).toBeUndefined();
 
       const panel = PanelRepository.find(target)!;
       expect(panel.castle).toBe(0);
       expect(panel.player).toBe(Player.SELF);
+    });
+
+    test("when overflow defeats a defender, that defender still counterattacks in the same resolution", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
+      const targetPanel = PanelRepository.find(target)!;
+      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 1 }));
+      PiecesRepository.add(
+        new Piece({
+          id: 50,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.KNIGHT,
+          hp: 2,
+        }),
+      );
+
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+          hp: 4,
+        }),
+      );
+
+      GameApi.endTurn(Player.SELF);
+
+      expect(PiecesRepository.getAll().find((p) => p.id === 50)).toBeUndefined();
+      expect(PiecesRepository.getAll().find((p) => p.id === 1)).toBeUndefined();
+
+      const panel = PanelRepository.find(target)!;
+      expect(panel.castle).toBe(0);
     });
   });
 
@@ -1063,15 +1107,25 @@ describe("GameApi.endTurn", () => {
       expect(attacker!.panelPosition.equals(origin)).toBe(true);
     });
 
-    test("when front-line defender is killed and no wall remains, surviving attackers enter the panel", () => {
+    test("when total attacker damage defeats all defenders and attackers survive, they enter the panel", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
       const targetPanel = PanelRepository.find(target)!;
       PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 0 }));
-      // Defender with low HP
+      // Total defender HP = 2, so both defenders are removed by proportional damage.
       PiecesRepository.add(
         new Piece({
           id: 50,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.BISHOP,
+          hp: 1,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 51,
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
@@ -1094,32 +1148,38 @@ describe("GameApi.endTurn", () => {
 
       GameApi.endTurn(Player.SELF);
 
-      // KNIGHT AP=5 kills BISHOP with 1 HP. BISHOP AP=0 deals no damage.
-      const defender = PiecesRepository.getAll().find((p) => p.id === 50);
-      expect(defender).toBeUndefined();
+      expect(PiecesRepository.getAll().find((p) => p.id === 50)).toBeUndefined();
+      expect(PiecesRepository.getAll().find((p) => p.id === 51)).toBeUndefined();
 
       const attacker = PiecesRepository.getAll().find((p) => p.id === 1)!;
       expect(attacker.panelPosition.equals(target)).toBe(true);
     });
 
-    test("when front-line attacker is killed, attacker is removed and remaining attackers stay at origin", () => {
+    test("when multiple defenders survive, attackers share counter-damage proportionally and stay at origin", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
       const targetPanel = PanelRepository.find(target)!;
       PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 0 }));
-      // Strong defender: ROOK with full HP
       PiecesRepository.add(
         new Piece({
           id: 50,
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.ROOK,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 51,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.KNIGHT,
         }),
       );
 
       const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
-      // Attacker with very low HP — will die from defender's counter
       PiecesRepository.add(
         new Piece({
           id: 1,
@@ -1127,11 +1187,10 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
-          hp: 1,
+          pieceType: PieceType.ROOK,
+          hp: 10,
         }),
       );
-      // Second attacker
       PiecesRepository.add(
         new Piece({
           id: 2,
@@ -1139,42 +1198,53 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.BISHOP,
+          hp: 5,
         }),
       );
 
       GameApi.endTurn(Player.SELF);
 
-      // Front-line attacker selection: both KNIGHT, id=1 selected (lowest ID)
-      // Defender (ROOK) AP=2, attacker HP=1 → dead
-      // Attacker group total AP=5+5=10, defender ROOK HP=10-10=0 → dead
-      // Both front-liners die. Target is now clear. Remaining attacker(id=2) enters.
-      const piece1 = PiecesRepository.getAll().find((p) => p.id === 1);
-      expect(piece1).toBeUndefined();
-      const piece2 = PiecesRepository.getAll().find((p) => p.id === 2);
-      expect(piece2).toBeDefined();
-      // Defender also killed, so piece2 should enter
-      expect(piece2!.panelPosition.equals(target)).toBe(true);
+      const piece1 = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      const piece2 = PiecesRepository.getAll().find((p) => p.id === 2)!;
+      const defender1 = PiecesRepository.getAll().find((p) => p.id === 50)!;
+      const defender2 = PiecesRepository.getAll().find((p) => p.id === 51)!;
+
+      expect(piece1.hp).toBeCloseTo(10 / 3);
+      expect(piece2.hp).toBeCloseTo(5 / 3);
+      expect(defender1.hp).toBeCloseTo(9);
+      expect(defender2.hp).toBeCloseTo(9);
+      expect(piece1.panelPosition.equals(origin)).toBe(true);
+      expect(piece2.panelPosition.equals(origin)).toBe(true);
     });
 
-    test("front-line selection prioritizes Rook > Knight > Bishop, with lowest ID as tiebreaker", () => {
+    test("multiple attackers split their damage across defenders proportionally", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
       const targetPanel = PanelRepository.find(target)!;
       PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 0 }));
-      // Defender: a KNIGHT
       PiecesRepository.add(
         new Piece({
           id: 50,
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
+          pieceType: PieceType.ROOK,
+          hp: 10,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 51,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
           pieceType: PieceType.KNIGHT,
+          hp: 10,
         }),
       );
 
       const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
-      // Attackers: BISHOP(id=1) and ROOK(id=2) — ROOK should be front-line (even with higher ID)
       PiecesRepository.add(
         new Piece({
           id: 1,
@@ -1198,19 +1268,18 @@ describe("GameApi.endTurn", () => {
 
       GameApi.endTurn(Player.SELF);
 
-      // ROOK (id=2) is front-line attacker, takes defender counter-attack AP=5
-      // Attacker BISHOP AP=0 + ROOK AP=2 = 2 total → defender HP 10-2=8
-      // Defender AP=5 → ROOK HP 10-5=5
       const rook = PiecesRepository.getAll().find((p) => p.id === 2);
       expect(rook).toBeDefined();
-      expect(rook!.hp).toBe(
-        PieceType.ROOK.config.maxHp - PieceType.KNIGHT.config.attackPowerAgainstPiece,
-      );
+      expect(rook!.hp).toBeCloseTo(16 / 3);
 
-      // BISHOP should be undamaged
       const bishop = PiecesRepository.getAll().find((p) => p.id === 1);
       expect(bishop).toBeDefined();
-      expect(bishop!.hp).toBe(PieceType.BISHOP.config.maxHp);
+      expect(bishop!.hp).toBeCloseTo(8 / 3);
+
+      const defenderA = PiecesRepository.getAll().find((p) => p.id === 50);
+      const defenderB = PiecesRepository.getAll().find((p) => p.id === 51);
+      expect(defenderA!.hp).toBeCloseTo(9);
+      expect(defenderB!.hp).toBeCloseTo(9);
     });
   });
 

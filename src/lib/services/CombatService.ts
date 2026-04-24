@@ -1,6 +1,5 @@
 import { Piece } from "$lib/domain/entities/Piece";
 import { Panel } from "$lib/domain/entities/Panel";
-import { PieceType } from "$lib/domain/enums/PieceType";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 
@@ -8,44 +7,79 @@ import { PanelRepository } from "$lib/data/repositories/PanelRepository";
  * CombatService — handles all combat resolution (piece-vs-piece, piece-vs-wall).
  *
  * Supports multi-unit simultaneous combat:
- *   - Front-line priority: Rook > Knight > Bishop (low ID tiebreak)
- *   - All attackers deal damage to the front-line defender (summed)
- *   - All defenders deal damage to the front-line attacker (summed)
- *   - Damage applied simultaneously; overkill does NOT carry over
+ *   - Total incoming damage is split across the opposing group by current HP ratio
+ *   - Attack and counterattack are applied simultaneously
+ *   - Fractional HP is allowed after proportional damage
  */
 export class CombatService {
   /**
-   * Front-line priority for target selection.
-   * Lower value = higher priority (selected as target first).
+   * Calculate simultaneous proportional damage outcomes without mutating repositories.
    */
-  private static frontLinePriority(type: PieceType): number {
-    if (type === PieceType.ROOK) return 0;
-    if (type === PieceType.KNIGHT) return 1;
-    return 2; // Bishop
+  private static calculateDamageOutcomes(
+    recipients: Piece[],
+    totalDamage: number,
+  ): Array<{ piece: Piece; newHp: number }> {
+    if (recipients.length === 0 || totalDamage <= 0) return [];
+
+    const totalHp = recipients.reduce((sum, recipient) => sum + recipient.hp, 0);
+    if (totalHp <= 0) return [];
+
+    return recipients.map((recipient) => ({
+      piece: recipient,
+      newHp: recipient.hp - totalDamage * (recipient.hp / totalHp),
+    }));
   }
 
   /**
-   * Select the front-line unit from a group of pieces.
-   * Priority: Rook > Knight > Bishop; same type → lowest ID.
+   * Apply precomputed damage outcomes to repositories.
    */
-  static selectFrontLine(pieces: Piece[]): Piece {
-    return [...pieces].sort((a, b) => {
-      const pa = this.frontLinePriority(a.pieceType);
-      const pb = this.frontLinePriority(b.pieceType);
-      if (pa !== pb) return pa - pb;
-      return a.id - b.id;
-    })[0];
+  private static applyDamageOutcomes(outcomes: Array<{ piece: Piece; newHp: number }>): {
+    deadIds: Set<number>;
+  } {
+    const deadIds = new Set<number>();
+
+    for (const outcome of outcomes) {
+      if (outcome.newHp <= 0) {
+        PiecesRepository.remove(outcome.piece);
+        deadIds.add(outcome.piece.id);
+        continue;
+      }
+
+      PiecesRepository.update(
+        new Piece({
+          ...outcome.piece,
+          hp: outcome.newHp,
+        }),
+      );
+    }
+
+    return { deadIds };
+  }
+
+  /**
+   * Resolve simultaneous proportional damage exchange between two groups.
+   */
+  private static resolveDistributedExchange(
+    attackers: Piece[],
+    damageToAttackers: number,
+    defenders: Piece[],
+    damageToDefenders: number,
+  ): { deadIds: Set<number> } {
+    const outcomes = [
+      ...this.calculateDamageOutcomes(attackers, damageToAttackers),
+      ...this.calculateDamageOutcomes(defenders, damageToDefenders),
+    ];
+
+    return this.applyDamageOutcomes(outcomes);
   }
 
   /**
    * Resolve simultaneous multi-unit combat.
    *
    * Algorithm:
-   *   1. Select front-line defender (target for all attackers)
-   *   2. Select front-line attacker (target for all defenders' counter-attack)
-   *   3. Sum attacker AP → apply to front-line defender
-   *   4. Sum defender AP → apply to front-line attacker
-   *   5. Apply damage simultaneously; remove dead pieces
+   *   1. Sum attacker AP and distribute it across all defenders by current HP ratio
+   *   2. Sum defender AP and distribute it across all attackers by current HP ratio
+   *   3. Apply both sides' damage simultaneously; remove dead pieces
    *
    * @returns Set of piece IDs that died in this combat round
    */
@@ -53,75 +87,50 @@ export class CombatService {
     const deadIds = new Set<number>();
     if (attackers.length === 0 || defenders.length === 0) return { deadIds };
 
-    const frontDefender = this.selectFrontLine(defenders);
-    const frontAttacker = this.selectFrontLine(attackers);
-
-    // Accumulate damage
     const totalDamageToDefender = attackers.reduce((sum, a) => sum + a.attackPowerAgainstPiece, 0);
     const totalDamageToAttacker = defenders.reduce((sum, d) => sum + d.attackPowerAgainstPiece, 0);
 
-    const newDefenderHp = frontDefender.hp - totalDamageToDefender;
-    const newAttackerHp = frontAttacker.hp - totalDamageToAttacker;
-
-    // Apply defender outcome
-    if (newDefenderHp <= 0) {
-      PiecesRepository.remove(frontDefender);
-      deadIds.add(frontDefender.id);
-    } else {
-      PiecesRepository.update(
-        new Piece({
-          ...frontDefender,
-          hp: newDefenderHp,
-        }),
-      );
-    }
-
-    // Apply attacker outcome
-    if (newAttackerHp <= 0) {
-      PiecesRepository.remove(frontAttacker);
-      deadIds.add(frontAttacker.id);
-    } else {
-      PiecesRepository.update(
-        new Piece({
-          ...frontAttacker,
-          hp: newAttackerHp,
-        }),
-      );
-    }
-
-    return { deadIds };
+    return this.resolveDistributedExchange(
+      attackers,
+      totalDamageToAttacker,
+      defenders,
+      totalDamageToDefender,
+    );
   }
 
   /**
-   * Distribute damage across all defenders in proportion to their current HP.
+   * Resolve the post-wall overflow combat phase.
+   *
+   * Attacker piece damage is scaled by the wall overflow ratio before this method is called.
+   * Defender counterattack uses full piece AP and is applied simultaneously, even if defenders die.
+   */
+  static resolveOverflowCombat(
+    attackers: Piece[],
+    defenders: Piece[],
+    overflowPieceDamage: number,
+  ): { deadIds: Set<number> } {
+    const deadIds = new Set<number>();
+    if (attackers.length === 0 || defenders.length === 0) return { deadIds };
+
+    const totalDamageToAttackers = defenders.reduce(
+      (sum, defender) => sum + defender.attackPowerAgainstPiece,
+      0,
+    );
+
+    return this.resolveDistributedExchange(
+      attackers,
+      totalDamageToAttackers,
+      defenders,
+      overflowPieceDamage,
+    );
+  }
+
+  /**
+   * Distribute damage across a recipient group in proportion to current HP.
    * Damage is applied simultaneously and may leave fractional HP values.
    */
-  static distributeDamage(defenders: Piece[], totalDamage: number): { deadIds: Set<number> } {
-    const deadIds = new Set<number>();
-    if (defenders.length === 0 || totalDamage <= 0) return { deadIds };
-
-    const totalHp = defenders.reduce((sum, defender) => sum + defender.hp, 0);
-    if (totalHp <= 0) return { deadIds };
-
-    for (const defender of defenders) {
-      const damageShare = totalDamage * (defender.hp / totalHp);
-      const newHp = defender.hp - damageShare;
-
-      if (newHp <= 0) {
-        PiecesRepository.remove(defender);
-        deadIds.add(defender.id);
-        continue;
-      }
-
-      PiecesRepository.update(
-        new Piece({
-          ...defender,
-          hp: newHp,
-        }),
-      );
-    }
-
-    return { deadIds };
+  static distributeDamage(recipients: Piece[], totalDamage: number): { deadIds: Set<number> } {
+    return this.applyDamageOutcomes(this.calculateDamageOutcomes(recipients, totalDamage));
   }
 
   /**
