@@ -98,11 +98,11 @@ describe("GameApi.initializeGame", () => {
       expect(turn.winner).toBeNull();
     });
 
-    test("after init, both players have generationMode='rear' and maxPiecesPerPanel=DEFAULT_MAX_PIECES_PER_PANEL(2)", () => {
+    test("after init, both players have generationMode='front' and maxPiecesPerPanel=DEFAULT_MAX_PIECES_PER_PANEL(2)", () => {
       GameApi.initializeGame({ layer: 4 });
       const turn = TurnRepository.get();
-      expect(turn.generationMode[String(Player.SELF)]).toBe("rear");
-      expect(turn.generationMode[String(Player.OPPONENT)]).toBe("rear");
+      expect(turn.generationMode[String(Player.SELF)]).toBe("front");
+      expect(turn.generationMode[String(Player.OPPONENT)]).toBe("front");
       expect(turn.maxPiecesPerPanel[String(Player.SELF)]).toBe(DEFAULT_MAX_PIECES_PER_PANEL);
       expect(turn.maxPiecesPerPanel[String(Player.OPPONENT)]).toBe(DEFAULT_MAX_PIECES_PER_PANEL);
     });
@@ -745,6 +745,8 @@ describe("GameApi.generatePiece", () => {
 
     test("in rear mode, generation prefers home base panel over other eligible panels", () => {
       GameApi.initializeGame({ layer: 4 });
+      GameApi.setGenerationMode(Player.SELF, "rear");
+
       // Make a mid-field panel owned by SELF with enough resource
       const midPos = new PanelPosition({ horizontalLayer: -2, verticalLayer: 0 });
       const midPanel = PanelRepository.find(midPos)!;

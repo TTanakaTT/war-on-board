@@ -154,8 +154,8 @@ export class GameApi {
         [String(PlayerClass.OPPONENT)]: DEFAULT_MAX_PIECES_PER_PANEL,
       },
       generationMode: {
-        [String(PlayerClass.SELF)]: "rear",
-        [String(PlayerClass.OPPONENT)]: "rear",
+        [String(PlayerClass.SELF)]: "front",
+        [String(PlayerClass.OPPONENT)]: "front",
       },
       winner: null,
     });

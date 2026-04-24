@@ -112,6 +112,12 @@ describe("GenerationService", () => {
     });
 
     test("prefers higher |horizontalLayer| in rear mode (closer to home)", () => {
+      const turn = TurnRepository.get();
+      TurnRepository.set({
+        ...turn,
+        generationMode: { ...turn.generationMode, [String(Player.SELF)]: "rear" },
+      });
+
       // Give panel at (-2, 0) enough resource and SELF ownership
       const panel2 = PanelRepository.find(pos(-2, 0))!;
       PanelRepository.update(
