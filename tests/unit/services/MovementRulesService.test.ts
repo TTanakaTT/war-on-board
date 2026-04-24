@@ -171,6 +171,16 @@ describe("MovementRulesService", () => {
       expect(MovementRulesService.canMoveTo(pos(1, 0), Player.SELF, piece.id)).toBe(true);
     });
 
+    test("allows stay move on a full panel when mergeable resident pieces collapse into one stack", () => {
+      const selectedPiece = addPiece(100, pos(1, 0), Player.SELF, {
+        pieceType: PieceType.KNIGHT,
+      });
+      addPiece(101, pos(1, 0), Player.SELF, { pieceType: PieceType.KNIGHT });
+      addPiece(102, pos(1, 0), Player.SELF, { pieceType: PieceType.ROOK });
+
+      expect(MovementRulesService.canMoveTo(pos(1, 0), Player.SELF, selectedPiece.id)).toBe(true);
+    });
+
     test("blocks move to full friendly panel when no resident friendly piece can merge", () => {
       addPiece(100, pos(1, 0), Player.SELF, { pieceType: PieceType.ROOK });
       addPiece(101, pos(1, 0), Player.SELF, { pieceType: PieceType.BISHOP });

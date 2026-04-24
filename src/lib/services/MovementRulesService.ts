@@ -121,8 +121,13 @@ export class MovementRulesService {
     const piece = PiecesRepository.getAll().find((candidate) => candidate.id === selectedPieceId);
     if (!piece) return false;
     if (piece.panelPosition.equals(targetPosition)) {
-      const projectedCount = this.projectedFriendlyCount(targetPosition, player, selectedPieceId);
-      return projectedCount + 1 <= maxPieces;
+      const projectedStackCount = this.projectedFriendlyStackCount(
+        targetPosition,
+        player,
+        selectedPieceId,
+        selectedPieceId,
+      );
+      return projectedStackCount <= maxPieces;
     }
 
     const projectedStackCount = this.projectedFriendlyStackCount(

@@ -70,7 +70,7 @@ export class Piece {
     this.player = player;
     this.pieceType = pieceType;
     this.stackCount = stackCount ?? 1;
-    this.maxHp = maxHp ?? pieceType.config.maxHp;
+    this.maxHp = maxHp ?? pieceType.config.maxHp * this.stackCount;
     this.hp = hp ?? this.maxHp;
   }
 

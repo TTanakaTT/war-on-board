@@ -27,7 +27,7 @@ export class PieceService {
     const groups = new Map<string, Piece[]>();
     for (const piece of piecesAtPanel) {
       if (!piece.pieceType.config.mergeable) continue;
-      const key = `${String(piece.player)}:${piece.pieceType.config.iconName}`;
+      const key = `${String(piece.player)}:${String(piece.pieceType)}`;
       const group = groups.get(key);
       if (group) {
         group.push(piece);
@@ -114,11 +114,17 @@ export class PieceService {
    * Resolve combat/movement for a group of attackers targeting the same panel.
    *
    * Flow:
-   *   1. Castle-first: if enemy castle > 0, all attackers hit the wall → stay
-   *   2. Multi-unit combat: front-line selection, simultaneous damage
-   *   3. If target cleared (no enemies, no wall): surviving attackers move in
+   *   1. If the target is an enemy panel with castle > 0, all attackers hit the wall together.
+   *   2. When wall damage overflows and defenders are present, the overflow is converted into
+   *      proportional piece damage against the entire defender group.
+   *   3. If there was no wall phase and defenders are present, attacker and defender groups
+   *      exchange simultaneous proportional damage.
+   *   4. Surviving attackers enter only when no enemy pieces remain and the wall is gone.
    *
-   * @returns CombatOutcome if combat occurred, null if no enemies/wall at target.
+   * Damage is never resolved by selecting a single front-line defender. Group damage is
+   * distributed across all recipients in proportion to their current HP.
+   *
+   * @returns CombatOutcome if wall or piece combat occurred, null if the target was empty.
    */
   private static resolveTargetPanel(
     attackers: Piece[],

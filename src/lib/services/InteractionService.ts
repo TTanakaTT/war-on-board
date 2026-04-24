@@ -65,8 +65,8 @@ export class InteractionService {
   /**
    * Handle a piece icon click.
    *
-   * - Re-clicking the same piece with a pending move → cancel (if allowed).
-   * - Otherwise → select the piece and highlight movable panels.
+   * - Clicking a current-turn piece selects it and highlights movable panels.
+   * - Move cancellation is handled by panelChange() when the selected source panel is clicked.
    */
   static pieceChange(piece: Piece) {
     const turn = TurnRepository.get();

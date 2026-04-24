@@ -1620,7 +1620,7 @@ describe("GameApi.getMovableTargets", () => {
     expect(targets.some((t) => t.equals(enemyPanel))).toBe(true);
   });
 
-  test("when piece's own position (stay) would exceed capacity, it is excluded from results", () => {
+  test("when piece's own position (stay) merges within capacity, it is included in results", () => {
     GameApi.initializeGame({ layer: 4 });
     const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
     // Fill panel to max with this piece + another
@@ -1642,7 +1642,7 @@ describe("GameApi.getMovableTargets", () => {
         pieceType: PieceType.KNIGHT,
       }),
     );
-    // Piece 3 also at same position — capacity is 2, so 3 pieces exceed capacity for "stay"
+    // Piece 3 also stays on the same panel; three Knights collapse into one merged stack.
     PiecesRepository.add(
       new Piece({
         id: 3,
@@ -1654,8 +1654,7 @@ describe("GameApi.getMovableTargets", () => {
     );
 
     const targets = GameApi.getMovableTargets(3);
-    // Own position should be excluded because projectedCount(2 others) + 1 = 3 > maxPiecesPerPanel(2)
-    expect(targets.some((t) => t.equals(pos))).toBe(false);
+    expect(targets.some((t) => t.equals(pos))).toBe(true);
   });
 });
 
