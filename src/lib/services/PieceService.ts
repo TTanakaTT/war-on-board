@@ -130,36 +130,32 @@ export class PieceService {
     const isEnemyPanel =
       targetPanel && targetPanel.player !== attackerPlayer && targetPanel.player !== Player.UNKNOWN;
 
-    // Castle-first rule: wall must be destroyed before engaging units
-    if (isEnemyPanel && targetPanel.castle > 0) {
-      const castleBefore = targetPanel.castle;
-      CombatService.attackWallMulti(attackers, targetPanel);
-      const castleAfter = PanelRepository.find(targetPosition)?.castle ?? 0;
-      for (const a of attackers) {
-        PiecesRepository.update(new Piece({ ...a, targetPosition: undefined }));
-      }
-      return {
-        targetPosition: {
-          horizontalLayer: targetPosition.horizontalLayer,
-          verticalLayer: targetPosition.verticalLayer,
-        },
-        destroyedPieceIds: [],
-        entered: false,
-        wallDamageDealt: castleBefore - castleAfter,
-      };
-    }
-
-    // Identify enemy defenders at the target panel
     const defenders = PiecesRepository.getPiecesByPosition(targetPosition).filter(
       (p) => p.player !== attackerPlayer,
     );
 
+    const hadWallCombat = Boolean(isEnemyPanel && targetPanel.castle > 0);
+    let wallDamageDealt = 0;
+    let deadIds = new Set<number>();
+
+    if (targetPanel && hadWallCombat) {
+      const wallAttackResult = CombatService.attackWallMulti(attackers, targetPanel);
+      wallDamageDealt = wallAttackResult.wallDamageDealt;
+
+      if (wallAttackResult.overflowPieceDamage > 0 && defenders.length > 0) {
+        const overflowResult = CombatService.distributeDamage(
+          defenders,
+          wallAttackResult.overflowPieceDamage,
+        );
+        deadIds = new Set([...deadIds, ...overflowResult.deadIds]);
+      }
+    }
+
     const hasCombat = defenders.length > 0;
 
-    let deadIds = new Set<number>();
-    if (hasCombat) {
+    if (!hadWallCombat && hasCombat) {
       const result = CombatService.resolveCombat(attackers, defenders);
-      deadIds = result.deadIds;
+      deadIds = new Set([...deadIds, ...result.deadIds]);
     }
 
     // Re-read panel (may have been modified)
@@ -200,7 +196,7 @@ export class PieceService {
       );
     }
 
-    if (!hasCombat) return null;
+    if (!hadWallCombat && !hasCombat) return null;
 
     return {
       targetPosition: {
@@ -209,7 +205,7 @@ export class PieceService {
       },
       destroyedPieceIds: [...deadIds],
       entered: canEnter,
-      wallDamageDealt: 0,
+      wallDamageDealt,
     };
   }
 

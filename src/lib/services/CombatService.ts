@@ -93,12 +93,57 @@ export class CombatService {
   }
 
   /**
+   * Distribute damage across all defenders in proportion to their current HP.
+   * Damage is applied simultaneously and may leave fractional HP values.
+   */
+  static distributeDamage(defenders: Piece[], totalDamage: number): { deadIds: Set<number> } {
+    const deadIds = new Set<number>();
+    if (defenders.length === 0 || totalDamage <= 0) return { deadIds };
+
+    const totalHp = defenders.reduce((sum, defender) => sum + defender.hp, 0);
+    if (totalHp <= 0) return { deadIds };
+
+    for (const defender of defenders) {
+      const damageShare = totalDamage * (defender.hp / totalHp);
+      const newHp = defender.hp - damageShare;
+
+      if (newHp <= 0) {
+        PiecesRepository.remove(defender);
+        deadIds.add(defender.id);
+        continue;
+      }
+
+      PiecesRepository.update(
+        new Piece({
+          ...defender,
+          hp: newHp,
+        }),
+      );
+    }
+
+    return { deadIds };
+  }
+
+  /**
    * Multiple attackers simultaneously attack a panel's castle wall.
    * Total damage = sum of all attackers' wall-attack power.
    */
-  static attackWallMulti(attackers: Piece[], panel: Panel): { wallDestroyed: boolean } {
-    const totalDamage = attackers.reduce((sum, a) => sum + a.attackPowerAgainstWall, 0);
-    const newCastleValue = Math.max(0, panel.castle - totalDamage);
+  static attackWallMulti(
+    attackers: Piece[],
+    panel: Panel,
+  ): {
+    wallDestroyed: boolean;
+    wallDamageDealt: number;
+    overflowRatio: number;
+    overflowPieceDamage: number;
+  } {
+    const totalWallDamage = attackers.reduce((sum, a) => sum + a.attackPowerAgainstWall, 0);
+    const totalPieceDamage = attackers.reduce((sum, a) => sum + a.attackPowerAgainstPiece, 0);
+    const wallDamageDealt = Math.min(panel.castle, totalWallDamage);
+    const overflowWallDamage = Math.max(0, totalWallDamage - panel.castle);
+    const overflowRatio = totalWallDamage === 0 ? 0 : overflowWallDamage / totalWallDamage;
+    const overflowPieceDamage = totalPieceDamage * overflowRatio;
+    const newCastleValue = Math.max(0, panel.castle - totalWallDamage);
 
     PanelRepository.update(
       new Panel({
@@ -110,14 +155,27 @@ export class CombatService {
       }),
     );
 
-    return { wallDestroyed: newCastleValue <= 0 };
+    return {
+      wallDestroyed: newCastleValue <= 0,
+      wallDamageDealt,
+      overflowRatio,
+      overflowPieceDamage,
+    };
   }
 
   /**
    * Single attacker attacks a panel's castle wall.
    * Kept for backward compatibility with single-piece scenarios.
    */
-  static attackWall(attacker: Piece, panel: Panel): { wallDestroyed: boolean } {
+  static attackWall(
+    attacker: Piece,
+    panel: Panel,
+  ): {
+    wallDestroyed: boolean;
+    wallDamageDealt: number;
+    overflowRatio: number;
+    overflowPieceDamage: number;
+  } {
     return this.attackWallMulti([attacker], panel);
   }
 }

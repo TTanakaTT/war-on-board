@@ -8,6 +8,7 @@ export class Piece {
   targetPosition?: PanelPosition;
   player: Player;
   pieceType: PieceType;
+  /** HP may become fractional after wall-overflow damage. */
   hp: number;
   /** Number of units merged into this piece. Starts at 1. */
   stackCount: number;

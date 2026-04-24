@@ -938,10 +938,9 @@ describe("GameApi.endTurn", () => {
       );
     });
 
-    test("when wall is destroyed (castle reaches 0) but enemy pieces remain, attackers still stay at origin", () => {
+    test("when wall is destroyed, overflow wall damage is converted into piece damage and attackers stay if defenders remain", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
-      // Set up an enemy panel with low castle and an enemy piece
       const targetPanel = PanelRepository.find(target)!;
       PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 1 }));
       PiecesRepository.add(
@@ -968,10 +967,54 @@ describe("GameApi.endTurn", () => {
 
       GameApi.endTurn(Player.SELF);
 
-      // Wall should be reduced, castle-first means attackers hit wall, not enemies
-      // Attacker stays at origin because wall existed
+      const defender = PiecesRepository.getAll().find((p) => p.id === 50)!;
+      expect(defender.hp).toBeCloseTo(7.5);
+
       const piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
       expect(piece.panelPosition.equals(origin)).toBe(true);
+      expect(piece.targetPosition).toBeUndefined();
+    });
+
+    test("when overflow damage defeats the last defender, the attacker enters the panel", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
+      const targetPanel = PanelRepository.find(target)!;
+      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 1 }));
+      PiecesRepository.add(
+        new Piece({
+          id: 50,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.KNIGHT,
+          hp: 2,
+        }),
+      );
+
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+
+      GameApi.endTurn(Player.SELF);
+
+      const defender = PiecesRepository.getAll().find((p) => p.id === 50);
+      expect(defender).toBeUndefined();
+
+      const attacker = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(attacker.panelPosition.equals(target)).toBe(true);
+      expect(attacker.targetPosition).toBeUndefined();
+
+      const panel = PanelRepository.find(target)!;
+      expect(panel.castle).toBe(0);
+      expect(panel.player).toBe(Player.SELF);
     });
   });
 

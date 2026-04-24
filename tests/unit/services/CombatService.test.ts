@@ -210,6 +210,9 @@ describe("CombatService", () => {
       const result = CombatService.attackWall(attacker, PanelRepository.find(pos(1, 0))!);
       expect(result.wallDestroyed).toBe(true);
       expect(PanelRepository.find(pos(1, 0))!.castle).toBe(0);
+      expect(result.wallDamageDealt).toBe(2);
+      expect(result.overflowRatio).toBe(0);
+      expect(result.overflowPieceDamage).toBe(0);
     });
 
     test("castle does not go below 0", () => {
@@ -227,6 +230,65 @@ describe("CombatService", () => {
 
       CombatService.attackWallMulti([a1, a2], PanelRepository.find(pos(1, 0))!);
       expect(PanelRepository.find(pos(1, 0))!.castle).toBe(0);
+    });
+
+    test("overflow wall damage is converted into scaled piece damage", () => {
+      const panel = PanelRepository.getAll().find((p) => p.panelPosition.equals(pos(1, 0)))!;
+      PanelRepository.update(
+        new Panel({
+          panelPosition: panel.panelPosition,
+          panelState: panel.panelState,
+          player: Player.OPPONENT,
+          castle: 1,
+        }),
+      );
+      const attacker = makePiece({ id: 1, pieceType: PieceType.KNIGHT });
+
+      const result = CombatService.attackWall(attacker, PanelRepository.find(pos(1, 0))!);
+
+      expect(result.wallDestroyed).toBe(true);
+      expect(result.wallDamageDealt).toBe(1);
+      expect(result.overflowRatio).toBe(0.5);
+      expect(result.overflowPieceDamage).toBe(2.5);
+    });
+  });
+
+  describe("distributeDamage", () => {
+    test("deals all damage to the only defender", () => {
+      const defender = makePiece({ id: 1, player: Player.OPPONENT, hp: 10 });
+      PiecesRepository.add(defender);
+
+      const { deadIds } = CombatService.distributeDamage([defender], 2.5);
+
+      expect(deadIds.size).toBe(0);
+      expect(PiecesRepository.getAll().find((p) => p.id === 1)!.hp).toBeCloseTo(7.5);
+    });
+
+    test("splits damage across defenders in proportion to their current HP", () => {
+      const defenderA = new Piece({
+        id: 1,
+        panelPosition: pos(1, 0),
+        initialPosition: pos(1, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.KNIGHT,
+        hp: 6,
+      });
+      const defenderB = new Piece({
+        id: 2,
+        panelPosition: pos(1, 0),
+        initialPosition: pos(1, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.ROOK,
+        hp: 4,
+      });
+      PiecesRepository.add(defenderA);
+      PiecesRepository.add(defenderB);
+
+      const { deadIds } = CombatService.distributeDamage([defenderA, defenderB], 5);
+
+      expect(deadIds.size).toBe(0);
+      expect(PiecesRepository.getAll().find((p) => p.id === 1)!.hp).toBeCloseTo(3);
+      expect(PiecesRepository.getAll().find((p) => p.id === 2)!.hp).toBeCloseTo(2);
     });
   });
 

@@ -52,21 +52,30 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  * ## Combat rules (resolved inside `endTurn`)
  *
  * ### Castle-first rule
- * If the target panel has an enemy castle (castle > 0), all attackers deal their
- * `attackPowerAgainstWall` to the castle. Attackers remain at their origin.
- * Unit combat is not possible until castle reaches 0.
+ * If the target panel has an enemy castle (castle > 0), all attackers first deal their
+ * `attackPowerAgainstWall` to the castle.
+ *
+ * If the total wall damage exceeds the remaining castle value, the overflow ratio
+ * `(totalWallDamage - castleBefore) / totalWallDamage` is applied to the attackers'
+ * total `attackPowerAgainstPiece`, and that scaled damage is dealt to enemy units on
+ * the target panel in the same action.
+ *
+ * Overflow wall damage is distributed across all enemy units in proportion to their
+ * current HP and may leave fractional HP values.
  *
  * ### Multi-unit simultaneous combat
- * When castle = 0 and enemy pieces are present:
+ * When castle = 0 before the attack and enemy pieces are present:
  *   1. **Front-line selection** — priority: Rook > Knight > Bishop; ties broken by lowest ID.
  *      Applied symmetrically to both attacker and defender groups.
  *   2. **Damage accumulation** — all attackers' `attackPowerAgainstPiece` is summed and dealt
  *      to the front-line defender. All defenders' AP is summed and dealt to the front-line attacker.
  *   3. **Simultaneous application** — damage is applied at the same time. Units with HP <= 0 are removed.
  *   4. **No overkill carry-over** — excess damage on a killed unit does NOT transfer to others.
+ *      This restriction applies to normal unit combat only; wall-overflow damage follows the
+ *      proportional distribution rule above.
  *
  * ### Entry condition
- * After combat resolution, attackers enter the panel only if ALL of:
+ * After wall resolution and any resulting unit damage, attackers enter the panel only if ALL of:
  *   - No enemy units remain on the panel.
  *   - Castle value is 0.
  * Otherwise attackers stay at their origin with `targetPosition` cleared.
