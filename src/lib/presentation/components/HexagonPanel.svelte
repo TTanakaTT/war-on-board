@@ -9,6 +9,7 @@
   import type { Piece } from "$lib/domain/entities/Piece";
   import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
   import Icon from "$lib/presentation/components/Icon.svelte";
+  import PieceToken from "$lib/presentation/components/PieceToken.svelte";
   import { slide } from "svelte/transition";
 
   let {
@@ -131,34 +132,7 @@
             }
           }}
         >
-          <div class="bg-outline dark:bg-outline-dark mb-1 h-1 w-6 overflow-hidden rounded-full">
-            <div
-              class="h-full bg-white transition-all duration-300"
-              style="width: {(piece.hp / piece.maxHp) * 100}%"
-            ></div>
-          </div>
-          <div class="relative">
-            <Icon
-              icon={piece.pieceType.config.iconName}
-              size={22}
-              transition={slide}
-              transitionParams={{ duration: 500, axis: "y" }}
-              additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {piece.player ===
-              Player.SELF
-                ? 'text-white border-white'
-                : 'text-black border-black'}"
-            />
-            {#if piece.stackCount > 1}
-              <span
-                class="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] leading-none font-bold {piece.player ===
-                Player.SELF
-                  ? 'bg-white text-black'
-                  : 'bg-black text-white'}"
-              >
-                {piece.stackCount}
-              </span>
-            {/if}
-          </div>
+          <PieceToken {piece} />
         </button>
       {/each}
     </div>
