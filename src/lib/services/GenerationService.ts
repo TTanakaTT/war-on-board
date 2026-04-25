@@ -73,21 +73,27 @@ export class GenerationService {
    * Generate a new piece of the given type for the current player.
    * Consumes resources and places the piece on the best available panel.
    */
-  static generate(pieceType: PieceType = PieceTypeClass.KNIGHT) {
+  static generate(
+    pieceType: PieceType = PieceTypeClass.KNIGHT,
+    generationPosition?: PanelPosition,
+  ): PanelPosition | null {
     const turn = TurnRepository.get();
     const cost = pieceType.config.cost;
     const currentResources = turn.resources[String(turn.player)] ?? 0;
 
     if (currentResources < cost) {
-      return;
+      return null;
     }
 
-    const generatePosition = this.findGenerationPanel(turn.player, pieceType);
+    const generatePosition = generationPosition ?? this.findGenerationPanel(turn.player, pieceType);
     if (!generatePosition) {
-      return;
+      return null;
     }
 
     const existingPanel = PanelRepository.find(generatePosition);
+    if (!existingPanel) {
+      return null;
+    }
 
     // Consume resources
     const newResources = { ...turn.resources };
@@ -111,5 +117,7 @@ export class GenerationService {
         castle: existingPanel?.castle ?? 0,
       }),
     );
+
+    return generatePosition;
   }
 }

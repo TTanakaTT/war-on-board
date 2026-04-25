@@ -81,14 +81,13 @@ export class MovementRulesService {
     selectedPieceId: number,
     maxPieces: number = DEFAULT_MAX_PIECES_PER_PANEL,
   ): boolean {
+    const piece = PiecesRepository.getAll().find((candidate) => candidate.id === selectedPieceId);
+    if (!piece) return false;
     if (this.hasEnemyPresence(targetPosition, player)) {
-      const piece = PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
-      if (piece && !piece.canAttack) return false;
+      if (!piece.canAttack) return false;
       return true;
     }
 
-    const piece = PiecesRepository.getAll().find((candidate) => candidate.id === selectedPieceId);
-    if (!piece) return false;
     if (piece.panelPosition.equals(targetPosition)) {
       const projectedStackCount = this.projectedFriendlyStackCount(
         targetPosition,

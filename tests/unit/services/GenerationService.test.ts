@@ -221,6 +221,33 @@ describe("GenerationService", () => {
       expect(piece.panelPosition.verticalLayer).toBe(0);
     });
 
+    test("uses the provided generation position and returns the actual spawn location", () => {
+      const turn = TurnRepository.get();
+      TurnRepository.set({
+        ...turn,
+        resources: { ...turn.resources, [String(Player.SELF)]: 20 },
+        generationMode: { ...turn.generationMode, [String(Player.SELF)]: "front" },
+      });
+
+      const frontPanel = PanelRepository.find(pos(-2, 0))!;
+      PanelRepository.update(
+        new Panel({
+          ...frontPanel,
+          player: Player.SELF,
+          resource: RESOURCE_THRESHOLD_FOR_GENERATION,
+        }),
+      );
+
+      const forcedPosition = pos(-3, 0);
+      const generatedPosition = GenerationService.generate(PieceType.KNIGHT, forcedPosition);
+
+      expect(generatedPosition?.equals(forcedPosition)).toBe(true);
+
+      const pieces = PiecesRepository.getAll();
+      expect(pieces).toHaveLength(1);
+      expect(pieces[0].panelPosition.equals(forcedPosition)).toBe(true);
+    });
+
     test("does nothing when resources are insufficient", () => {
       const turn = TurnRepository.get();
       TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 0 } });

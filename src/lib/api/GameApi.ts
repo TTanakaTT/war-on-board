@@ -289,8 +289,10 @@ export class GameApi {
     const generatePosition = GenerationService.findGenerationPanel(player, pieceType);
     if (!generatePosition) return { ok: false, error: ActionError.NO_GENERATION_PANEL };
 
-    GenerationService.generate(pieceType);
-    PieceService.mergePiecesAtPosition(generatePosition);
+    const spawnedPosition = GenerationService.generate(pieceType, generatePosition);
+    if (!spawnedPosition) return { ok: false, error: ActionError.NO_GENERATION_PANEL };
+
+    PieceService.mergePiecesAtPosition(spawnedPosition);
     return { ok: true, value: undefined };
   }
 
