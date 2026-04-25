@@ -11,6 +11,49 @@ import { DEFAULT_MAX_PIECES_PER_PANEL } from "$lib/domain/constants/GameConstant
  * queries used by InteractionService when computing which panels are MOVABLE.
  */
 export class MovementRulesService {
+  static projectedFriendlyStackCount(
+    targetPosition: PanelPosition,
+    player: Player,
+    excludePieceId?: number,
+    includePieceId?: number,
+  ): number {
+    const projectedMergeableTypes = new Set<string>();
+    let projectedStackCount = 0;
+
+    for (const piece of PiecesRepository.getPiecesByPlayer(player)) {
+      if (piece.id === excludePieceId) continue;
+
+      let destination: PanelPosition;
+      if (piece.targetPosition) {
+        const isAttack = this.hasEnemyPresence(piece.targetPosition, player);
+        destination = isAttack ? piece.panelPosition : piece.targetPosition;
+      } else {
+        destination = piece.panelPosition;
+      }
+
+      if (!destination.equals(targetPosition)) continue;
+
+      if (piece.pieceType.config.mergeable) {
+        projectedMergeableTypes.add(String(piece.pieceType));
+      } else {
+        projectedStackCount += 1;
+      }
+    }
+
+    if (includePieceId !== undefined) {
+      const piece = PiecesRepository.getAll().find((candidate) => candidate.id === includePieceId);
+      if (piece) {
+        if (piece.pieceType.config.mergeable) {
+          projectedMergeableTypes.add(String(piece.pieceType));
+        } else {
+          projectedStackCount += 1;
+        }
+      }
+    }
+
+    return projectedStackCount + projectedMergeableTypes.size;
+  }
+
   /**
    * Check if a panel has enemy presence (enemy pieces or enemy-owned castle)
    * from the perspective of <player>.
@@ -27,41 +70,10 @@ export class MovementRulesService {
   }
 
   /**
-   * Compute projected friendly piece count at <position> after all planned
-   * moves resolve.
-   *
-   * Pieces targeting enemy panels (with enemy pieces or castle) are
-   * conservatively counted at their *current* position because combat may
-   * prevent them from actually moving.
-   *
-   * @param excludePieceId - omit this piece from the count (the piece being moved)
-   */
-  static projectedFriendlyCount(
-    position: PanelPosition,
-    player: Player,
-    excludePieceId?: number,
-  ): number {
-    const allFriendly = PiecesRepository.getPiecesByPlayer(player);
-    let count = 0;
-    for (const piece of allFriendly) {
-      if (piece.id === excludePieceId) continue;
-      let destination: PanelPosition;
-      if (piece.targetPosition) {
-        const isAttack = this.hasEnemyPresence(piece.targetPosition, player);
-        destination = isAttack ? piece.panelPosition : piece.targetPosition;
-      } else {
-        destination = piece.panelPosition;
-      }
-      if (destination.equals(position)) count++;
-    }
-    return count;
-  }
-
-  /**
    * Determine whether <player>'s piece (id = selectedPieceId) can move to <targetPosition>.
    *
    * - Enemy panels → always movable (attack target; capacity is irrelevant).
-   * - Friendly panels → movable only if projected count + 1 <= maxPieces.
+   * - Friendly panels → movable only if projected post-merge stack count <= maxPieces.
    */
   static canMoveTo(
     targetPosition: PanelPosition,
@@ -69,10 +81,31 @@ export class MovementRulesService {
     selectedPieceId: number,
     maxPieces: number = DEFAULT_MAX_PIECES_PER_PANEL,
   ): boolean {
-    if (this.hasEnemyPresence(targetPosition, player)) return true;
+    const piece = PiecesRepository.getAll().find((candidate) => candidate.id === selectedPieceId);
+    if (!piece) return false;
+    if (this.hasEnemyPresence(targetPosition, player)) {
+      if (!piece.canAttack) return false;
+      return true;
+    }
 
-    const projectedCount = this.projectedFriendlyCount(targetPosition, player, selectedPieceId);
-    return projectedCount + 1 <= maxPieces;
+    if (piece.panelPosition.equals(targetPosition)) {
+      const projectedStackCount = this.projectedFriendlyStackCount(
+        targetPosition,
+        player,
+        selectedPieceId,
+        selectedPieceId,
+      );
+      return projectedStackCount <= maxPieces;
+    }
+
+    const projectedStackCount = this.projectedFriendlyStackCount(
+      targetPosition,
+      player,
+      selectedPieceId,
+      selectedPieceId,
+    );
+
+    return projectedStackCount <= maxPieces;
   }
 
   /**
@@ -86,7 +119,12 @@ export class MovementRulesService {
     pieceId: number,
     maxPieces: number = DEFAULT_MAX_PIECES_PER_PANEL,
   ): boolean {
-    const projectedAtCurrent = this.projectedFriendlyCount(pieceCurrentPosition, player, pieceId);
-    return projectedAtCurrent + 1 <= maxPieces;
+    const projectedStackCount = this.projectedFriendlyStackCount(
+      pieceCurrentPosition,
+      player,
+      pieceId,
+      pieceId,
+    );
+    return projectedStackCount <= maxPieces;
   }
 }

@@ -52,21 +52,30 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  * ## Combat rules (resolved inside `endTurn`)
  *
  * ### Castle-first rule
- * If the target panel has an enemy castle (castle > 0), all attackers deal their
- * `attackPowerAgainstWall` to the castle. Attackers remain at their origin.
- * Unit combat is not possible until castle reaches 0.
+ * If the target panel has an enemy castle (castle > 0), all attackers first deal their
+ * `attackPowerAgainstWall` to the castle.
+ *
+ * If the total wall damage exceeds the remaining castle value, the overflow ratio
+ * `(totalWallDamage - castleBefore) / totalWallDamage` is applied to the attackers'
+ * total `attackPowerAgainstPiece`, and that scaled damage is dealt to enemy units on
+ * the target panel in the same action.
+ *
+ * Overflow wall damage is distributed across all enemy units in proportion to their
+ * current HP and may leave fractional HP values. During that same overflow resolution,
+ * defenders counterattack with their full `attackPowerAgainstPiece`; defender damage is
+ * not scaled down by the wall overflow ratio and still occurs even if a defender is also removed.
  *
  * ### Multi-unit simultaneous combat
- * When castle = 0 and enemy pieces are present:
- *   1. **Front-line selection** — priority: Rook > Knight > Bishop; ties broken by lowest ID.
- *      Applied symmetrically to both attacker and defender groups.
- *   2. **Damage accumulation** — all attackers' `attackPowerAgainstPiece` is summed and dealt
- *      to the front-line defender. All defenders' AP is summed and dealt to the front-line attacker.
+ * When castle = 0 before the attack and enemy pieces are present:
+ *   1. **Damage accumulation** — all attackers' `attackPowerAgainstPiece` is summed, and all defenders'
+ *      `attackPowerAgainstPiece` is summed.
+ *   2. **Proportional distribution** — each side's incoming damage is split across that side's current units
+ *      in proportion to their current HP.
  *   3. **Simultaneous application** — damage is applied at the same time. Units with HP <= 0 are removed.
- *   4. **No overkill carry-over** — excess damage on a killed unit does NOT transfer to others.
+ *   4. **Fractional HP** — proportional damage may leave fractional HP values on surviving units.
  *
  * ### Entry condition
- * After combat resolution, attackers enter the panel only if ALL of:
+ * After wall resolution and any resulting unit damage, attackers enter the panel only if ALL of:
  *   - No enemy units remain on the panel.
  *   - Castle value is 0.
  * Otherwise attackers stay at their origin with `targetPosition` cleared.
@@ -145,8 +154,8 @@ export class GameApi {
         [String(PlayerClass.OPPONENT)]: DEFAULT_MAX_PIECES_PER_PANEL,
       },
       generationMode: {
-        [String(PlayerClass.SELF)]: "rear",
-        [String(PlayerClass.OPPONENT)]: "rear",
+        [String(PlayerClass.SELF)]: "front",
+        [String(PlayerClass.OPPONENT)]: "front",
       },
       winner: null,
     });
@@ -277,10 +286,13 @@ export class GameApi {
     const currentResources = turn.resources[String(player)] ?? 0;
     if (currentResources < cost) return { ok: false, error: ActionError.INSUFFICIENT_RESOURCES };
 
-    const generatePosition = GenerationService.findGenerationPanel(player);
+    const generatePosition = GenerationService.findGenerationPanel(player, pieceType);
     if (!generatePosition) return { ok: false, error: ActionError.NO_GENERATION_PANEL };
 
-    GenerationService.generate(pieceType);
+    const spawnedPosition = GenerationService.generate(pieceType, generatePosition);
+    if (!spawnedPosition) return { ok: false, error: ActionError.NO_GENERATION_PANEL };
+
+    PieceService.mergePiecesAtPosition(spawnedPosition);
     return { ok: true, value: undefined };
   }
 
@@ -338,6 +350,9 @@ export class GameApi {
 
     // 1. Finalize current player's moves (combat resolution)
     const combatOutcomes = PieceService.finalizePlayerMoves(player);
+
+    // 1b. Merge same-type mergeable units that ended up on the same panel
+    PieceService.mergeAllPiecesForPlayer(player);
 
     // 2. Refresh panel ownership
     PanelsService.refreshPanelStates();
@@ -441,6 +456,6 @@ export class GameApi {
     const turn = TurnRepository.get();
     const currentResources = turn.resources[String(player)] ?? 0;
     if (currentResources < pieceType.config.cost) return false;
-    return GenerationService.findGenerationPanel(player) !== null;
+    return GenerationService.findGenerationPanel(player, pieceType) !== null;
   }
 }

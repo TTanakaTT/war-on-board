@@ -39,6 +39,11 @@ export class InteractionService {
         if (selectedPiece && selectedPiece.targetPosition) {
           const result = GameApi.cancelMove(selectedPiece.player, selectedPiece.id);
           if (!result.ok) return;
+
+          const cleared = PanelsService.clearSelected();
+          PanelRepository.setAll(cleared);
+          SelectedPanelRepository.set(undefined);
+          return;
         }
         break;
       }
@@ -60,23 +65,12 @@ export class InteractionService {
   /**
    * Handle a piece icon click.
    *
-   * - Re-clicking the same piece with a pending move → cancel (if allowed).
-   * - Otherwise → select the piece and highlight movable panels.
+   * - Clicking a current-turn piece selects it and highlights movable panels.
+   * - Move cancellation is handled by panelChange() when the selected source panel is clicked.
    */
   static pieceChange(piece: Piece) {
     const turn = TurnRepository.get();
     if (piece.player !== turn.player) return;
-
-    const currentSelectedPieceId = SelectedPanelRepository.getPieceId();
-
-    // Re-clicking the same piece with a pending move: cancel the move
-    if (currentSelectedPieceId === piece.id && piece.targetPosition) {
-      GameApi.cancelMove(piece.player, piece.id);
-      const cleared = PanelsService.clearSelected();
-      PanelRepository.setAll(cleared);
-      SelectedPanelRepository.set(undefined);
-      return;
-    }
 
     SelectedPanelRepository.set(
       new Panel({

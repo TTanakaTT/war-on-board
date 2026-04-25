@@ -98,11 +98,11 @@ describe("GameApi.initializeGame", () => {
       expect(turn.winner).toBeNull();
     });
 
-    test("after init, both players have generationMode='rear' and maxPiecesPerPanel=DEFAULT_MAX_PIECES_PER_PANEL(2)", () => {
+    test("after init, both players have generationMode='front' and maxPiecesPerPanel=DEFAULT_MAX_PIECES_PER_PANEL(2)", () => {
       GameApi.initializeGame({ layer: 4 });
       const turn = TurnRepository.get();
-      expect(turn.generationMode[String(Player.SELF)]).toBe("rear");
-      expect(turn.generationMode[String(Player.OPPONENT)]).toBe("rear");
+      expect(turn.generationMode[String(Player.SELF)]).toBe("front");
+      expect(turn.generationMode[String(Player.OPPONENT)]).toBe("front");
       expect(turn.maxPiecesPerPanel[String(Player.SELF)]).toBe(DEFAULT_MAX_PIECES_PER_PANEL);
       expect(turn.maxPiecesPerPanel[String(Player.OPPONENT)]).toBe(DEFAULT_MAX_PIECES_PER_PANEL);
     });
@@ -201,14 +201,19 @@ describe("GameApi.initializeGame", () => {
 
 describe("GameApi.assignMove", () => {
   // Helper: place a piece for SELF at (0,0) with initialPosition=(0,0)
-  function setupSelfPieceAt(hl: number, vl: number, id = 1): Piece {
+  function setupSelfPieceAt(
+    hl: number,
+    vl: number,
+    id = 1,
+    pieceType: PieceType = PieceType.KNIGHT,
+  ): Piece {
     const pos = new PanelPosition({ horizontalLayer: hl, verticalLayer: vl });
     const piece = new Piece({
       id,
       panelPosition: pos,
       initialPosition: pos,
       player: Player.SELF,
-      pieceType: PieceType.KNIGHT,
+      pieceType,
     });
     PiecesRepository.add(piece);
     return piece;
@@ -288,9 +293,8 @@ describe("GameApi.assignMove", () => {
       expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
     });
 
-    test("when target is a friendly panel and projectedFriendlyCount + 1 > maxPiecesPerPanel, returns TARGET_NOT_REACHABLE", () => {
+    test("when target is a full friendly panel and no resident piece can merge, returns TARGET_NOT_REACHABLE", () => {
       GameApi.initializeGame({ layer: 4 });
-      // Place maxPiecesPerPanel(2) pieces at (0,1), then try to move another one there
       const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
       PiecesRepository.add(
         new Piece({
@@ -298,7 +302,7 @@ describe("GameApi.assignMove", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.ROOK,
         }),
       );
       PiecesRepository.add(
@@ -307,10 +311,9 @@ describe("GameApi.assignMove", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.BISHOP,
         }),
       );
-      // Piece at (0,0) tries to move to (0,1) which already has 2 friendly pieces
       setupSelfPieceAt(0, 0, 1);
 
       const result = GameApi.assignMove(Player.SELF, 1, target);
@@ -330,6 +333,67 @@ describe("GameApi.assignMove", () => {
       const updated = PiecesRepository.getAll().find((p) => p.id === 1);
       expect(updated!.targetPosition).toBeDefined();
       expect(updated!.targetPosition!.equals(target)).toBe(true);
+    });
+
+    test("when target is a full friendly panel but a resident friendly piece can merge, assignment succeeds", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 10,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 11,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ROOK,
+        }),
+      );
+      setupSelfPieceAt(0, 0, 1, PieceType.KNIGHT);
+
+      const result = GameApi.assignMove(Player.SELF, 1, target);
+      expect(result).toEqual({ ok: true, value: undefined });
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(updated!.targetPosition?.equals(target)).toBe(true);
+    });
+
+    test("when one resident piece exists, two incoming mergeable pieces of the same type can both be assigned to that full panel", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 10,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ROOK,
+        }),
+      );
+      setupSelfPieceAt(0, 0, 1, PieceType.KNIGHT);
+      setupSelfPieceAt(1, 0, 2, PieceType.KNIGHT);
+
+      expect(GameApi.assignMove(Player.SELF, 1, target)).toEqual({ ok: true, value: undefined });
+      expect(GameApi.assignMove(Player.SELF, 2, target)).toEqual({ ok: true, value: undefined });
+    });
+
+    test("when target is empty, two incoming mergeable pieces and one other incoming piece can all be assigned within merged capacity", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      setupSelfPieceAt(0, 0, 1, PieceType.KNIGHT);
+      setupSelfPieceAt(1, 0, 2, PieceType.KNIGHT);
+      setupSelfPieceAt(-1, 1, 3, PieceType.ROOK);
+
+      expect(GameApi.assignMove(Player.SELF, 3, target)).toEqual({ ok: true, value: undefined });
+      expect(GameApi.assignMove(Player.SELF, 1, target)).toEqual({ ok: true, value: undefined });
+      expect(GameApi.assignMove(Player.SELF, 2, target)).toEqual({ ok: true, value: undefined });
     });
 
     test("when target panel has enemy pieces (hasEnemyPresence=true), assignment succeeds regardless of friendly capacity", () => {
@@ -516,7 +580,7 @@ describe("GameApi.cancelMove", () => {
           panelPosition: origin,
           initialPosition: origin,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.ROOK,
         }),
       );
       PiecesRepository.add(
@@ -525,7 +589,7 @@ describe("GameApi.cancelMove", () => {
           panelPosition: origin,
           initialPosition: origin,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.BISHOP,
         }),
       );
       // Piece 1 has been assigned to move away from origin
@@ -542,6 +606,46 @@ describe("GameApi.cancelMove", () => {
 
       const result = GameApi.cancelMove(Player.SELF, 1);
       expect(result).toEqual({ ok: false, error: ActionError.CANNOT_CANCEL });
+    });
+
+    test("when returning piece merges into an existing stack on a full panel, cancelMove returns ok", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 10,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 11,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: PieceType.ROOK,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+
+      const result = GameApi.cancelMove(Player.SELF, 1);
+      expect(result).toEqual({ ok: true, value: undefined });
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(updated!.targetPosition).toBeUndefined();
     });
   });
 
@@ -612,9 +716,9 @@ describe("GameApi.generatePiece", () => {
       expect(result).toEqual({ ok: false, error: ActionError.NO_GENERATION_PANEL });
     });
 
-    test("when all eligible panels are at maxPiecesPerPanel capacity, returns NO_GENERATION_PANEL", () => {
+    test("when all eligible panels are at maxPiecesPerPanel capacity with non-mergeable type, returns NO_GENERATION_PANEL", () => {
       GameApi.initializeGame({ layer: 4 });
-      // Fill SELF home base with maxPiecesPerPanel(2) pieces
+      // Fill SELF home base with maxPiecesPerPanel(2) Rooks (non-mergeable)
       const hbPos = new PanelPosition({ horizontalLayer: -3, verticalLayer: 0 });
       PiecesRepository.add(
         new Piece({
@@ -622,7 +726,7 @@ describe("GameApi.generatePiece", () => {
           panelPosition: hbPos,
           initialPosition: hbPos,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.ROOK,
         }),
       );
       PiecesRepository.add(
@@ -631,11 +735,11 @@ describe("GameApi.generatePiece", () => {
           panelPosition: hbPos,
           initialPosition: hbPos,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.ROOK,
         }),
       );
 
-      const result = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const result = GameApi.generatePiece(Player.SELF, PieceType.ROOK);
       expect(result).toEqual({ ok: false, error: ActionError.NO_GENERATION_PANEL });
     });
   });
@@ -681,6 +785,8 @@ describe("GameApi.generatePiece", () => {
 
     test("in rear mode, generation prefers home base panel over other eligible panels", () => {
       GameApi.initializeGame({ layer: 4 });
+      GameApi.setGenerationMode(Player.SELF, "rear");
+
       // Make a mid-field panel owned by SELF with enough resource
       const midPos = new PanelPosition({ horizontalLayer: -2, verticalLayer: 0 });
       const midPanel = PanelRepository.find(midPos)!;
@@ -874,10 +980,9 @@ describe("GameApi.endTurn", () => {
       );
     });
 
-    test("when wall is destroyed (castle reaches 0) but enemy pieces remain, attackers still stay at origin", () => {
+    test("when wall is destroyed, overflow piece combat damages both sides and attackers stay if defenders remain", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
-      // Set up an enemy panel with low castle and an enemy piece
       const targetPanel = PanelRepository.find(target)!;
       PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 1 }));
       PiecesRepository.add(
@@ -904,10 +1009,98 @@ describe("GameApi.endTurn", () => {
 
       GameApi.endTurn(Player.SELF);
 
-      // Wall should be reduced, castle-first means attackers hit wall, not enemies
-      // Attacker stays at origin because wall existed
+      const defender = PiecesRepository.getAll().find((p) => p.id === 50)!;
+      expect(defender.hp).toBeCloseTo(7.5);
+
       const piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(piece.hp).toBe(
+        PieceType.KNIGHT.config.maxHp - PieceType.KNIGHT.config.attackPowerAgainstPiece,
+      );
       expect(piece.panelPosition.equals(origin)).toBe(true);
+      expect(piece.targetPosition).toBeUndefined();
+    });
+
+    test("when overflow damage defeats the last defender, the attacker still takes counterattack and then enters the panel", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
+      const targetPanel = PanelRepository.find(target)!;
+      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 1 }));
+      PiecesRepository.add(
+        new Piece({
+          id: 50,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.KNIGHT,
+          hp: 2,
+        }),
+      );
+
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+
+      GameApi.endTurn(Player.SELF);
+
+      const defender = PiecesRepository.getAll().find((p) => p.id === 50);
+      expect(defender).toBeUndefined();
+
+      const attacker = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(attacker.hp).toBe(
+        PieceType.KNIGHT.config.maxHp - PieceType.KNIGHT.config.attackPowerAgainstPiece,
+      );
+      expect(attacker.panelPosition.equals(target)).toBe(true);
+      expect(attacker.targetPosition).toBeUndefined();
+
+      const panel = PanelRepository.find(target)!;
+      expect(panel.castle).toBe(0);
+      expect(panel.player).toBe(Player.SELF);
+    });
+
+    test("when overflow defeats a defender, that defender still counterattacks in the same resolution", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
+      const targetPanel = PanelRepository.find(target)!;
+      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 1 }));
+      PiecesRepository.add(
+        new Piece({
+          id: 50,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.KNIGHT,
+          hp: 2,
+        }),
+      );
+
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+          hp: 4,
+        }),
+      );
+
+      GameApi.endTurn(Player.SELF);
+
+      expect(PiecesRepository.getAll().find((p) => p.id === 50)).toBeUndefined();
+      expect(PiecesRepository.getAll().find((p) => p.id === 1)).toBeUndefined();
+
+      const panel = PanelRepository.find(target)!;
+      expect(panel.castle).toBe(0);
     });
   });
 
@@ -956,15 +1149,25 @@ describe("GameApi.endTurn", () => {
       expect(attacker!.panelPosition.equals(origin)).toBe(true);
     });
 
-    test("when front-line defender is killed and no wall remains, surviving attackers enter the panel", () => {
+    test("when total attacker damage defeats all defenders and attackers survive, they enter the panel", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
       const targetPanel = PanelRepository.find(target)!;
       PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 0 }));
-      // Defender with low HP
+      // Total defender HP = 2, so both defenders are removed by proportional damage.
       PiecesRepository.add(
         new Piece({
           id: 50,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.BISHOP,
+          hp: 1,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 51,
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
@@ -987,32 +1190,38 @@ describe("GameApi.endTurn", () => {
 
       GameApi.endTurn(Player.SELF);
 
-      // KNIGHT AP=5 kills BISHOP with 1 HP. BISHOP AP=0 deals no damage.
-      const defender = PiecesRepository.getAll().find((p) => p.id === 50);
-      expect(defender).toBeUndefined();
+      expect(PiecesRepository.getAll().find((p) => p.id === 50)).toBeUndefined();
+      expect(PiecesRepository.getAll().find((p) => p.id === 51)).toBeUndefined();
 
       const attacker = PiecesRepository.getAll().find((p) => p.id === 1)!;
       expect(attacker.panelPosition.equals(target)).toBe(true);
     });
 
-    test("when front-line attacker is killed, attacker is removed and remaining attackers stay at origin", () => {
+    test("when multiple defenders survive, attackers share counter-damage proportionally and stay at origin", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
       const targetPanel = PanelRepository.find(target)!;
       PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 0 }));
-      // Strong defender: ROOK with full HP
       PiecesRepository.add(
         new Piece({
           id: 50,
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.ROOK,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 51,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.KNIGHT,
         }),
       );
 
       const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
-      // Attacker with very low HP — will die from defender's counter
       PiecesRepository.add(
         new Piece({
           id: 1,
@@ -1020,11 +1229,10 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
-          hp: 1,
+          pieceType: PieceType.ROOK,
+          hp: 10,
         }),
       );
-      // Second attacker
       PiecesRepository.add(
         new Piece({
           id: 2,
@@ -1032,42 +1240,53 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.BISHOP,
+          hp: 5,
         }),
       );
 
       GameApi.endTurn(Player.SELF);
 
-      // Front-line attacker selection: both KNIGHT, id=1 selected (lowest ID)
-      // Defender (ROOK) AP=2, attacker HP=1 → dead
-      // Attacker group total AP=5+5=10, defender ROOK HP=10-10=0 → dead
-      // Both front-liners die. Target is now clear. Remaining attacker(id=2) enters.
-      const piece1 = PiecesRepository.getAll().find((p) => p.id === 1);
-      expect(piece1).toBeUndefined();
-      const piece2 = PiecesRepository.getAll().find((p) => p.id === 2);
-      expect(piece2).toBeDefined();
-      // Defender also killed, so piece2 should enter
-      expect(piece2!.panelPosition.equals(target)).toBe(true);
+      const piece1 = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      const piece2 = PiecesRepository.getAll().find((p) => p.id === 2)!;
+      const defender1 = PiecesRepository.getAll().find((p) => p.id === 50)!;
+      const defender2 = PiecesRepository.getAll().find((p) => p.id === 51)!;
+
+      expect(piece1.hp).toBeCloseTo(10 / 3);
+      expect(piece2.hp).toBeCloseTo(5 / 3);
+      expect(defender1.hp).toBeCloseTo(9);
+      expect(defender2.hp).toBeCloseTo(9);
+      expect(piece1.panelPosition.equals(origin)).toBe(true);
+      expect(piece2.panelPosition.equals(origin)).toBe(true);
     });
 
-    test("front-line selection prioritizes Rook > Knight > Bishop, with lowest ID as tiebreaker", () => {
+    test("multiple attackers split their damage across defenders proportionally", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
       const targetPanel = PanelRepository.find(target)!;
       PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 0 }));
-      // Defender: a KNIGHT
       PiecesRepository.add(
         new Piece({
           id: 50,
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
+          pieceType: PieceType.ROOK,
+          hp: 10,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 51,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
           pieceType: PieceType.KNIGHT,
+          hp: 10,
         }),
       );
 
       const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
-      // Attackers: BISHOP(id=1) and ROOK(id=2) — ROOK should be front-line (even with higher ID)
       PiecesRepository.add(
         new Piece({
           id: 1,
@@ -1091,19 +1310,18 @@ describe("GameApi.endTurn", () => {
 
       GameApi.endTurn(Player.SELF);
 
-      // ROOK (id=2) is front-line attacker, takes defender counter-attack AP=5
-      // Attacker BISHOP AP=0 + ROOK AP=2 = 2 total → defender HP 10-2=8
-      // Defender AP=5 → ROOK HP 10-5=5
       const rook = PiecesRepository.getAll().find((p) => p.id === 2);
       expect(rook).toBeDefined();
-      expect(rook!.hp).toBe(
-        PieceType.ROOK.config.maxHp - PieceType.KNIGHT.config.attackPowerAgainstPiece,
-      );
+      expect(rook!.hp).toBeCloseTo(16 / 3);
 
-      // BISHOP should be undamaged
       const bishop = PiecesRepository.getAll().find((p) => p.id === 1);
       expect(bishop).toBeDefined();
-      expect(bishop!.hp).toBe(PieceType.BISHOP.config.maxHp);
+      expect(bishop!.hp).toBeCloseTo(8 / 3);
+
+      const defenderA = PiecesRepository.getAll().find((p) => p.id === 50);
+      const defenderB = PiecesRepository.getAll().find((p) => p.id === 51);
+      expect(defenderA!.hp).toBeCloseTo(9);
+      expect(defenderB!.hp).toBeCloseTo(9);
     });
   });
 
@@ -1342,7 +1560,7 @@ describe("GameApi.getMovableTargets", () => {
     expect(targets.some((t) => t.equals(pos))).toBe(true);
   });
 
-  test("when adjacent friendly panel is at maxPiecesPerPanel capacity, that panel is excluded from results", () => {
+  test("when adjacent friendly panel is full and no resident piece can merge, that panel is excluded from results", () => {
     GameApi.initializeGame({ layer: 4 });
     const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
     const fullPanel = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
@@ -1362,6 +1580,42 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: fullPanel,
         initialPosition: fullPanel,
         player: Player.SELF,
+        pieceType: PieceType.ROOK,
+      }),
+    );
+    PiecesRepository.add(
+      new Piece({
+        id: 11,
+        panelPosition: fullPanel,
+        initialPosition: fullPanel,
+        player: Player.SELF,
+        pieceType: PieceType.BISHOP,
+      }),
+    );
+
+    const targets = GameApi.getMovableTargets(1);
+    expect(targets.some((t) => t.equals(fullPanel))).toBe(false);
+  });
+
+  test("when adjacent friendly panel is full but a resident piece can merge, that panel is included in results", () => {
+    GameApi.initializeGame({ layer: 4 });
+    const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+    const fullPanel = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+    PiecesRepository.add(
+      new Piece({
+        id: 1,
+        panelPosition: pos,
+        initialPosition: pos,
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      }),
+    );
+    PiecesRepository.add(
+      new Piece({
+        id: 10,
+        panelPosition: fullPanel,
+        initialPosition: fullPanel,
+        player: Player.SELF,
         pieceType: PieceType.KNIGHT,
       }),
     );
@@ -1371,12 +1625,12 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: fullPanel,
         initialPosition: fullPanel,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.ROOK,
       }),
     );
 
     const targets = GameApi.getMovableTargets(1);
-    expect(targets.some((t) => t.equals(fullPanel))).toBe(false);
+    expect(targets.some((t) => t.equals(fullPanel))).toBe(true);
   });
 
   test("when adjacent panel has enemy presence, it is always included regardless of capacity", () => {
@@ -1406,7 +1660,7 @@ describe("GameApi.getMovableTargets", () => {
     expect(targets.some((t) => t.equals(enemyPanel))).toBe(true);
   });
 
-  test("when piece's own position (stay) would exceed capacity, it is excluded from results", () => {
+  test("when piece's own position (stay) merges within capacity, it is included in results", () => {
     GameApi.initializeGame({ layer: 4 });
     const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
     // Fill panel to max with this piece + another
@@ -1428,7 +1682,7 @@ describe("GameApi.getMovableTargets", () => {
         pieceType: PieceType.KNIGHT,
       }),
     );
-    // Piece 3 also at same position — capacity is 2, so 3 pieces exceed capacity for "stay"
+    // Piece 3 also stays on the same panel; three Knights collapse into one merged stack.
     PiecesRepository.add(
       new Piece({
         id: 3,
@@ -1440,8 +1694,7 @@ describe("GameApi.getMovableTargets", () => {
     );
 
     const targets = GameApi.getMovableTargets(3);
-    // Own position should be excluded because projectedCount(2 others) + 1 = 3 > maxPiecesPerPanel(2)
-    expect(targets.some((t) => t.equals(pos))).toBe(false);
+    expect(targets.some((t) => t.equals(pos))).toBe(true);
   });
 });
 
@@ -1470,7 +1723,32 @@ describe("GameApi.canGenerate", () => {
     expect(GameApi.canGenerate(Player.SELF, PieceType.KNIGHT)).toBe(false);
   });
 
-  test("when resources are sufficient but all eligible panels are at max capacity, returns false", () => {
+  test("when resources are sufficient but all eligible panels are at max capacity with non-mergeable type, returns false", () => {
+    GameApi.initializeGame({ layer: 4 });
+    const hbPos = new PanelPosition({ horizontalLayer: -3, verticalLayer: 0 });
+    PiecesRepository.add(
+      new Piece({
+        id: 10,
+        panelPosition: hbPos,
+        initialPosition: hbPos,
+        player: Player.SELF,
+        pieceType: PieceType.ROOK,
+      }),
+    );
+    PiecesRepository.add(
+      new Piece({
+        id: 11,
+        panelPosition: hbPos,
+        initialPosition: hbPos,
+        player: Player.SELF,
+        pieceType: PieceType.ROOK,
+      }),
+    );
+
+    expect(GameApi.canGenerate(Player.SELF, PieceType.ROOK)).toBe(false);
+  });
+
+  test("when panel is at max capacity but has same-type mergeable piece, canGenerate returns true", () => {
     GameApi.initializeGame({ layer: 4 });
     const hbPos = new PanelPosition({ horizontalLayer: -3, verticalLayer: 0 });
     PiecesRepository.add(
@@ -1492,6 +1770,191 @@ describe("GameApi.canGenerate", () => {
       }),
     );
 
-    expect(GameApi.canGenerate(Player.SELF, PieceType.KNIGHT)).toBe(false);
+    expect(GameApi.canGenerate(Player.SELF, PieceType.KNIGHT)).toBe(true);
+  });
+});
+
+describe("unit merging", () => {
+  const hbPos = new PanelPosition({ horizontalLayer: -3, verticalLayer: 0 });
+  const midPos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+
+  test("endTurn: two SELF Knights moving to the same panel are merged into one with combined HP and stackCount=2", () => {
+    GameApi.initializeGame({ layer: 4 });
+    const origin1 = new PanelPosition({ horizontalLayer: -1, verticalLayer: 0 });
+    const origin2 = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+    PiecesRepository.add(
+      new Piece({
+        id: 1,
+        panelPosition: origin1,
+        initialPosition: origin1,
+        targetPosition: midPos,
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      }),
+    );
+    PiecesRepository.add(
+      new Piece({
+        id: 2,
+        panelPosition: origin2,
+        initialPosition: origin2,
+        targetPosition: midPos,
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      }),
+    );
+
+    GameApi.endTurn(Player.SELF);
+
+    const atMid = PiecesRepository.getPiecesByPosition(midPos);
+    expect(atMid).toHaveLength(1);
+    expect(atMid[0].stackCount).toBe(2);
+    expect(atMid[0].hp).toBe(PieceType.KNIGHT.config.maxHp * 2);
+    expect(atMid[0].maxHp).toBe(PieceType.KNIGHT.config.maxHp * 2);
+  });
+
+  test("endTurn: Knight moving to panel with resident SELF Knight merges after turn ends", () => {
+    GameApi.initializeGame({ layer: 4 });
+    // Resident Knight already at midPos
+    PiecesRepository.add(
+      new Piece({
+        id: 1,
+        panelPosition: midPos,
+        initialPosition: midPos,
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      }),
+    );
+    // Moving Knight from origin
+    const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+
+    // Temporarily set panel at origin to SELF so movement capacity allows it
+    const originPanel = PanelRepository.find(origin)!;
+    PanelRepository.update(new Panel({ ...originPanel, player: Player.SELF }));
+
+    PiecesRepository.add(
+      new Piece({
+        id: 2,
+        panelPosition: origin,
+        initialPosition: origin,
+        targetPosition: midPos,
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      }),
+    );
+
+    GameApi.endTurn(Player.SELF);
+
+    const atMid = PiecesRepository.getPiecesByPosition(midPos);
+    expect(atMid).toHaveLength(1);
+    expect(atMid[0].stackCount).toBe(2);
+  });
+
+  test("endTurn: merged Knight attack power equals config AP + stackCount - 1", () => {
+    GameApi.initializeGame({ layer: 4 });
+    const moveTarget = new PanelPosition({ horizontalLayer: -1, verticalLayer: 0 });
+    // Two SELF Knights both move to moveTarget (empty friendly-ish panel), then merge
+    [1, 2].forEach((id) =>
+      PiecesRepository.add(
+        new Piece({
+          id,
+          panelPosition: new PanelPosition({
+            horizontalLayer: -2,
+            verticalLayer: id === 1 ? 0 : 1,
+          }),
+          initialPosition: new PanelPosition({
+            horizontalLayer: -2,
+            verticalLayer: id === 1 ? 0 : 1,
+          }),
+          targetPosition: moveTarget,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      ),
+    );
+
+    GameApi.endTurn(Player.SELF);
+
+    const merged = PiecesRepository.getPiecesByPosition(moveTarget)[0];
+    expect(merged.stackCount).toBe(2);
+    // AP = config(5) + 2 - 1 = 6
+    expect(merged.attackPowerAgainstPiece).toBe(
+      PieceType.KNIGHT.config.attackPowerAgainstPiece + 1,
+    );
+    // Wall AP = config(2) + 2 - 1 = 3
+    expect(merged.attackPowerAgainstWall).toBe(PieceType.KNIGHT.config.attackPowerAgainstWall + 1);
+  });
+
+  test("generatePiece: Knight generated on panel with existing same-player Knight merges immediately", () => {
+    GameApi.initializeGame({ layer: 4 });
+    // Place existing SELF Knight on home base panel
+    PiecesRepository.add(
+      new Piece({
+        id: 1,
+        panelPosition: hbPos,
+        initialPosition: hbPos,
+        player: Player.SELF,
+        pieceType: PieceType.KNIGHT,
+      }),
+    );
+    // Give enough resources and ensure home base has resource >= threshold
+    const turn = TurnRepository.get();
+    TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 50 } });
+
+    GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+
+    const atHb = PiecesRepository.getPiecesByPosition(hbPos);
+    expect(atHb).toHaveLength(1);
+    expect(atHb[0].stackCount).toBe(2);
+  });
+
+  test("generatePiece: Bishop generated on panel with existing Bishop does NOT merge (non-mergeable)", () => {
+    GameApi.initializeGame({ layer: 4 });
+    PiecesRepository.add(
+      new Piece({
+        id: 1,
+        panelPosition: hbPos,
+        initialPosition: hbPos,
+        player: Player.SELF,
+        pieceType: PieceType.BISHOP,
+      }),
+    );
+    const turn = TurnRepository.get();
+    TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 50 } });
+
+    GameApi.generatePiece(Player.SELF, PieceType.BISHOP);
+
+    const atHb = PiecesRepository.getPiecesByPosition(hbPos);
+    expect(atHb).toHaveLength(2);
+    atHb.forEach((p) => expect(p.stackCount).toBe(1));
+  });
+
+  test("endTurn: Rooks at same panel after movement do NOT merge (non-mergeable)", () => {
+    GameApi.initializeGame({ layer: 4 });
+    const moveTarget = new PanelPosition({ horizontalLayer: -1, verticalLayer: 0 });
+    [1, 2].forEach((id) =>
+      PiecesRepository.add(
+        new Piece({
+          id,
+          panelPosition: new PanelPosition({
+            horizontalLayer: -2,
+            verticalLayer: id === 1 ? 0 : 1,
+          }),
+          initialPosition: new PanelPosition({
+            horizontalLayer: -2,
+            verticalLayer: id === 1 ? 0 : 1,
+          }),
+          targetPosition: moveTarget,
+          player: Player.SELF,
+          pieceType: PieceType.ROOK,
+        }),
+      ),
+    );
+
+    GameApi.endTurn(Player.SELF);
+
+    const atTarget = PiecesRepository.getPiecesByPosition(moveTarget);
+    // Both Rooks should remain as separate units
+    expect(atTarget).toHaveLength(2);
+    atTarget.forEach((p) => expect(p.stackCount).toBe(1));
   });
 });

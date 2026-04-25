@@ -63,7 +63,61 @@ describe("GenerationService", () => {
       expect(GenerationService.findGenerationPanel(Player.SELF)).toBeNull();
     });
 
+    test("allows full panel when pieceType is mergeable and same-type piece exists there", () => {
+      // Fill home base to max with Knights
+      for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
+        PiecesRepository.add(
+          new Piece({
+            id: i + 1,
+            panelPosition: pos(-3, 0),
+            player: Player.SELF,
+            pieceType: PieceType.KNIGHT,
+          }),
+        );
+      }
+      // With pieceType=KNIGHT (mergeable), panel should be accepted
+      const result = GenerationService.findGenerationPanel(Player.SELF, PieceType.KNIGHT);
+      expect(result).not.toBeNull();
+      expect(result!.horizontalLayer).toBe(-3);
+    });
+
+    test("returns null for full panel when pieceType is non-mergeable even if same-type exists", () => {
+      for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
+        PiecesRepository.add(
+          new Piece({
+            id: i + 1,
+            panelPosition: pos(-3, 0),
+            player: Player.SELF,
+            pieceType: PieceType.BISHOP,
+          }),
+        );
+      }
+      // Bishop is non-mergeable — panel should be rejected
+      expect(GenerationService.findGenerationPanel(Player.SELF, PieceType.BISHOP)).toBeNull();
+    });
+
+    test("returns null for full panel when mergeable pieceType differs from existing pieces", () => {
+      // Fill with Rooks (non-mergeable), try to generate Knight (mergeable but no match)
+      for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
+        PiecesRepository.add(
+          new Piece({
+            id: i + 1,
+            panelPosition: pos(-3, 0),
+            player: Player.SELF,
+            pieceType: PieceType.ROOK,
+          }),
+        );
+      }
+      expect(GenerationService.findGenerationPanel(Player.SELF, PieceType.KNIGHT)).toBeNull();
+    });
+
     test("prefers higher |horizontalLayer| in rear mode (closer to home)", () => {
+      const turn = TurnRepository.get();
+      TurnRepository.set({
+        ...turn,
+        generationMode: { ...turn.generationMode, [String(Player.SELF)]: "rear" },
+      });
+
       // Give panel at (-2, 0) enough resource and SELF ownership
       const panel2 = PanelRepository.find(pos(-2, 0))!;
       PanelRepository.update(
@@ -167,6 +221,33 @@ describe("GenerationService", () => {
       expect(piece.panelPosition.verticalLayer).toBe(0);
     });
 
+    test("uses the provided generation position and returns the actual spawn location", () => {
+      const turn = TurnRepository.get();
+      TurnRepository.set({
+        ...turn,
+        resources: { ...turn.resources, [String(Player.SELF)]: 20 },
+        generationMode: { ...turn.generationMode, [String(Player.SELF)]: "front" },
+      });
+
+      const frontPanel = PanelRepository.find(pos(-2, 0))!;
+      PanelRepository.update(
+        new Panel({
+          ...frontPanel,
+          player: Player.SELF,
+          resource: RESOURCE_THRESHOLD_FOR_GENERATION,
+        }),
+      );
+
+      const forcedPosition = pos(-3, 0);
+      const generatedPosition = GenerationService.generate(PieceType.KNIGHT, forcedPosition);
+
+      expect(generatedPosition?.equals(forcedPosition)).toBe(true);
+
+      const pieces = PiecesRepository.getAll();
+      expect(pieces).toHaveLength(1);
+      expect(pieces[0].panelPosition.equals(forcedPosition)).toBe(true);
+    });
+
     test("does nothing when resources are insufficient", () => {
       const turn = TurnRepository.get();
       TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 0 } });
@@ -177,19 +258,19 @@ describe("GenerationService", () => {
     test("does nothing when no generation panel is available", () => {
       const turn = TurnRepository.get();
       TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 20 } });
-      // Fill home base (only qualified panel)
+      // Fill home base (only qualified panel) with non-mergeable Rooks
       for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
         PiecesRepository.add(
           new Piece({
             id: i + 1,
             panelPosition: pos(-3, 0),
             player: Player.SELF,
-            pieceType: PieceType.KNIGHT,
+            pieceType: PieceType.ROOK,
           }),
         );
       }
       const pieceCountBefore = PiecesRepository.getAll().length;
-      GenerationService.generate(PieceType.KNIGHT);
+      GenerationService.generate(PieceType.ROOK);
       expect(PiecesRepository.getAll().length).toBe(pieceCountBefore);
     });
 

@@ -7,7 +7,6 @@
   let { children }: { children: Snippet } = $props();
   let open = $state(false);
   let dialog = $state<HTMLDialogElement | undefined>(undefined);
-
   let windowWidth = $state(0);
   let isNav = $derived(windowWidth > 1024);
 
@@ -22,6 +21,7 @@
   function onClickDialog(event: MouseEvent): void {
     if (event.target === dialog) {
       open = false;
+
       setTimeout(
         () => {
           if (dialog) dialog.close();
@@ -30,6 +30,7 @@
       );
     }
   }
+
   function onClickMenu(): void {
     if (isNav) {
       open = !open;
@@ -43,7 +44,7 @@
 <svelte:window bind:innerWidth={windowWidth} />
 
 <Drawer {open} {isNav} {onClickDialog} bind:dialog />
+
 <Header {open} {isNav} {onClickMenu} />
-<main class="h-screen pt-16 {mainPaddingStyle}">
-  {@render children()}
-</main>
+
+<main class="h-screen pt-16 {mainPaddingStyle}">{@render children()}</main>

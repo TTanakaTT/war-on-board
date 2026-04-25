@@ -68,3 +68,35 @@ dialog::backdrop {
 
   background-color: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1));
 }
+
+@keyframes piece-preview-motion {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+
+  68% {
+    transform: translate(var(--piece-preview-travel-x), var(--piece-preview-travel-y)) scale(1.04);
+    opacity: 1;
+  }
+
+  82% {
+    transform: translate(var(--piece-preview-travel-x), var(--piece-preview-travel-y)) scale(1.04);
+    opacity: 0;
+  }
+
+  83% {
+    transform: translate(0, 0) scale(0.98);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+.piece-preview-motion {
+  animation: piece-preview-motion var(--piece-preview-duration) ease-in-out infinite;
+  will-change: transform, opacity;
+}

@@ -11,6 +11,7 @@
   import EndTurnButton from "$lib/presentation/components/EndTurnButton.svelte";
   import Icon from "$lib/presentation/components/Icon.svelte";
   import MoveArrows from "./MoveArrows.svelte";
+  import MovingPiecePreview from "./MovingPiecePreview.svelte";
   import { slide } from "svelte/transition";
   import { BoardLayout } from "$lib/presentation/BoardLayout";
   import { m } from "$lib/paraglide/messages";
@@ -97,6 +98,7 @@
       {/each}
     {/each}
     <MoveArrows />
+    <MovingPiecePreview />
   </div>
 </div>
 

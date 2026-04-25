@@ -12,6 +12,11 @@ interface PieceConfig {
   readonly maxHp: number;
   readonly attackPowerAgainstPiece: number;
   readonly attackPowerAgainstWall: number;
+  /**
+   * Whether units of this type can merge when multiple occupy the same panel.
+   * Merging sums HP, maxHp, stackCount and adds +1 attack power per merge.
+   */
+  readonly mergeable: boolean;
 }
 
 const CONFIGS: Record<PIECETYPE, PieceConfig> = {
@@ -21,6 +26,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     maxHp: 10,
     attackPowerAgainstPiece: 5,
     attackPowerAgainstWall: 2,
+    mergeable: true,
   },
   [PIECETYPE.ROOK]: {
     iconName: "chess_rook",
@@ -28,6 +34,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     maxHp: 10,
     attackPowerAgainstPiece: 2,
     attackPowerAgainstWall: 2,
+    mergeable: false,
   },
   [PIECETYPE.BISHOP]: {
     iconName: "chess_bishop",
@@ -35,6 +42,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     maxHp: 5,
     attackPowerAgainstPiece: 0,
     attackPowerAgainstWall: 0,
+    mergeable: false,
   },
 } as const;
 

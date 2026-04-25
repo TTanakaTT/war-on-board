@@ -3,4 +3,6 @@ pnpm-lock.yaml
 
 # Generated files
 src/lib/paraglide/
-project.inlang/
+project.inlang/.meta.json
+project.inlang/README.md
+project.inlang/cache

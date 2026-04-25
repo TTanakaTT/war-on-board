@@ -11,6 +11,72 @@ import { CombatService } from "$lib/services/CombatService";
 import { PASSIVE_RESOURCE_CAP, PASSIVE_CASTLE_CAP } from "$lib/domain/constants/GameConstants";
 
 export class PieceService {
+  /**
+   * Merge all mergeable pieces of the same type and player at the given panel position.
+   *
+   * For each group (player × pieceType) where pieceType.config.mergeable === true
+   * and the group has more than one piece:
+   *   - The piece with the lowest ID becomes the merged unit.
+   *   - HP, maxHp, and stackCount are summed across all pieces in the group.
+   *   - All other pieces in the group are removed from the repository.
+   */
+  static mergePiecesAtPosition(position: PanelPosition): void {
+    const piecesAtPanel = PiecesRepository.getPiecesByPosition(position);
+
+    // Group by player + pieceType
+    const groups = new Map<string, Piece[]>();
+    for (const piece of piecesAtPanel) {
+      if (!piece.pieceType.config.mergeable) continue;
+      const key = `${String(piece.player)}:${String(piece.pieceType)}`;
+      const group = groups.get(key);
+      if (group) {
+        group.push(piece);
+      } else {
+        groups.set(key, [piece]);
+      }
+    }
+
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+
+      // Sort by ID — lowest ID is the base piece
+      group.sort((a, b) => a.id - b.id);
+      const [base, ...rest] = group;
+
+      const totalHp = group.reduce((sum, p) => sum + p.hp, 0);
+      const totalMaxHp = group.reduce((sum, p) => sum + p.maxHp, 0);
+      const totalStackCount = group.reduce((sum, p) => sum + p.stackCount, 0);
+
+      PiecesRepository.update(
+        new Piece({
+          ...base,
+          hp: totalHp,
+          maxHp: totalMaxHp,
+          stackCount: totalStackCount,
+        }),
+      );
+
+      for (const other of rest) {
+        PiecesRepository.remove(other);
+      }
+    }
+  }
+
+  /**
+   * Merge mergeable pieces at every panel position occupied by the given player.
+   */
+  static mergeAllPiecesForPlayer(player: Player): void {
+    const playerPieces = PiecesRepository.getPiecesByPlayer(player);
+    const uniquePositions = new Map<string, PanelPosition>();
+    for (const piece of playerPieces) {
+      const key = `${piece.panelPosition.horizontalLayer},${piece.panelPosition.verticalLayer}`;
+      uniquePositions.set(key, piece.panelPosition);
+    }
+    for (const position of uniquePositions.values()) {
+      this.mergePiecesAtPosition(position);
+    }
+  }
+
   static generateNextId(): number {
     return (
       PiecesRepository.getAll().reduce((max: number, piece: Piece) => Math.max(max, piece.id), 0) +
@@ -27,6 +93,8 @@ export class PieceService {
       player: selectedPiece.player,
       pieceType: selectedPiece.pieceType,
       hp: selectedPiece.hp,
+      stackCount: selectedPiece.stackCount,
+      maxHp: selectedPiece.maxHp,
     });
     PiecesRepository.update(newPiece);
   }
@@ -46,11 +114,17 @@ export class PieceService {
    * Resolve combat/movement for a group of attackers targeting the same panel.
    *
    * Flow:
-   *   1. Castle-first: if enemy castle > 0, all attackers hit the wall → stay
-   *   2. Multi-unit combat: front-line selection, simultaneous damage
-   *   3. If target cleared (no enemies, no wall): surviving attackers move in
+   *   1. If the target is an enemy panel with castle > 0, all attackers hit the wall together.
+   *   2. When wall damage overflows and defenders are present, the overflow is converted into
+   *      proportional piece damage against the entire defender group.
+   *   3. If there was no wall phase and defenders are present, attacker and defender groups
+   *      exchange simultaneous proportional damage.
+   *   4. Surviving attackers enter only when no enemy pieces remain and the wall is gone.
    *
-   * @returns CombatOutcome if combat occurred, null if no enemies/wall at target.
+   * Damage is never resolved by selecting a single front-line defender. Group damage is
+   * distributed across all recipients in proportion to their current HP.
+   *
+   * @returns CombatOutcome if wall or piece combat occurred, null if the target was empty.
    */
   private static resolveTargetPanel(
     attackers: Piece[],
@@ -62,36 +136,33 @@ export class PieceService {
     const isEnemyPanel =
       targetPanel && targetPanel.player !== attackerPlayer && targetPanel.player !== Player.UNKNOWN;
 
-    // Castle-first rule: wall must be destroyed before engaging units
-    if (isEnemyPanel && targetPanel.castle > 0) {
-      const castleBefore = targetPanel.castle;
-      CombatService.attackWallMulti(attackers, targetPanel);
-      const castleAfter = PanelRepository.find(targetPosition)?.castle ?? 0;
-      for (const a of attackers) {
-        PiecesRepository.update(new Piece({ ...a, targetPosition: undefined }));
-      }
-      return {
-        targetPosition: {
-          horizontalLayer: targetPosition.horizontalLayer,
-          verticalLayer: targetPosition.verticalLayer,
-        },
-        destroyedPieceIds: [],
-        entered: false,
-        wallDamageDealt: castleBefore - castleAfter,
-      };
-    }
-
-    // Identify enemy defenders at the target panel
     const defenders = PiecesRepository.getPiecesByPosition(targetPosition).filter(
       (p) => p.player !== attackerPlayer,
     );
 
+    const hadWallCombat = Boolean(isEnemyPanel && targetPanel.castle > 0);
+    let wallDamageDealt = 0;
+    let deadIds = new Set<number>();
+
+    if (targetPanel && hadWallCombat) {
+      const wallAttackResult = CombatService.attackWallMulti(attackers, targetPanel);
+      wallDamageDealt = wallAttackResult.wallDamageDealt;
+
+      if (wallAttackResult.overflowPieceDamage > 0 && defenders.length > 0) {
+        const overflowResult = CombatService.resolveOverflowCombat(
+          attackers,
+          defenders,
+          wallAttackResult.overflowPieceDamage,
+        );
+        deadIds = new Set([...deadIds, ...overflowResult.deadIds]);
+      }
+    }
+
     const hasCombat = defenders.length > 0;
 
-    let deadIds = new Set<number>();
-    if (hasCombat) {
+    if (!hadWallCombat && hasCombat) {
       const result = CombatService.resolveCombat(attackers, defenders);
-      deadIds = result.deadIds;
+      deadIds = new Set([...deadIds, ...result.deadIds]);
     }
 
     // Re-read panel (may have been modified)
@@ -132,7 +203,7 @@ export class PieceService {
       );
     }
 
-    if (!hasCombat) return null;
+    if (!hadWallCombat && !hasCombat) return null;
 
     return {
       targetPosition: {
@@ -141,7 +212,7 @@ export class PieceService {
       },
       destroyedPieceIds: [...deadIds],
       entered: canEnter,
-      wallDamageDealt: 0,
+      wallDamageDealt,
     };
   }
 
