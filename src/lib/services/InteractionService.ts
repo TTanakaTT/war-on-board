@@ -10,6 +10,7 @@ import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRep
 import { MovementRulesService } from "$lib/services/MovementRulesService";
 import { DEFAULT_MAX_PIECES_PER_PANEL } from "$lib/domain/constants/GameConstants";
 import { GameApi } from "$lib/api/GameApi";
+import { MatchService } from "$lib/services/MatchService";
 
 /**
  * InteractionService — handles user/AI interaction with the board.
@@ -30,6 +31,8 @@ export class InteractionService {
    * - Other → ignored (piece clicks drive selection, not panel background).
    */
   static panelChange(panelPosition: PanelPosition) {
+    if (!this.isHumanInteractionAllowed()) return;
+
     const panelState = PanelsService.findPanelState(panelPosition);
 
     switch (panelState) {
@@ -69,6 +72,8 @@ export class InteractionService {
    * - Move cancellation is handled by panelChange() when the selected source panel is clicked.
    */
   static pieceChange(piece: Piece) {
+    if (!this.isHumanInteractionAllowed()) return;
+
     const turn = TurnRepository.get();
     if (piece.player !== turn.player) return;
 
@@ -234,5 +239,11 @@ export class InteractionService {
         );
       }
     });
+  }
+
+  private static isHumanInteractionAllowed(): boolean {
+    return (
+      MatchService.getControllerForCurrentTurn() === "human" && !MatchService.isAutomationRunning()
+    );
   }
 }

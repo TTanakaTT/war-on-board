@@ -1947,6 +1947,40 @@ describe("GameApi state snapshot contract", () => {
       );
     });
 
+    test("getGameStateHistory records the terminal winner in the final snapshot when endTurn captures a home base", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const target = new PanelPosition({ horizontalLayer: 3, verticalLayer: 0 });
+      const homeBasePanel = PanelRepository.find(target)!;
+      PanelRepository.update(new Panel({ ...homeBasePanel, castle: 0 }));
+
+      const origin = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+
+      const endTurnResult = GameApi.endTurn(Player.SELF);
+      expectTurnEndSuccessWithSnapshot(endTurnResult);
+      if (!endTurnResult.ok) return;
+
+      const history = GameApi.getGameStateHistory();
+      expect(history).toHaveLength(2);
+      expect(history[1].snapshot.turn.winner).toBe("self");
+      expectHistoryEntryToMatchSnapshot(
+        history[1],
+        1,
+        endTurnResult.value.gameState.turn.num,
+        endTurnResult.value.gameState,
+      );
+    });
+
     test("getGameStateHistory does not append entries for successful non-endTurn actions", () => {
       GameApi.initializeGame({ layer: 4 });
       const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
