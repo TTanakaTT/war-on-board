@@ -2,11 +2,22 @@ import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import type { PieceType } from "$lib/domain/enums/PieceType";
 import type { Player } from "$lib/domain/enums/Player";
 import type { GenerationMode } from "$lib/domain/entities/Turn";
-import type { Result, TurnEndResult } from "$lib/domain/types/api";
+import type {
+  GameActionResult,
+  GameStateSnapshot,
+  HomeBaseSnapshot,
+  PanelPositionSnapshot,
+  PanelSnapshot,
+  PieceSnapshot,
+  Result,
+  TurnEndResult,
+} from "$lib/domain/types/api";
 import { PanelPosition as PanelPositionClass } from "$lib/domain/entities/PanelPosition";
 import { Piece } from "$lib/domain/entities/Piece";
+import { Panel } from "$lib/domain/entities/Panel";
 import { HomeBase } from "$lib/domain/entities/HomeBase";
 import { Player as PlayerClass } from "$lib/domain/enums/Player";
+import { PanelState } from "$lib/domain/enums/PanelState";
 import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
@@ -112,7 +123,7 @@ export class GameApi {
    * - Board panels created. Home base panels receive initial resource and castle values.
    * - Turn 1 begins for Player.SELF with initial resource income.
    */
-  static initializeGame(config: { layer: number }): Result {
+  static initializeGame(config: { layer: number }): Result<GameActionResult> {
     const { layer } = config;
 
     // Board setup
@@ -163,7 +174,7 @@ export class GameApi {
     // Add first player's income
     this.addResources(PlayerClass.SELF);
 
-    return { ok: true, value: undefined };
+    return { ok: true, value: { gameState: this.getGameState() } };
   }
 
   /**
@@ -190,7 +201,11 @@ export class GameApi {
    * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
    * PIECE_NOT_OWNED, TARGET_NOT_REACHABLE.
    */
-  static assignMove(player: Player, pieceId: number, target: PanelPosition): Result {
+  static assignMove(
+    player: Player,
+    pieceId: number,
+    target: PanelPosition,
+  ): Result<GameActionResult> {
     const turn = TurnRepository.get();
     if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
     if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
@@ -211,7 +226,7 @@ export class GameApi {
     }
 
     PiecesRepository.update(new Piece({ ...piece, targetPosition: target }));
-    return { ok: true, value: undefined };
+    return { ok: true, value: { gameState: this.getGameState() } };
   }
 
   /**
@@ -235,7 +250,7 @@ export class GameApi {
    * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
    * PIECE_NOT_OWNED, CANNOT_CANCEL.
    */
-  static cancelMove(player: Player, pieceId: number): Result {
+  static cancelMove(player: Player, pieceId: number): Result<GameActionResult> {
     const turn = TurnRepository.get();
     if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
     if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
@@ -251,7 +266,7 @@ export class GameApi {
     }
 
     PiecesRepository.update(new Piece({ ...piece, targetPosition: undefined }));
-    return { ok: true, value: undefined };
+    return { ok: true, value: { gameState: this.getGameState() } };
   }
 
   /**
@@ -277,7 +292,7 @@ export class GameApi {
    * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, INSUFFICIENT_RESOURCES,
    * NO_GENERATION_PANEL.
    */
-  static generatePiece(player: Player, pieceType: PieceType): Result {
+  static generatePiece(player: Player, pieceType: PieceType): Result<GameActionResult> {
     const turn = TurnRepository.get();
     if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
     if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
@@ -293,7 +308,7 @@ export class GameApi {
     if (!spawnedPosition) return { ok: false, error: ActionError.NO_GENERATION_PANEL };
 
     PieceService.mergePiecesAtPosition(spawnedPosition);
-    return { ok: true, value: undefined };
+    return { ok: true, value: { gameState: this.getGameState() } };
   }
 
   /**
@@ -311,14 +326,14 @@ export class GameApi {
    *
    * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN.
    */
-  static setGenerationMode(player: Player, mode: GenerationMode): Result {
+  static setGenerationMode(player: Player, mode: GenerationMode): Result<GameActionResult> {
     const turn = TurnRepository.get();
     if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
     if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
 
     const newGenerationMode = { ...turn.generationMode, [String(player)]: mode };
     TurnRepository.set({ ...turn, generationMode: newGenerationMode });
-    return { ok: true, value: undefined };
+    return { ok: true, value: { gameState: this.getGameState() } };
   }
 
   /**
@@ -367,6 +382,7 @@ export class GameApi {
           combatOutcomes,
           winner: postVictoryTurn.winner,
           nextPlayer: undefined,
+          gameState: this.getGameState(),
         },
       };
     }
@@ -395,8 +411,34 @@ export class GameApi {
         combatOutcomes,
         winner: null,
         nextPlayer,
+        gameState: this.getGameState(),
       },
     };
+  }
+
+  static getGameState(): GameStateSnapshot {
+    return {
+      panels: PanelRepository.getAll().map((panel) => this.snapshotPanel(panel)),
+      pieces: PiecesRepository.getAll().map((piece) => this.snapshotPiece(piece)),
+      turn: this.snapshotTurn(),
+      homeBases: HomeBaseRepository.getAll().map((homeBase) => this.snapshotHomeBase(homeBase)),
+      layer: LayerRepository.get(),
+    };
+  }
+
+  static loadGameState(snapshot: GameStateSnapshot): Result<GameActionResult> {
+    LayerRepository.set(snapshot.layer);
+    PanelRepository.setAll(snapshot.panels.map((panel) => this.restorePanel(panel)));
+    HomeBaseRepository.setAll(snapshot.homeBases.map((homeBase) => this.restoreHomeBase(homeBase)));
+    PiecesRepository.setAll(snapshot.pieces.map((piece) => this.restorePiece(piece)));
+    TurnRepository.set({
+      ...snapshot.turn,
+      resources: { ...snapshot.turn.resources },
+      maxPiecesPerPanel: { ...snapshot.turn.maxPiecesPerPanel },
+      generationMode: { ...snapshot.turn.generationMode },
+    });
+
+    return { ok: true, value: { gameState: this.getGameState() } };
   }
 
   private static addResources(player: Player) {
@@ -457,5 +499,92 @@ export class GameApi {
     const currentResources = turn.resources[String(player)] ?? 0;
     if (currentResources < pieceType.config.cost) return false;
     return GenerationService.findGenerationPanel(player, pieceType) !== null;
+  }
+
+  private static snapshotPosition(position: PanelPosition): PanelPositionSnapshot {
+    return {
+      horizontalLayer: position.horizontalLayer,
+      verticalLayer: position.verticalLayer,
+    };
+  }
+
+  private static restorePosition(position: PanelPositionSnapshot): PanelPosition {
+    return new PanelPositionClass(position);
+  }
+
+  private static snapshotPanel(panel: Panel): PanelSnapshot {
+    const hasPiece = PiecesRepository.getPiecesByPosition(panel.panelPosition).length > 0;
+
+    return {
+      panelPosition: this.snapshotPosition(panel.panelPosition),
+      panelState: hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED,
+      player: panel.player,
+      resource: panel.resource,
+      castle: panel.castle,
+    };
+  }
+
+  private static restorePanel(panel: PanelSnapshot): Panel {
+    return new Panel({
+      panelPosition: this.restorePosition(panel.panelPosition),
+      panelState: panel.panelState,
+      player: panel.player,
+      resource: panel.resource,
+      castle: panel.castle,
+    });
+  }
+
+  private static snapshotPiece(piece: Piece): PieceSnapshot {
+    return {
+      id: piece.id,
+      panelPosition: this.snapshotPosition(piece.panelPosition),
+      initialPosition: this.snapshotPosition(piece.initialPosition),
+      targetPosition: piece.targetPosition
+        ? this.snapshotPosition(piece.targetPosition)
+        : undefined,
+      player: piece.player,
+      pieceType: piece.pieceType,
+      hp: piece.hp,
+      stackCount: piece.stackCount,
+      maxHp: piece.maxHp,
+    };
+  }
+
+  private static restorePiece(piece: PieceSnapshot): Piece {
+    return new Piece({
+      id: piece.id,
+      panelPosition: this.restorePosition(piece.panelPosition),
+      initialPosition: this.restorePosition(piece.initialPosition),
+      targetPosition: piece.targetPosition ? this.restorePosition(piece.targetPosition) : undefined,
+      player: piece.player,
+      pieceType: piece.pieceType,
+      hp: piece.hp,
+      stackCount: piece.stackCount,
+      maxHp: piece.maxHp,
+    });
+  }
+
+  private static snapshotHomeBase(homeBase: HomeBase): HomeBaseSnapshot {
+    return {
+      player: homeBase.player,
+      panelPosition: this.snapshotPosition(homeBase.panelPosition),
+    };
+  }
+
+  private static restoreHomeBase(homeBase: HomeBaseSnapshot): HomeBase {
+    return new HomeBase({
+      player: homeBase.player,
+      panelPosition: this.restorePosition(homeBase.panelPosition),
+    });
+  }
+
+  private static snapshotTurn() {
+    const turn = TurnRepository.get();
+    return {
+      ...turn,
+      resources: { ...turn.resources },
+      maxPiecesPerPanel: { ...turn.maxPiecesPerPanel },
+      generationMode: { ...turn.generationMode },
+    };
   }
 }
