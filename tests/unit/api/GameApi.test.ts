@@ -11,7 +11,12 @@ import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { Piece } from "$lib/domain/entities/Piece";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { ActionError } from "$lib/domain/enums/ActionError";
-import type { GameActionResult, GameStateSnapshot, TurnEndResult } from "$lib/domain/types/api";
+import type {
+  GameActionResult,
+  GameStateHistoryEntry,
+  GameStateSnapshot,
+  TurnEndResult,
+} from "$lib/domain/types/api";
 import {
   HOME_BASE_INIT_RESOURCE,
   HOME_BASE_INIT_CASTLE,
@@ -103,6 +108,17 @@ function expectTurnEndSuccessWithSnapshot(
   if (result.ok) {
     expectGameStateToMatchRepositories(result.value.gameState);
   }
+}
+
+function expectHistoryEntryToMatchSnapshot(
+  entry: GameStateHistoryEntry,
+  expectedSequence: number,
+  expectedTurn: number,
+  expectedSnapshot: GameStateSnapshot,
+) {
+  expect(entry.sequence).toBe(expectedSequence);
+  expect(entry.capturedAtTurn).toBe(expectedTurn);
+  expect(entry.snapshot).toEqual(expectedSnapshot);
 }
 
 describe("GameApi.initializeGame", () => {
@@ -218,6 +234,21 @@ describe("GameApi.initializeGame", () => {
       const result = GameApi.initializeGame({ layer: 4 });
       expectActionSuccessWithSnapshot(result);
     });
+
+    test("initializeGame({ layer: 4 }) records the initial board snapshot as history sequence 0", () => {
+      const result = GameApi.initializeGame({ layer: 4 });
+      expectActionSuccessWithSnapshot(result);
+
+      if (!result.ok) return;
+      const history = GameApi.getGameStateHistory();
+      expect(history).toHaveLength(1);
+      expectHistoryEntryToMatchSnapshot(
+        history[0],
+        0,
+        result.value.gameState.turn.num,
+        result.value.gameState,
+      );
+    });
   });
 
   describe("different layer sizes", () => {
@@ -279,6 +310,21 @@ describe("GameApi.initializeGame", () => {
       expect(PiecesRepository.getAll()).toHaveLength(0);
       expect(TurnRepository.get().num).toBe(1);
       expect(PanelRepository.getAll()).toHaveLength(16);
+    });
+
+    test("calling initializeGame again clears previously recorded history and replaces it with the new initial snapshot", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const endTurnResult = GameApi.endTurn(Player.SELF);
+      expectTurnEndSuccessWithSnapshot(endTurnResult);
+      expect(GameApi.getGameStateHistory()).toHaveLength(2);
+
+      const result = GameApi.initializeGame({ layer: 2 });
+      expectActionSuccessWithSnapshot(result);
+
+      if (!result.ok) return;
+      const history = GameApi.getGameStateHistory();
+      expect(history).toHaveLength(1);
+      expectHistoryEntryToMatchSnapshot(history[0], 0, 1, result.value.gameState);
     });
   });
 });
@@ -1873,6 +1919,72 @@ describe("GameApi state snapshot contract", () => {
   });
 
   describe("GameApi.getGameState", () => {
+    test("getGameStateHistory returns the initial snapshot and appends one entry after a successful endTurn", () => {
+      const initResult = GameApi.initializeGame({ layer: 4 });
+      expectActionSuccessWithSnapshot(initResult);
+      if (!initResult.ok) return;
+
+      const initialHistory = GameApi.getGameStateHistory();
+      expect(initialHistory).toHaveLength(1);
+      expectHistoryEntryToMatchSnapshot(
+        initialHistory[0],
+        0,
+        initResult.value.gameState.turn.num,
+        initResult.value.gameState,
+      );
+
+      const endTurnResult = GameApi.endTurn(Player.SELF);
+      expectTurnEndSuccessWithSnapshot(endTurnResult);
+      if (!endTurnResult.ok) return;
+
+      const history = GameApi.getGameStateHistory();
+      expect(history).toHaveLength(2);
+      expectHistoryEntryToMatchSnapshot(
+        history[1],
+        1,
+        endTurnResult.value.gameState.turn.num,
+        endTurnResult.value.gameState,
+      );
+    });
+
+    test("getGameStateHistory does not append entries for successful non-endTurn actions", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+
+      expect(GameApi.getGameStateHistory()).toHaveLength(1);
+      expectActionSuccessWithSnapshot(
+        GameApi.assignMove(
+          Player.SELF,
+          1,
+          new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 }),
+        ),
+      );
+      expect(GameApi.getGameStateHistory()).toHaveLength(1);
+    });
+
+    test("getGameStateHistory returns immutable snapshots even if a caller mutates the returned value", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const historyBeforeMutation = GameApi.getGameStateHistory();
+      historyBeforeMutation[0].snapshot.turn.num = 999;
+      historyBeforeMutation[0].snapshot.panels[0].resource = 999;
+
+      const historyAfterMutation = GameApi.getGameStateHistory();
+      expect(historyAfterMutation[0].sequence).toBe(0);
+      expect(historyAfterMutation[0].capturedAtTurn).toBe(1);
+      expect(historyAfterMutation[0].snapshot.turn.num).toBe(1);
+      expect(historyAfterMutation[0].snapshot.panels[0].resource).not.toBe(999);
+    });
+
     test("returns panels, pieces, turn, homeBases, and layer for an initialized game", () => {
       GameApi.initializeGame({ layer: 4 });
 

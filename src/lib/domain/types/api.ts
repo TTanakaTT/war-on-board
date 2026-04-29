@@ -60,6 +60,12 @@ export interface GameStateSnapshot {
   layer: number;
 }
 
+export interface GameStateHistoryEntry {
+  sequence: number;
+  capturedAtTurn: number;
+  snapshot: GameStateSnapshot;
+}
+
 export interface GameActionResult {
   gameState: GameStateSnapshot;
 }

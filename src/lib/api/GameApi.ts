@@ -5,6 +5,7 @@ import type { GenerationMode } from "$lib/domain/entities/Turn";
 import type {
   ControllablePlayerSnapshot,
   GameActionResult,
+  GameStateHistoryEntry,
   GameStateSnapshot,
   HomeBaseSnapshot,
   PanelPositionSnapshot,
@@ -29,6 +30,7 @@ import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
+import { GameStateHistoryRepository } from "$lib/data/repositories/GameStateHistoryRepository";
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
 import { MovementRulesService } from "$lib/services/MovementRulesService";
 import { PieceService } from "$lib/services/PieceService";
@@ -179,6 +181,9 @@ export class GameApi {
 
     // Add first player's income
     this.addResources(PlayerClass.SELF);
+
+    this.resetGameStateHistory();
+    this.recordCurrentGameStateHistory();
 
     return { ok: true, value: { gameState: this.getGameState() } };
   }
@@ -382,6 +387,8 @@ export class GameApi {
     VictoryService.applyVictory();
     const postVictoryTurn = TurnRepository.get();
     if (postVictoryTurn.winner) {
+      this.recordCurrentGameStateHistory();
+
       return {
         ok: true,
         value: {
@@ -410,6 +417,8 @@ export class GameApi {
 
     // 7. Add resource income for the next player
     this.addResources(nextPlayer);
+
+    this.recordCurrentGameStateHistory();
 
     return {
       ok: true,
@@ -524,6 +533,31 @@ export class GameApi {
     const currentResources = turn.resources[String(player)] ?? 0;
     if (currentResources < pieceType.config.cost) return false;
     return GenerationService.findGenerationPanel(player, pieceType) !== null;
+  }
+
+  /**
+   * Returns the recorded game-state history in chronological order.
+   *
+   * History entries are captured after `initializeGame` succeeds and after each
+   * successful `endTurn`, including turns that end the game.
+   */
+  static getGameStateHistory(): GameStateHistoryEntry[] {
+    return GameStateHistoryRepository.getAll();
+  }
+
+  private static resetGameStateHistory(): void {
+    GameStateHistoryRepository.clear();
+  }
+
+  private static recordCurrentGameStateHistory(): void {
+    const snapshot = this.getGameState();
+    const history = GameStateHistoryRepository.getAll();
+
+    GameStateHistoryRepository.add({
+      sequence: history.length,
+      capturedAtTurn: snapshot.turn.num,
+      snapshot,
+    });
   }
 
   private static snapshotPosition(position: PanelPosition): PanelPositionSnapshot {
