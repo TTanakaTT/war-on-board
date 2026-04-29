@@ -1,11 +1,17 @@
 import type { Player } from "$lib/domain/enums/Player";
 import type { ActionError } from "$lib/domain/enums/ActionError";
-import type { PanelState } from "$lib/domain/enums/PanelState";
-import type { PieceType } from "$lib/domain/enums/PieceType";
-import type { Turn } from "$lib/domain/entities/Turn";
+import type { GenerationMode } from "$lib/domain/entities/Turn";
 
 /** Discriminated union for action results. */
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ActionError };
+
+export type PlayerSnapshot = "self" | "opponent" | "unknown";
+
+export type ControllablePlayerSnapshot = Exclude<PlayerSnapshot, "unknown">;
+
+export type PanelStateSnapshot = "unoccupied" | "occupied";
+
+export type PieceTypeSnapshot = "knight" | "rook" | "bishop";
 
 export interface PanelPositionSnapshot {
   horizontalLayer: number;
@@ -14,8 +20,8 @@ export interface PanelPositionSnapshot {
 
 export interface PanelSnapshot {
   panelPosition: PanelPositionSnapshot;
-  panelState: PanelState;
-  player: Player;
+  panelState: PanelStateSnapshot;
+  player: PlayerSnapshot;
   resource: number;
   castle: number;
 }
@@ -25,22 +31,31 @@ export interface PieceSnapshot {
   panelPosition: PanelPositionSnapshot;
   initialPosition: PanelPositionSnapshot;
   targetPosition?: PanelPositionSnapshot;
-  player: Player;
-  pieceType: PieceType;
+  player: ControllablePlayerSnapshot;
+  pieceType: PieceTypeSnapshot;
   hp: number;
   stackCount: number;
   maxHp: number;
 }
 
 export interface HomeBaseSnapshot {
-  player: Player;
+  player: ControllablePlayerSnapshot;
   panelPosition: PanelPositionSnapshot;
+}
+
+export interface TurnSnapshot {
+  num: number;
+  player: ControllablePlayerSnapshot;
+  resources: Record<string, number>;
+  maxPiecesPerPanel: Record<string, number>;
+  generationMode: Record<string, GenerationMode>;
+  winner: ControllablePlayerSnapshot | null;
 }
 
 export interface GameStateSnapshot {
   panels: PanelSnapshot[];
   pieces: PieceSnapshot[];
-  turn: Turn;
+  turn: TurnSnapshot;
   homeBases: HomeBaseSnapshot[];
   layer: number;
 }

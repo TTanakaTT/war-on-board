@@ -34,8 +34,10 @@ function snapshotFromRepositories(): GameStateSnapshot {
           horizontalLayer: panel.panelPosition.horizontalLayer,
           verticalLayer: panel.panelPosition.verticalLayer,
         },
-        panelState: hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED,
-        player: panel.player,
+        panelState: String(hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED) as
+          | "occupied"
+          | "unoccupied",
+        player: String(panel.player) as "self" | "opponent" | "unknown",
         resource: panel.resource,
         castle: panel.castle,
       };
@@ -56,20 +58,22 @@ function snapshotFromRepositories(): GameStateSnapshot {
             verticalLayer: piece.targetPosition.verticalLayer,
           }
         : undefined,
-      player: piece.player,
-      pieceType: piece.pieceType,
+      player: String(piece.player) as "self" | "opponent",
+      pieceType: String(piece.pieceType) as "knight" | "rook" | "bishop",
       hp: piece.hp,
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
     })),
     turn: {
-      ...turn,
+      num: turn.num,
+      player: String(turn.player) as "self" | "opponent",
       resources: { ...turn.resources },
       maxPiecesPerPanel: { ...turn.maxPiecesPerPanel },
       generationMode: { ...turn.generationMode },
+      winner: turn.winner ? (String(turn.winner) as "self" | "opponent") : null,
     },
     homeBases: HomeBaseRepository.getAll().map((homeBase) => ({
-      player: homeBase.player,
+      player: String(homeBase.player) as "self" | "opponent",
       panelPosition: {
         horizontalLayer: homeBase.panelPosition.horizontalLayer,
         verticalLayer: homeBase.panelPosition.verticalLayer,
@@ -1864,7 +1868,7 @@ describe("GameApi state snapshot contract", () => {
       expectTurnEndSuccessWithSnapshot(result);
       if (!result.ok) return;
       expect(result.value.nextPlayer).toBe(Player.OPPONENT);
-      expect(result.value.gameState.turn.player).toBe(Player.OPPONENT);
+      expect(result.value.gameState.turn.player).toBe(String(Player.OPPONENT));
     });
   });
 
@@ -1898,7 +1902,7 @@ describe("GameApi state snapshot contract", () => {
           candidate.panelPosition.verticalLayer === target.verticalLayer,
       );
 
-      expect(panel?.panelState).toBe(PanelState.UNOCCUPIED);
+      expect(panel?.panelState).toBe(String(PanelState.UNOCCUPIED));
     });
 
     test("includes pending move targets and generation mode in an in-progress turn", () => {
@@ -1992,10 +1996,54 @@ describe("GameApi state snapshot contract", () => {
 
       const result = GameApi.loadGameState({
         ...snapshot,
-        homeBases: snapshot.homeBases.filter((homeBase) => homeBase.player === Player.SELF),
+        homeBases: snapshot.homeBases.filter((homeBase) => homeBase.player === String(Player.SELF)),
       });
 
       expect(result).toEqual({ ok: false, error: ActionError.INVALID_GAME_STATE });
+    });
+
+    test("accepts a JSON round-tripped snapshot and restores enum-backed values correctly", () => {
+      GameApi.initializeGame({ layer: 4 });
+      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      GameApi.setGenerationMode(Player.SELF, "rear");
+
+      const transportedSnapshot = JSON.parse(
+        JSON.stringify(GameApi.getGameState()),
+      ) as GameStateSnapshot;
+
+      GameApi.initializeGame({ layer: 2 });
+
+      const result = GameApi.loadGameState(transportedSnapshot);
+
+      expectActionSuccessWithSnapshot(result);
+      expect(GameApi.getGameState()).toEqual(transportedSnapshot);
+    });
+
+    test("normalizes panelState from an imported snapshot so UI-only states are not restored", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const snapshot = GameApi.getGameState();
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+
+      const result = GameApi.loadGameState({
+        ...snapshot,
+        panels: snapshot.panels.map((panel) =>
+          panel.panelPosition.horizontalLayer === target.horizontalLayer &&
+          panel.panelPosition.verticalLayer === target.verticalLayer
+            ? { ...panel, panelState: "occupied" }
+            : panel,
+        ),
+      });
+
+      expectActionSuccessWithSnapshot(result);
+      const restoredPanel = PanelRepository.find(target);
+      expect(restoredPanel?.panelState).toBe(PanelState.UNOCCUPIED);
+      expect(
+        GameApi.getGameState().panels.find(
+          (panel) =>
+            panel.panelPosition.horizontalLayer === target.horizontalLayer &&
+            panel.panelPosition.verticalLayer === target.verticalLayer,
+        )?.panelState,
+      ).toBe("unoccupied");
     });
 
     test("returns INVALID_GAME_STATE when a piece references a panel that does not exist", () => {

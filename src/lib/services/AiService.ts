@@ -12,10 +12,10 @@ export class AiService {
    */
   static doAiTurn(player: Player) {
     const gameState = GameApi.getGameState();
-    if (gameState.turn.player !== player || gameState.turn.winner) return;
+    if (gameState.turn.player !== String(player) || gameState.turn.winner) return;
 
     // 1. Assign moves for all pieces owned by the player
-    const pieces = gameState.pieces.filter((piece) => piece.player === player);
+    const pieces = gameState.pieces.filter((piece) => piece.player === String(player));
     for (const piece of pieces) {
       const targets = GameApi.getMovableTargets(piece.id);
       if (targets.length > 0) {

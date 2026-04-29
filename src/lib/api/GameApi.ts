@@ -3,13 +3,18 @@ import type { PieceType } from "$lib/domain/enums/PieceType";
 import type { Player } from "$lib/domain/enums/Player";
 import type { GenerationMode } from "$lib/domain/entities/Turn";
 import type {
+  ControllablePlayerSnapshot,
   GameActionResult,
   GameStateSnapshot,
   HomeBaseSnapshot,
   PanelPositionSnapshot,
   PanelSnapshot,
+  PanelStateSnapshot,
   PieceSnapshot,
+  PieceTypeSnapshot,
+  PlayerSnapshot,
   Result,
+  TurnSnapshot,
   TurnEndResult,
 } from "$lib/domain/types/api";
 import { PanelPosition as PanelPositionClass } from "$lib/domain/entities/PanelPosition";
@@ -417,6 +422,13 @@ export class GameApi {
     };
   }
 
+  /**
+   * Returns a transport-safe snapshot of the current board state.
+   *
+   * The returned snapshot is normalized for persistence and network transport:
+   * UI-only panel highlight states are excluded, and enum-like values are serialized
+   * as plain strings so the snapshot can be JSON encoded and restored later.
+   */
   static getGameState(): GameStateSnapshot {
     return {
       panels: PanelRepository.getAll().map((panel) => this.snapshotPanel(panel)),
@@ -427,21 +439,29 @@ export class GameApi {
     };
   }
 
+  /**
+   * Replaces the current repositories with a previously exported board snapshot.
+   *
+   * Imported snapshots are validated before application, and panel state is
+   * normalized from actual piece occupancy so transient UI highlight state is
+   * never restored into the game state.
+   */
   static loadGameState(snapshot: GameStateSnapshot): Result<GameActionResult> {
     if (!this.isValidGameState(snapshot)) {
       return { ok: false, error: ActionError.INVALID_GAME_STATE };
     }
 
+    const occupiedPanelKeys = new Set(
+      snapshot.pieces.map((piece) => this.positionKey(piece.panelPosition)),
+    );
+
     LayerRepository.set(snapshot.layer);
-    PanelRepository.setAll(snapshot.panels.map((panel) => this.restorePanel(panel)));
+    PanelRepository.setAll(
+      snapshot.panels.map((panel) => this.restorePanel(panel, occupiedPanelKeys)),
+    );
     HomeBaseRepository.setAll(snapshot.homeBases.map((homeBase) => this.restoreHomeBase(homeBase)));
     PiecesRepository.setAll(snapshot.pieces.map((piece) => this.restorePiece(piece)));
-    TurnRepository.set({
-      ...snapshot.turn,
-      resources: { ...snapshot.turn.resources },
-      maxPiecesPerPanel: { ...snapshot.turn.maxPiecesPerPanel },
-      generationMode: { ...snapshot.turn.generationMode },
-    });
+    TurnRepository.set(this.restoreTurn(snapshot.turn));
 
     return { ok: true, value: { gameState: this.getGameState() } };
   }
@@ -513,8 +533,59 @@ export class GameApi {
     };
   }
 
+  private static snapshotPlayer(player: Player): PlayerSnapshot {
+    return String(player) as PlayerSnapshot;
+  }
+
+  private static snapshotControllablePlayer(player: Player): ControllablePlayerSnapshot {
+    return String(player) as ControllablePlayerSnapshot;
+  }
+
+  private static snapshotPieceType(pieceType: PieceType): PieceTypeSnapshot {
+    return String(pieceType) as PieceTypeSnapshot;
+  }
+
+  private static snapshotPanelState(panelState: PanelState): PanelStateSnapshot {
+    return String(panelState) as PanelStateSnapshot;
+  }
+
   private static restorePosition(position: PanelPositionSnapshot): PanelPosition {
     return new PanelPositionClass(position);
+  }
+
+  private static restorePlayer(player: PlayerSnapshot): Player {
+    switch (player) {
+      case "self":
+        return PlayerClass.SELF;
+      case "opponent":
+        return PlayerClass.OPPONENT;
+      default:
+        return PlayerClass.UNKNOWN;
+    }
+  }
+
+  private static restoreControllablePlayer(player: ControllablePlayerSnapshot): Player {
+    return player === "self" ? PlayerClass.SELF : PlayerClass.OPPONENT;
+  }
+
+  private static restorePieceType(pieceType: PieceTypeSnapshot): PieceType {
+    switch (pieceType) {
+      case "knight":
+        return PieceTypeClass.KNIGHT;
+      case "rook":
+        return PieceTypeClass.ROOK;
+      default:
+        return PieceTypeClass.BISHOP;
+    }
+  }
+
+  private static normalizeSnapshotPanelState(
+    position: PanelPositionSnapshot,
+    occupiedPanelKeys: Set<string>,
+  ): PanelState {
+    return occupiedPanelKeys.has(this.positionKey(position))
+      ? PanelState.OCCUPIED
+      : PanelState.UNOCCUPIED;
   }
 
   private static snapshotPanel(panel: Panel): PanelSnapshot {
@@ -522,18 +593,18 @@ export class GameApi {
 
     return {
       panelPosition: this.snapshotPosition(panel.panelPosition),
-      panelState: hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED,
-      player: panel.player,
+      panelState: this.snapshotPanelState(hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED),
+      player: this.snapshotPlayer(panel.player),
       resource: panel.resource,
       castle: panel.castle,
     };
   }
 
-  private static restorePanel(panel: PanelSnapshot): Panel {
+  private static restorePanel(panel: PanelSnapshot, occupiedPanelKeys: Set<string>): Panel {
     return new Panel({
       panelPosition: this.restorePosition(panel.panelPosition),
-      panelState: panel.panelState,
-      player: panel.player,
+      panelState: this.normalizeSnapshotPanelState(panel.panelPosition, occupiedPanelKeys),
+      player: this.restorePlayer(panel.player),
       resource: panel.resource,
       castle: panel.castle,
     });
@@ -547,8 +618,8 @@ export class GameApi {
       targetPosition: piece.targetPosition
         ? this.snapshotPosition(piece.targetPosition)
         : undefined,
-      player: piece.player,
-      pieceType: piece.pieceType,
+      player: this.snapshotControllablePlayer(piece.player),
+      pieceType: this.snapshotPieceType(piece.pieceType),
       hp: piece.hp,
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
@@ -561,8 +632,8 @@ export class GameApi {
       panelPosition: this.restorePosition(piece.panelPosition),
       initialPosition: this.restorePosition(piece.initialPosition),
       targetPosition: piece.targetPosition ? this.restorePosition(piece.targetPosition) : undefined,
-      player: piece.player,
-      pieceType: piece.pieceType,
+      player: this.restoreControllablePlayer(piece.player),
+      pieceType: this.restorePieceType(piece.pieceType),
       hp: piece.hp,
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
@@ -571,25 +642,38 @@ export class GameApi {
 
   private static snapshotHomeBase(homeBase: HomeBase): HomeBaseSnapshot {
     return {
-      player: homeBase.player,
+      player: this.snapshotControllablePlayer(homeBase.player),
       panelPosition: this.snapshotPosition(homeBase.panelPosition),
     };
   }
 
   private static restoreHomeBase(homeBase: HomeBaseSnapshot): HomeBase {
     return new HomeBase({
-      player: homeBase.player,
+      player: this.restoreControllablePlayer(homeBase.player),
       panelPosition: this.restorePosition(homeBase.panelPosition),
     });
   }
 
-  private static snapshotTurn() {
+  private static snapshotTurn(): TurnSnapshot {
     const turn = TurnRepository.get();
     return {
-      ...turn,
+      num: turn.num,
+      player: this.snapshotControllablePlayer(turn.player),
       resources: { ...turn.resources },
       maxPiecesPerPanel: { ...turn.maxPiecesPerPanel },
       generationMode: { ...turn.generationMode },
+      winner: turn.winner ? this.snapshotControllablePlayer(turn.winner) : null,
+    };
+  }
+
+  private static restoreTurn(turn: TurnSnapshot) {
+    return {
+      num: turn.num,
+      player: this.restoreControllablePlayer(turn.player),
+      resources: { ...turn.resources },
+      maxPiecesPerPanel: { ...turn.maxPiecesPerPanel },
+      generationMode: { ...turn.generationMode },
+      winner: turn.winner ? this.restoreControllablePlayer(turn.winner) : null,
     };
   }
 
@@ -600,6 +684,7 @@ export class GameApi {
     const panelKeys = new Set<string>();
     for (const panel of snapshot.panels) {
       if (!this.isValidPosition(panel.panelPosition)) return false;
+      if (!this.isKnownPanelState(panel.panelState)) return false;
       if (!Number.isFinite(panel.resource) || panel.resource < 0) return false;
       if (!Number.isFinite(panel.castle) || panel.castle < 0) return false;
       if (!this.isKnownPanelOwner(panel.player)) return false;
@@ -642,7 +727,9 @@ export class GameApi {
     }
 
     if (!this.isControllablePlayer(snapshot.turn.player)) return false;
-    if (snapshot.turn.winner && !this.isControllablePlayer(snapshot.turn.winner)) return false;
+    if (snapshot.turn.winner !== null && !this.isControllablePlayer(snapshot.turn.winner)) {
+      return false;
+    }
     if (!Number.isInteger(snapshot.turn.num) || snapshot.turn.num < 1) return false;
 
     for (const player of [PlayerClass.SELF, PlayerClass.OPPONENT]) {
@@ -667,19 +754,19 @@ export class GameApi {
     return `${position.horizontalLayer},${position.verticalLayer}`;
   }
 
-  private static isControllablePlayer(player: Player): boolean {
-    return player === PlayerClass.SELF || player === PlayerClass.OPPONENT;
+  private static isControllablePlayer(player: string): player is ControllablePlayerSnapshot {
+    return player === "self" || player === "opponent";
   }
 
-  private static isKnownPanelOwner(player: Player): boolean {
-    return this.isControllablePlayer(player) || player === PlayerClass.UNKNOWN;
+  private static isKnownPanelOwner(player: string): player is PlayerSnapshot {
+    return this.isControllablePlayer(player) || player === "unknown";
   }
 
-  private static isKnownPieceType(pieceType: PieceType): boolean {
-    return (
-      pieceType === PieceTypeClass.KNIGHT ||
-      pieceType === PieceTypeClass.ROOK ||
-      pieceType === PieceTypeClass.BISHOP
-    );
+  private static isKnownPieceType(pieceType: string): pieceType is PieceTypeSnapshot {
+    return pieceType === "knight" || pieceType === "rook" || pieceType === "bishop";
+  }
+
+  private static isKnownPanelState(panelState: string): panelState is PanelStateSnapshot {
+    return panelState === "unoccupied" || panelState === "occupied";
   }
 }
