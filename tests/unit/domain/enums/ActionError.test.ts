@@ -27,6 +27,9 @@ describe("ActionError", () => {
     test("ActionError.GAME_ALREADY_OVER is defined", () => {
       expect(ActionError.GAME_ALREADY_OVER).toBeDefined();
     });
+    test("ActionError.INVALID_GAME_STATE is defined", () => {
+      expect(ActionError.INVALID_GAME_STATE).toBeDefined();
+    });
   });
 
   describe("String conversion", () => {
@@ -35,6 +38,9 @@ describe("ActionError", () => {
     });
     test("String(ActionError.GAME_ALREADY_OVER) returns 'GAME_ALREADY_OVER'", () => {
       expect(ActionError.GAME_ALREADY_OVER).toBe("GAME_ALREADY_OVER");
+    });
+    test("String(ActionError.INVALID_GAME_STATE) returns 'INVALID_GAME_STATE'", () => {
+      expect(ActionError.INVALID_GAME_STATE).toBe("INVALID_GAME_STATE");
     });
   });
 });

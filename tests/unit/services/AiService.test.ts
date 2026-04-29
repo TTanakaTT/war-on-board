@@ -84,5 +84,28 @@ describe("AiService", () => {
       AiService.doAiTurn(Player.OPPONENT);
       expect(TurnRepository.get().player).toBe(Player.SELF);
     });
+
+    test("can act from a game state restored through GameApi.loadGameState", () => {
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos(-2, 0),
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+      const turn = TurnRepository.get();
+      TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 50 } });
+
+      const snapshot = GameApi.getGameState();
+
+      GameApi.initializeGame({ layer: 2 });
+      const restoreResult = GameApi.loadGameState(snapshot);
+      expect(restoreResult.ok).toBe(true);
+
+      AiService.doAiTurn(Player.SELF);
+
+      expect(TurnRepository.get().player).toBe(Player.OPPONENT);
+    });
   });
 });

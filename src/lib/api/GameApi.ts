@@ -18,6 +18,7 @@ import { Panel } from "$lib/domain/entities/Panel";
 import { HomeBase } from "$lib/domain/entities/HomeBase";
 import { Player as PlayerClass } from "$lib/domain/enums/Player";
 import { PanelState } from "$lib/domain/enums/PanelState";
+import { PieceType as PieceTypeClass } from "$lib/domain/enums/PieceType";
 import { PanelsService } from "$lib/services/PanelService";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
@@ -427,6 +428,10 @@ export class GameApi {
   }
 
   static loadGameState(snapshot: GameStateSnapshot): Result<GameActionResult> {
+    if (!this.isValidGameState(snapshot)) {
+      return { ok: false, error: ActionError.INVALID_GAME_STATE };
+    }
+
     LayerRepository.set(snapshot.layer);
     PanelRepository.setAll(snapshot.panels.map((panel) => this.restorePanel(panel)));
     HomeBaseRepository.setAll(snapshot.homeBases.map((homeBase) => this.restoreHomeBase(homeBase)));
@@ -586,5 +591,95 @@ export class GameApi {
       maxPiecesPerPanel: { ...turn.maxPiecesPerPanel },
       generationMode: { ...turn.generationMode },
     };
+  }
+
+  private static isValidGameState(snapshot: GameStateSnapshot): boolean {
+    if (!Number.isInteger(snapshot.layer) || snapshot.layer < 1) return false;
+    if (snapshot.panels.length === 0) return false;
+
+    const panelKeys = new Set<string>();
+    for (const panel of snapshot.panels) {
+      if (!this.isValidPosition(panel.panelPosition)) return false;
+      if (!Number.isFinite(panel.resource) || panel.resource < 0) return false;
+      if (!Number.isFinite(panel.castle) || panel.castle < 0) return false;
+      if (!this.isKnownPanelOwner(panel.player)) return false;
+
+      const key = this.positionKey(panel.panelPosition);
+      if (panelKeys.has(key)) return false;
+      panelKeys.add(key);
+    }
+
+    if (snapshot.homeBases.length !== 2) return false;
+    const homeBasePlayers = new Set<string>();
+    for (const homeBase of snapshot.homeBases) {
+      if (!this.isValidPosition(homeBase.panelPosition)) return false;
+      if (!this.isControllablePlayer(homeBase.player)) return false;
+      if (!panelKeys.has(this.positionKey(homeBase.panelPosition))) return false;
+      homeBasePlayers.add(String(homeBase.player));
+    }
+    if (!homeBasePlayers.has(String(PlayerClass.SELF))) return false;
+    if (!homeBasePlayers.has(String(PlayerClass.OPPONENT))) return false;
+
+    const pieceIds = new Set<number>();
+    for (const piece of snapshot.pieces) {
+      if (!Number.isInteger(piece.id) || piece.id < 0) return false;
+      if (pieceIds.has(piece.id)) return false;
+      pieceIds.add(piece.id);
+
+      if (!this.isControllablePlayer(piece.player)) return false;
+      if (!this.isKnownPieceType(piece.pieceType)) return false;
+      if (!this.isValidPosition(piece.panelPosition)) return false;
+      if (!this.isValidPosition(piece.initialPosition)) return false;
+      if (piece.targetPosition && !this.isValidPosition(piece.targetPosition)) return false;
+      if (!panelKeys.has(this.positionKey(piece.panelPosition))) return false;
+      if (!panelKeys.has(this.positionKey(piece.initialPosition))) return false;
+      if (piece.targetPosition && !panelKeys.has(this.positionKey(piece.targetPosition)))
+        return false;
+      if (!Number.isFinite(piece.hp) || piece.hp < 0) return false;
+      if (!Number.isFinite(piece.maxHp) || piece.maxHp < 0) return false;
+      if (!Number.isInteger(piece.stackCount) || piece.stackCount < 1) return false;
+      if (piece.hp > piece.maxHp) return false;
+    }
+
+    if (!this.isControllablePlayer(snapshot.turn.player)) return false;
+    if (snapshot.turn.winner && !this.isControllablePlayer(snapshot.turn.winner)) return false;
+    if (!Number.isInteger(snapshot.turn.num) || snapshot.turn.num < 1) return false;
+
+    for (const player of [PlayerClass.SELF, PlayerClass.OPPONENT]) {
+      const key = String(player);
+      const resources = snapshot.turn.resources[key];
+      const maxPieces = snapshot.turn.maxPiecesPerPanel[key];
+      const mode = snapshot.turn.generationMode[key];
+
+      if (!Number.isFinite(resources) || resources < 0) return false;
+      if (!Number.isInteger(maxPieces) || maxPieces < 1) return false;
+      if (mode !== "front" && mode !== "rear") return false;
+    }
+
+    return true;
+  }
+
+  private static isValidPosition(position: PanelPositionSnapshot): boolean {
+    return Number.isInteger(position.horizontalLayer) && Number.isInteger(position.verticalLayer);
+  }
+
+  private static positionKey(position: PanelPositionSnapshot): string {
+    return `${position.horizontalLayer},${position.verticalLayer}`;
+  }
+
+  private static isControllablePlayer(player: Player): boolean {
+    return player === PlayerClass.SELF || player === PlayerClass.OPPONENT;
+  }
+
+  private static isKnownPanelOwner(player: Player): boolean {
+    return this.isControllablePlayer(player) || player === PlayerClass.UNKNOWN;
+  }
+
+  private static isKnownPieceType(pieceType: PieceType): boolean {
+    return (
+      pieceType === PieceTypeClass.KNIGHT ||
+      pieceType === PieceTypeClass.ROOK ||
+      pieceType === PieceTypeClass.BISHOP
+    );
   }
 }

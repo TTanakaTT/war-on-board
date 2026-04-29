@@ -1985,6 +1985,38 @@ describe("GameApi state snapshot contract", () => {
         verticalLayer: target.verticalLayer,
       });
     });
+
+    test("returns INVALID_GAME_STATE when the snapshot is missing one home base", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const snapshot = GameApi.getGameState();
+
+      const result = GameApi.loadGameState({
+        ...snapshot,
+        homeBases: snapshot.homeBases.filter((homeBase) => homeBase.player === Player.SELF),
+      });
+
+      expect(result).toEqual({ ok: false, error: ActionError.INVALID_GAME_STATE });
+    });
+
+    test("returns INVALID_GAME_STATE when a piece references a panel that does not exist", () => {
+      GameApi.initializeGame({ layer: 4 });
+      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const snapshot = GameApi.getGameState();
+
+      const result = GameApi.loadGameState({
+        ...snapshot,
+        pieces: snapshot.pieces.map((piece, index) =>
+          index === 0
+            ? {
+                ...piece,
+                panelPosition: { horizontalLayer: 99, verticalLayer: 99 },
+              }
+            : piece,
+        ),
+      });
+
+      expect(result).toEqual({ ok: false, error: ActionError.INVALID_GAME_STATE });
+    });
   });
 
   describe("snapshot round trip", () => {
