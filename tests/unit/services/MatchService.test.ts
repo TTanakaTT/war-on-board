@@ -9,7 +9,6 @@ import { MatchService } from "$lib/services/MatchService";
 describe("MatchService", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    GameApi.initializeGame({ layer: 4 });
   });
 
   afterEach(() => {

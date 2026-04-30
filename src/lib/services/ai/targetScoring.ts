@@ -1,5 +1,6 @@
 import { PASSIVE_CASTLE_CAP, PASSIVE_RESOURCE_CAP } from "$lib/domain/constants/GameConstants";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import { PieceType } from "$lib/domain/enums/PieceType";
 import { Player } from "$lib/domain/enums/Player";
 import type {
   GameStateSnapshot,
@@ -15,6 +16,12 @@ import {
   positionEquals,
 } from "$lib/services/ai/stateUtils";
 import type { AiStrengthProfile, PieceCombatStats, ScoredTarget } from "$lib/services/ai/types";
+
+const SNAPSHOT_PIECE_TYPES: Record<PieceSnapshot["pieceType"], PieceType> = {
+  knight: PieceType.KNIGHT,
+  rook: PieceType.ROOK,
+  bishop: PieceType.BISHOP,
+};
 
 export function selectStrategicTarget(
   gameState: GameStateSnapshot,
@@ -333,29 +340,16 @@ function scoreAttackTarget(
   return score;
 }
 
-function getPieceCombatStats(piece: PieceSnapshot): PieceCombatStats {
-  if (piece.pieceType === "knight") {
-    return {
-      attackPowerAgainstPiece: 5 + (piece.stackCount - 1),
-      attackPowerAgainstWall: 2 + (piece.stackCount - 1),
-      canAttack: true,
-      mergeable: true,
-    };
-  }
-
-  if (piece.pieceType === "rook") {
-    return {
-      attackPowerAgainstPiece: 2 + (piece.stackCount - 1),
-      attackPowerAgainstWall: 2 + (piece.stackCount - 1),
-      canAttack: true,
-      mergeable: false,
-    };
-  }
+export function getPieceCombatStats(piece: PieceSnapshot): PieceCombatStats {
+  const pieceConfig = SNAPSHOT_PIECE_TYPES[piece.pieceType].config;
+  const mergeBonus = piece.stackCount - 1;
+  const attackPowerAgainstPiece = pieceConfig.attackPowerAgainstPiece + mergeBonus;
+  const attackPowerAgainstWall = pieceConfig.attackPowerAgainstWall + mergeBonus;
 
   return {
-    attackPowerAgainstPiece: 0 + (piece.stackCount - 1),
-    attackPowerAgainstWall: 0 + (piece.stackCount - 1),
-    canAttack: piece.stackCount > 1,
-    mergeable: false,
+    attackPowerAgainstPiece,
+    attackPowerAgainstWall,
+    canAttack: attackPowerAgainstPiece > 0 || attackPowerAgainstWall > 0,
+    mergeable: pieceConfig.mergeable,
   };
 }
