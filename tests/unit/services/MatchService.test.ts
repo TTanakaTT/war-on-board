@@ -23,7 +23,7 @@ describe("MatchService", () => {
         automationTurnLimit: 10,
         aiStrengths: {
           self: AiStrength.STRENGTH_2,
-          opponent: AiStrength.STRENGTH_2,
+          opponent: AiStrength.STRENGTH_3,
         },
       });
 
@@ -33,7 +33,7 @@ describe("MatchService", () => {
       expect(matchControl.controllers.self).toBe("human");
       expect(matchControl.controllers.opponent).toBe("cpu");
       expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_1);
-      expect(matchControl.aiStrengths.opponent).toBe(AiStrength.STRENGTH_2);
+      expect(matchControl.aiStrengths.opponent).toBe(AiStrength.STRENGTH_3);
       expect(matchControl.automation.status).toBe("idle");
       expect(matchControl.automation.stopReason).toBeNull();
       expect(TurnRepository.get().player).toBe(Player.SELF);
@@ -45,7 +45,7 @@ describe("MatchService", () => {
         layer: 4,
         automationTurnLimit: 1,
         aiStrengths: {
-          self: AiStrength.STRENGTH_1,
+          self: AiStrength.STRENGTH_3,
           opponent: AiStrength.STRENGTH_2,
         },
       });
@@ -57,7 +57,7 @@ describe("MatchService", () => {
       expect(matchControl.mode).toBe("cpu-vs-cpu");
       expect(matchControl.controllers.self).toBe("cpu");
       expect(matchControl.controllers.opponent).toBe("cpu");
-      expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_1);
+      expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_3);
       expect(matchControl.aiStrengths.opponent).toBe(AiStrength.STRENGTH_2);
       expect(matchControl.automation.status).toBe("stopped");
       expect(matchControl.automation.stopReason).toBe("turn-limit");
@@ -76,7 +76,7 @@ describe("MatchService", () => {
         automationTurnLimit: 10,
         aiStrengths: {
           self: AiStrength.STRENGTH_1,
-          opponent: AiStrength.STRENGTH_2,
+          opponent: AiStrength.STRENGTH_3,
         },
       });
 
@@ -99,7 +99,7 @@ describe("MatchService", () => {
         layer: 4,
         automationTurnLimit: 2,
         aiStrengths: {
-          self: AiStrength.STRENGTH_2,
+          self: AiStrength.STRENGTH_3,
           opponent: AiStrength.STRENGTH_1,
         },
       });

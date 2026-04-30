@@ -26,6 +26,7 @@
   let selectedOpponentAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
   let selectedCpuOneAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
   let selectedCpuTwoAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
+  const aiStrengthOptions = [AiStrength.STRENGTH_1, AiStrength.STRENGTH_2, AiStrength.STRENGTH_3];
 
   $effect(() => {
     selectedMode = matchControl.mode;
@@ -35,7 +36,15 @@
   });
 
   function aiStrengthLabel(aiStrength: AiStrength): string {
-    return aiStrength === AiStrength.STRENGTH_2 ? m.ai_strength_level_2() : m.ai_strength_level_1();
+    if (aiStrength === AiStrength.STRENGTH_3) {
+      return m.ai_strength_level_3();
+    }
+
+    if (aiStrength === AiStrength.STRENGTH_2) {
+      return m.ai_strength_level_2();
+    }
+
+    return m.ai_strength_level_1();
   }
 
   function modeButtonClass(mode: MatchMode): string {
@@ -104,60 +113,45 @@
         {#if selectedMode === "cpu-vs-cpu"}
           <div class="flex flex-col gap-2">
             <p class="text-xs font-medium">{m.cpu_one()}</p>
-            <div class="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                class={aiStrengthButtonClass(selectedCpuOneAiStrength === AiStrength.STRENGTH_1)}
-                onclick={() => (selectedCpuOneAiStrength = AiStrength.STRENGTH_1)}
-              >
-                {aiStrengthLabel(AiStrength.STRENGTH_1)}
-              </button>
-              <button
-                type="button"
-                class={aiStrengthButtonClass(selectedCpuOneAiStrength === AiStrength.STRENGTH_2)}
-                onclick={() => (selectedCpuOneAiStrength = AiStrength.STRENGTH_2)}
-              >
-                {aiStrengthLabel(AiStrength.STRENGTH_2)}
-              </button>
+            <div class="grid grid-cols-3 gap-2">
+              {#each aiStrengthOptions as aiStrength (aiStrength)}
+                <button
+                  type="button"
+                  class={aiStrengthButtonClass(selectedCpuOneAiStrength === aiStrength)}
+                  onclick={() => (selectedCpuOneAiStrength = aiStrength)}
+                >
+                  {aiStrengthLabel(aiStrength)}
+                </button>
+              {/each}
             </div>
           </div>
           <div class="flex flex-col gap-2">
             <p class="text-xs font-medium">{m.cpu_two()}</p>
-            <div class="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                class={aiStrengthButtonClass(selectedCpuTwoAiStrength === AiStrength.STRENGTH_1)}
-                onclick={() => (selectedCpuTwoAiStrength = AiStrength.STRENGTH_1)}
-              >
-                {aiStrengthLabel(AiStrength.STRENGTH_1)}
-              </button>
-              <button
-                type="button"
-                class={aiStrengthButtonClass(selectedCpuTwoAiStrength === AiStrength.STRENGTH_2)}
-                onclick={() => (selectedCpuTwoAiStrength = AiStrength.STRENGTH_2)}
-              >
-                {aiStrengthLabel(AiStrength.STRENGTH_2)}
-              </button>
+            <div class="grid grid-cols-3 gap-2">
+              {#each aiStrengthOptions as aiStrength (aiStrength)}
+                <button
+                  type="button"
+                  class={aiStrengthButtonClass(selectedCpuTwoAiStrength === aiStrength)}
+                  onclick={() => (selectedCpuTwoAiStrength = aiStrength)}
+                >
+                  {aiStrengthLabel(aiStrength)}
+                </button>
+              {/each}
             </div>
           </div>
         {:else}
           <div class="flex flex-col gap-2">
             <p class="text-xs font-medium">{m.ai_strength_opponent_cpu()}</p>
-            <div class="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                class={aiStrengthButtonClass(selectedOpponentAiStrength === AiStrength.STRENGTH_1)}
-                onclick={() => (selectedOpponentAiStrength = AiStrength.STRENGTH_1)}
-              >
-                {aiStrengthLabel(AiStrength.STRENGTH_1)}
-              </button>
-              <button
-                type="button"
-                class={aiStrengthButtonClass(selectedOpponentAiStrength === AiStrength.STRENGTH_2)}
-                onclick={() => (selectedOpponentAiStrength = AiStrength.STRENGTH_2)}
-              >
-                {aiStrengthLabel(AiStrength.STRENGTH_2)}
-              </button>
+            <div class="grid grid-cols-3 gap-2">
+              {#each aiStrengthOptions as aiStrength (aiStrength)}
+                <button
+                  type="button"
+                  class={aiStrengthButtonClass(selectedOpponentAiStrength === aiStrength)}
+                  onclick={() => (selectedOpponentAiStrength = aiStrength)}
+                >
+                  {aiStrengthLabel(aiStrength)}
+                </button>
+              {/each}
             </div>
           </div>
         {/if}
@@ -217,64 +211,45 @@
           {#if selectedMode === "cpu-vs-cpu"}
             <div class="flex flex-col gap-2">
               <p class="text-xs font-medium">{m.cpu_one()}</p>
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  class={aiStrengthButtonClass(selectedCpuOneAiStrength === AiStrength.STRENGTH_1)}
-                  onclick={() => (selectedCpuOneAiStrength = AiStrength.STRENGTH_1)}
-                >
-                  {aiStrengthLabel(AiStrength.STRENGTH_1)}
-                </button>
-                <button
-                  type="button"
-                  class={aiStrengthButtonClass(selectedCpuOneAiStrength === AiStrength.STRENGTH_2)}
-                  onclick={() => (selectedCpuOneAiStrength = AiStrength.STRENGTH_2)}
-                >
-                  {aiStrengthLabel(AiStrength.STRENGTH_2)}
-                </button>
+              <div class="grid grid-cols-3 gap-2">
+                {#each aiStrengthOptions as aiStrength (aiStrength)}
+                  <button
+                    type="button"
+                    class={aiStrengthButtonClass(selectedCpuOneAiStrength === aiStrength)}
+                    onclick={() => (selectedCpuOneAiStrength = aiStrength)}
+                  >
+                    {aiStrengthLabel(aiStrength)}
+                  </button>
+                {/each}
               </div>
             </div>
             <div class="flex flex-col gap-2">
               <p class="text-xs font-medium">{m.cpu_two()}</p>
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  class={aiStrengthButtonClass(selectedCpuTwoAiStrength === AiStrength.STRENGTH_1)}
-                  onclick={() => (selectedCpuTwoAiStrength = AiStrength.STRENGTH_1)}
-                >
-                  {aiStrengthLabel(AiStrength.STRENGTH_1)}
-                </button>
-                <button
-                  type="button"
-                  class={aiStrengthButtonClass(selectedCpuTwoAiStrength === AiStrength.STRENGTH_2)}
-                  onclick={() => (selectedCpuTwoAiStrength = AiStrength.STRENGTH_2)}
-                >
-                  {aiStrengthLabel(AiStrength.STRENGTH_2)}
-                </button>
+              <div class="grid grid-cols-3 gap-2">
+                {#each aiStrengthOptions as aiStrength (aiStrength)}
+                  <button
+                    type="button"
+                    class={aiStrengthButtonClass(selectedCpuTwoAiStrength === aiStrength)}
+                    onclick={() => (selectedCpuTwoAiStrength = aiStrength)}
+                  >
+                    {aiStrengthLabel(aiStrength)}
+                  </button>
+                {/each}
               </div>
             </div>
           {:else}
             <div class="flex flex-col gap-2">
               <p class="text-xs font-medium">{m.ai_strength_opponent_cpu()}</p>
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  class={aiStrengthButtonClass(
-                    selectedOpponentAiStrength === AiStrength.STRENGTH_1,
-                  )}
-                  onclick={() => (selectedOpponentAiStrength = AiStrength.STRENGTH_1)}
-                >
-                  {aiStrengthLabel(AiStrength.STRENGTH_1)}
-                </button>
-                <button
-                  type="button"
-                  class={aiStrengthButtonClass(
-                    selectedOpponentAiStrength === AiStrength.STRENGTH_2,
-                  )}
-                  onclick={() => (selectedOpponentAiStrength = AiStrength.STRENGTH_2)}
-                >
-                  {aiStrengthLabel(AiStrength.STRENGTH_2)}
-                </button>
+              <div class="grid grid-cols-3 gap-2">
+                {#each aiStrengthOptions as aiStrength (aiStrength)}
+                  <button
+                    type="button"
+                    class={aiStrengthButtonClass(selectedOpponentAiStrength === aiStrength)}
+                    onclick={() => (selectedOpponentAiStrength = aiStrength)}
+                  >
+                    {aiStrengthLabel(aiStrength)}
+                  </button>
+                {/each}
               </div>
             </div>
           {/if}

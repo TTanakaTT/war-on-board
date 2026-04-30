@@ -1,6 +1,7 @@
 import { Player } from "$lib/domain/enums/Player";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { GameApi } from "$lib/api/GameApi";
+import { GameStateHistoryRepository } from "$lib/data/repositories/GameStateHistoryRepository";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import type {
   GameStateSnapshot,
@@ -9,6 +10,17 @@ import type {
   PieceSnapshot,
 } from "$lib/domain/types/api";
 import { AiStrength } from "$lib/domain/enums/AiStrength";
+
+type MoveSelectionStrategy = "random" | "strategic" | "lookahead";
+type GenerationSelectionStrategy = "random-single" | "strategic-repeat";
+
+interface AiStrengthProfile {
+  moveSelection: MoveSelectionStrategy;
+  generationSelection: GenerationSelectionStrategy;
+  lookaheadCandidateCount: number;
+  lookaheadWeight: number;
+  preferredPieceOrder: PieceType[];
+}
 
 interface PieceCombatStats {
   attackPowerAgainstPiece: number;
@@ -26,7 +38,7 @@ export class AiService {
   /**
    * Execute an AI-controlled turn for the given player.
    *
-   * 1. Assign random moves for all pieces owned by the player.
+   * 1. Assign moves for all pieces owned by the player according to the configured strength.
    * 2. Attempt to generate a piece if affordable.
    * 3. End the turn via GameApi.
    */
@@ -40,6 +52,7 @@ export class AiService {
   }
 
   private static assignMoves(player: Player, strength: AiStrength): void {
+    const profile = this.getStrengthProfile(strength);
     const pieces = GameApi.getGameState().pieces.filter((piece) => piece.player === String(player));
 
     for (const piece of pieces) {
@@ -50,17 +63,22 @@ export class AiService {
       const targets = GameApi.getMovableTargets(piece.id);
       if (targets.length === 0) continue;
 
-      const selectedTarget =
-        strength === AiStrength.STRENGTH_2
-          ? this.selectStrategicTarget(latestGameState, latestPiece, targets)
-          : this.selectRandomTarget(targets);
+      const selectedTarget = this.selectTarget(
+        latestGameState,
+        latestPiece,
+        targets,
+        player,
+        profile,
+      );
 
       GameApi.assignMove(player, piece.id, selectedTarget);
     }
   }
 
   private static generatePiece(player: Player, strength: AiStrength): void {
-    if (strength === AiStrength.STRENGTH_2) {
+    const profile = this.getStrengthProfile(strength);
+
+    if (profile.generationSelection === "strategic-repeat") {
       while (true) {
         const gameState = GameApi.getGameState();
         const currentResources = gameState.turn.resources[String(player)] ?? 0;
@@ -68,6 +86,7 @@ export class AiService {
           gameState,
           player,
           currentResources,
+          profile.preferredPieceOrder,
         );
 
         if (!preferredPieceType) {
@@ -84,10 +103,10 @@ export class AiService {
     const gameState = GameApi.getGameState();
     const currentResources = gameState.turn.resources[String(player)] ?? 0;
 
-    const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
-    const affordablePieceTypes = pieceTypes.filter(
-      (pieceType) =>
-        pieceType.config.cost <= currentResources && GameApi.canGenerate(player, pieceType),
+    const affordablePieceTypes = this.getAffordablePieceTypes(
+      player,
+      currentResources,
+      profile.preferredPieceOrder,
     );
     if (affordablePieceTypes.length === 0) return;
 
@@ -100,28 +119,18 @@ export class AiService {
     gameState: GameStateSnapshot,
     player: Player,
     currentResources: number,
+    preferredOrder: PieceType[],
   ): PieceType | null {
-    const preferredOrder = [PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP];
-    const availablePieceTypes = preferredOrder.filter(
-      (pieceType) =>
-        pieceType.config.cost <= currentResources && GameApi.canGenerate(player, pieceType),
+    const availablePieceTypes = this.getAffordablePieceTypes(
+      player,
+      currentResources,
+      preferredOrder,
     );
     if (availablePieceTypes.length === 0) {
       return null;
     }
 
-    const ownPieces = gameState.pieces.filter((piece) => piece.player === String(player));
-    const pieceTypeCounts = ownPieces.reduce(
-      (counts, piece) => {
-        counts[piece.pieceType] += 1;
-        return counts;
-      },
-      {
-        knight: 0,
-        rook: 0,
-        bishop: 0,
-      },
-    );
+    const pieceTypeCounts = this.countPieceTypes(gameState, player);
 
     if (pieceTypeCounts.bishop === 0 && availablePieceTypes.includes(PieceType.BISHOP)) {
       return PieceType.BISHOP;
@@ -147,8 +156,83 @@ export class AiService {
     })[0];
   }
 
+  private static getStrengthProfile(strength: AiStrength): AiStrengthProfile {
+    if (strength === AiStrength.STRENGTH_3) {
+      return {
+        moveSelection: "lookahead",
+        generationSelection: "strategic-repeat",
+        lookaheadCandidateCount: 3,
+        lookaheadWeight: 0.25,
+        preferredPieceOrder: [PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP],
+      };
+    }
+
+    if (strength === AiStrength.STRENGTH_2) {
+      return {
+        moveSelection: "strategic",
+        generationSelection: "strategic-repeat",
+        lookaheadCandidateCount: 0,
+        lookaheadWeight: 0,
+        preferredPieceOrder: [PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP],
+      };
+    }
+
+    return {
+      moveSelection: "random",
+      generationSelection: "random-single",
+      lookaheadCandidateCount: 0,
+      lookaheadWeight: 0,
+      preferredPieceOrder: [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK],
+    };
+  }
+
+  private static getAffordablePieceTypes(
+    player: Player,
+    currentResources: number,
+    pieceTypes: PieceType[],
+  ): PieceType[] {
+    return pieceTypes.filter(
+      (pieceType) =>
+        pieceType.config.cost <= currentResources && GameApi.canGenerate(player, pieceType),
+    );
+  }
+
+  private static countPieceTypes(gameState: GameStateSnapshot, player: Player) {
+    return gameState.pieces
+      .filter((piece) => piece.player === String(player))
+      .reduce(
+        (counts, piece) => {
+          counts[piece.pieceType] += 1;
+          return counts;
+        },
+        {
+          knight: 0,
+          rook: 0,
+          bishop: 0,
+        },
+      );
+  }
+
   private static selectRandomTarget(targets: PanelPosition[]): PanelPosition {
     return targets[Math.floor(Math.random() * targets.length)];
+  }
+
+  private static selectTarget(
+    gameState: GameStateSnapshot,
+    piece: PieceSnapshot,
+    targets: PanelPosition[],
+    player: Player,
+    profile: AiStrengthProfile,
+  ): PanelPosition {
+    if (profile.moveSelection === "random") {
+      return this.selectRandomTarget(targets);
+    }
+
+    if (profile.moveSelection === "lookahead") {
+      return this.selectLookaheadTarget(gameState, piece, targets, player, profile);
+    }
+
+    return this.selectStrategicTarget(gameState, piece, targets);
   }
 
   private static selectStrategicTarget(
@@ -156,6 +240,51 @@ export class AiService {
     piece: PieceSnapshot,
     targets: PanelPosition[],
   ): PanelPosition {
+    const scoredTargets = this.getSortedScoredTargets(gameState, piece, targets);
+
+    return scoredTargets[0]?.target ?? targets[0];
+  }
+
+  private static selectLookaheadTarget(
+    gameState: GameStateSnapshot,
+    piece: PieceSnapshot,
+    targets: PanelPosition[],
+    player: Player,
+    profile: AiStrengthProfile,
+  ): PanelPosition {
+    const topCandidates = this.getSortedScoredTargets(gameState, piece, targets).slice(
+      0,
+      profile.lookaheadCandidateCount,
+    );
+
+    const lookaheadTargets = topCandidates.map((candidate) => ({
+      target: candidate.target,
+      score:
+        candidate.score +
+        this.simulateTargetOutcome(gameState, player, piece.id, candidate.target) *
+          profile.lookaheadWeight,
+    }));
+
+    lookaheadTargets.sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+
+      if (left.target.horizontalLayer !== right.target.horizontalLayer) {
+        return left.target.horizontalLayer - right.target.horizontalLayer;
+      }
+
+      return left.target.verticalLayer - right.target.verticalLayer;
+    });
+
+    return lookaheadTargets[0]?.target ?? targets[0];
+  }
+
+  private static getSortedScoredTargets(
+    gameState: GameStateSnapshot,
+    piece: PieceSnapshot,
+    targets: PanelPosition[],
+  ): ScoredTarget[] {
     const scoredTargets: ScoredTarget[] = targets.map((target) => ({
       target,
       score: this.scoreTarget(gameState, piece, target),
@@ -173,7 +302,89 @@ export class AiService {
       return left.target.verticalLayer - right.target.verticalLayer;
     });
 
-    return scoredTargets[0]?.target ?? targets[0];
+    return scoredTargets;
+  }
+
+  private static simulateTargetOutcome(
+    gameState: GameStateSnapshot,
+    player: Player,
+    pieceId: number,
+    target: PanelPosition,
+  ): number {
+    const historySnapshot = GameApi.getGameStateHistory();
+
+    try {
+      const loadResult = GameApi.loadGameState(gameState);
+      if (!loadResult.ok) {
+        return Number.NEGATIVE_INFINITY;
+      }
+
+      const assignResult = GameApi.assignMove(player, pieceId, target);
+      if (!assignResult.ok) {
+        return Number.NEGATIVE_INFINITY;
+      }
+
+      const endTurnResult = GameApi.endTurn(player);
+      if (!endTurnResult.ok) {
+        return Number.NEGATIVE_INFINITY;
+      }
+
+      return this.scoreBoardState(GameApi.getGameState(), player);
+    } finally {
+      GameApi.loadGameState(gameState);
+      GameStateHistoryRepository.setAll(historySnapshot);
+    }
+  }
+
+  private static scoreBoardState(gameState: GameStateSnapshot, player: Player): number {
+    const playerId = String(player);
+    const opponentId = String(player === Player.SELF ? Player.OPPONENT : Player.SELF);
+
+    if (gameState.turn.winner === playerId) {
+      return 5000;
+    }
+
+    if (gameState.turn.winner === opponentId) {
+      return -5000;
+    }
+
+    const pieceScore = gameState.pieces.reduce((score, piece) => {
+      const direction = piece.player === playerId ? 1 : -1;
+      return score + direction * this.scorePieceValue(piece);
+    }, 0);
+
+    const panelScore = gameState.panels.reduce((score, panel) => {
+      if (panel.player === playerId) {
+        return score + 8 + panel.resource * 4 + panel.castle * 2;
+      }
+
+      if (panel.player === opponentId) {
+        return score - (8 + panel.resource * 4 + panel.castle * 2);
+      }
+
+      return score;
+    }, 0);
+
+    const homeBaseScore = gameState.homeBases.reduce((score, homeBase) => {
+      const panel = this.findPanel(gameState, homeBase.panelPosition);
+      if (!panel) {
+        return score;
+      }
+
+      if (homeBase.player === playerId) {
+        return score + panel.castle * 3;
+      }
+
+      return score - panel.castle * 3;
+    }, 0);
+
+    return pieceScore + panelScore + homeBaseScore;
+  }
+
+  private static scorePieceValue(piece: PieceSnapshot): number {
+    const typeValue = piece.pieceType === "rook" ? 18 : piece.pieceType === "knight" ? 16 : 12;
+
+    return typeValue + piece.hp * 2 + piece.stackCount * 3;
   }
 
   private static scoreTarget(
@@ -295,7 +506,7 @@ export class AiService {
 
   private static findPanel(
     gameState: GameStateSnapshot,
-    target: PanelPosition,
+    target: PanelPositionSnapshot | { horizontalLayer: number; verticalLayer: number },
   ): PanelSnapshot | undefined {
     return gameState.panels.find((panel) => this.positionEquals(panel.panelPosition, target));
   }
