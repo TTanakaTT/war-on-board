@@ -2,9 +2,11 @@ import { GameApi } from "$lib/api/GameApi";
 import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { DEFAULT_AUTOMATION_TURN_LIMIT } from "$lib/domain/constants/GameConstants";
+import { AiStrength } from "$lib/domain/enums/AiStrength";
 import { Player } from "$lib/domain/enums/Player";
 import type {
   MatchAutomationState,
+  MatchAiStrengths,
   MatchControl,
   MatchControllers,
   MatchMode,
@@ -21,7 +23,9 @@ export class MatchService {
   static startMatch(mode: MatchMode, options: StartMatchOptions): void {
     this.cancelScheduledAutomation();
     GameApi.initializeGame({ layer: options.layer });
-    MatchControlRepository.set(this.createMatchControl(mode, options.automationTurnLimit));
+    MatchControlRepository.set(
+      this.createMatchControl(mode, options.automationTurnLimit, options.aiStrengths),
+    );
     this.runAutomatedTurnsIfNeeded();
   }
 
@@ -65,13 +69,18 @@ export class MatchService {
     return AUTOMATION_STEP_DELAY_MS;
   }
 
-  private static createMatchControl(mode: MatchMode, automationTurnLimit: number): MatchControl {
+  private static createMatchControl(
+    mode: MatchMode,
+    automationTurnLimit: number,
+    aiStrengths: MatchAiStrengths,
+  ): MatchControl {
     return {
       mode,
       controllers:
         mode === "cpu-vs-cpu"
           ? { self: "cpu", opponent: "cpu" }
           : { self: "human", opponent: "cpu" },
+      aiStrengths: this.normalizeAiStrengths(mode, aiStrengths),
       automation: {
         status: "idle",
         automatedTurns: 0,
@@ -87,6 +96,20 @@ export class MatchService {
     controllers: MatchControllers,
   ): PlayerController {
     return player === Player.SELF ? controllers.self : controllers.opponent;
+  }
+
+  private static getAiStrengthForPlayer(player: Player, aiStrengths: MatchAiStrengths): AiStrength {
+    return player === Player.SELF ? aiStrengths.self : aiStrengths.opponent;
+  }
+
+  private static normalizeAiStrengths(
+    mode: MatchMode,
+    aiStrengths: MatchAiStrengths,
+  ): MatchAiStrengths {
+    return {
+      self: mode === "cpu-vs-cpu" ? aiStrengths.self : AiStrength.STRENGTH_1,
+      opponent: aiStrengths.opponent,
+    };
   }
 
   private static incrementAutomatedTurns(matchControl: MatchControl): MatchControl {
@@ -132,7 +155,11 @@ export class MatchService {
       return;
     }
 
-    AiService.doAiTurn(currentTurn.player);
+    const currentAiStrength = this.getAiStrengthForPlayer(
+      currentTurn.player,
+      matchControl.aiStrengths,
+    );
+    AiService.doAiTurn(currentTurn.player, currentAiStrength);
     const postTurn = TurnRepository.get();
 
     if (postTurn.num > currentTurn.num) {

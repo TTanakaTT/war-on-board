@@ -1,5 +1,10 @@
 import { matchControlState } from "$lib/data/state/MatchControlState.svelte";
-import type { MatchAutomationState, MatchControl, MatchControllers } from "$lib/domain/types/match";
+import type {
+  MatchAiStrengths,
+  MatchAutomationState,
+  MatchControl,
+  MatchControllers,
+} from "$lib/domain/types/match";
 
 export class MatchControlRepository {
   static get(): MatchControl {
@@ -8,6 +13,7 @@ export class MatchControlRepository {
     return {
       mode: matchControl.mode,
       controllers: this.cloneControllers(matchControl.controllers),
+      aiStrengths: this.cloneAiStrengths(matchControl.aiStrengths),
       automation: this.cloneAutomation(matchControl.automation),
     };
   }
@@ -16,6 +22,7 @@ export class MatchControlRepository {
     matchControlState.set({
       mode: matchControl.mode,
       controllers: this.cloneControllers(matchControl.controllers),
+      aiStrengths: this.cloneAiStrengths(matchControl.aiStrengths),
       automation: this.cloneAutomation(matchControl.automation),
     });
   }
@@ -24,6 +31,13 @@ export class MatchControlRepository {
     return {
       self: controllers.self,
       opponent: controllers.opponent,
+    };
+  }
+
+  private static cloneAiStrengths(aiStrengths: MatchAiStrengths): MatchAiStrengths {
+    return {
+      self: aiStrengths.self,
+      opponent: aiStrengths.opponent,
     };
   }
 

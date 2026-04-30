@@ -1,3 +1,4 @@
+import type { AiStrength } from "$lib/domain/enums/AiStrength";
 import type { Player } from "$lib/domain/enums/Player";
 
 export type MatchMode = "human-vs-cpu" | "cpu-vs-cpu";
@@ -13,6 +14,11 @@ export interface MatchControllers {
   opponent: PlayerController;
 }
 
+export interface MatchAiStrengths {
+  self: AiStrength;
+  opponent: AiStrength;
+}
+
 export interface MatchAutomationState {
   status: AutomationStatus;
   automatedTurns: number;
@@ -24,10 +30,12 @@ export interface MatchAutomationState {
 export interface MatchControl {
   mode: MatchMode;
   controllers: MatchControllers;
+  aiStrengths: MatchAiStrengths;
   automation: MatchAutomationState;
 }
 
 export interface StartMatchOptions {
   layer: number;
   automationTurnLimit: number;
+  aiStrengths: MatchAiStrengths;
 }

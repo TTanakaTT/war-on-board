@@ -1,3 +1,4 @@
+import { AiStrength } from "$lib/domain/enums/AiStrength";
 import { DEFAULT_AUTOMATION_TURN_LIMIT } from "$lib/domain/constants/GameConstants";
 import type { MatchControl } from "$lib/domain/types/match";
 
@@ -6,6 +7,10 @@ let _matchControl = $state<MatchControl>({
   controllers: {
     self: "human",
     opponent: "cpu",
+  },
+  aiStrengths: {
+    self: AiStrength.STRENGTH_1,
+    opponent: AiStrength.STRENGTH_1,
   },
   automation: {
     status: "idle",

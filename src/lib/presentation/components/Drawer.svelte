@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { AiStrength } from "$lib/domain/enums/AiStrength";
   import {
     DEFAULT_AUTOMATION_TURN_LIMIT,
     DEFAULT_GAME_LAYER,
   } from "$lib/domain/constants/GameConstants";
   import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
+  import type { MatchMode } from "$lib/domain/types/match";
   import { locales, setLocale } from "$lib/paraglide/runtime";
   import { m } from "$lib/paraglide/messages";
   import { MatchService } from "$lib/services/MatchService";
@@ -20,11 +22,52 @@
   } = $props();
   let navTranslateStyle = $derived(open ? "translate-x-0" : "-translate-x-full");
   let matchControl = $derived(MatchControlRepository.get());
+  let selectedMode = $state<MatchMode>("human-vs-cpu");
+  let selectedOpponentAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
+  let selectedCpuOneAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
+  let selectedCpuTwoAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
 
-  function startMatch(mode: "human-vs-cpu" | "cpu-vs-cpu") {
-    MatchService.startMatch(mode, {
+  $effect(() => {
+    selectedMode = matchControl.mode;
+    selectedOpponentAiStrength = matchControl.aiStrengths.opponent;
+    selectedCpuOneAiStrength = matchControl.aiStrengths.self;
+    selectedCpuTwoAiStrength = matchControl.aiStrengths.opponent;
+  });
+
+  function aiStrengthLabel(aiStrength: AiStrength): string {
+    return aiStrength === AiStrength.STRENGTH_2 ? m.ai_strength_level_2() : m.ai_strength_level_1();
+  }
+
+  function modeButtonClass(mode: MatchMode): string {
+    return `rounded-xl border px-3 py-2 text-left transition ${
+      selectedMode === mode
+        ? "border-primary bg-primary-variant text-onbackground dark:border-primary-dark dark:bg-primary-variant-dark dark:text-onbackground-dark"
+        : "border-outline dark:border-outline-dark"
+    }`;
+  }
+
+  function aiStrengthButtonClass(isSelected: boolean): string {
+    return `rounded-xl border px-3 py-2 text-left text-sm transition ${
+      isSelected
+        ? "border-primary bg-primary-variant text-onbackground dark:border-primary-dark dark:bg-primary-variant-dark dark:text-onbackground-dark"
+        : "border-outline dark:border-outline-dark"
+    }`;
+  }
+
+  function startMatch() {
+    MatchService.startMatch(selectedMode, {
       layer: DEFAULT_GAME_LAYER,
       automationTurnLimit: DEFAULT_AUTOMATION_TURN_LIMIT,
+      aiStrengths:
+        selectedMode === "cpu-vs-cpu"
+          ? {
+              self: selectedCpuOneAiStrength,
+              opponent: selectedCpuTwoAiStrength,
+            }
+          : {
+              self: AiStrength.STRENGTH_1,
+              opponent: selectedOpponentAiStrength,
+            },
     });
   }
 </script>
@@ -42,23 +85,88 @@
         <h2 class="text-sm font-semibold tracking-wide uppercase">{m.match_mode_title()}</h2>
         <button
           type="button"
-          class="rounded-xl border px-3 py-2 text-left transition {matchControl.mode ===
-          'human-vs-cpu'
-            ? 'border-primary bg-primary-variant text-onbackground dark:border-primary-dark dark:bg-primary-variant-dark dark:text-onbackground-dark'
-            : 'border-outline dark:border-outline-dark'}"
-          onclick={() => startMatch("human-vs-cpu")}
+          class={modeButtonClass("human-vs-cpu")}
+          onclick={() => (selectedMode = "human-vs-cpu")}
         >
           {m.match_mode_human_vs_cpu()}
         </button>
         <button
           type="button"
-          class="rounded-xl border px-3 py-2 text-left transition {matchControl.mode ===
-          'cpu-vs-cpu'
-            ? 'border-primary bg-primary-variant text-onbackground dark:border-primary-dark dark:bg-primary-variant-dark dark:text-onbackground-dark'
-            : 'border-outline dark:border-outline-dark'}"
-          onclick={() => startMatch("cpu-vs-cpu")}
+          class={modeButtonClass("cpu-vs-cpu")}
+          onclick={() => (selectedMode = "cpu-vs-cpu")}
         >
           {m.match_mode_cpu_vs_cpu()}
+        </button>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h2 class="text-sm font-semibold tracking-wide uppercase">{m.ai_strength_title()}</h2>
+        {#if selectedMode === "cpu-vs-cpu"}
+          <div class="flex flex-col gap-2">
+            <p class="text-xs font-medium">{m.cpu_one()}</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                class={aiStrengthButtonClass(selectedCpuOneAiStrength === AiStrength.STRENGTH_1)}
+                onclick={() => (selectedCpuOneAiStrength = AiStrength.STRENGTH_1)}
+              >
+                {aiStrengthLabel(AiStrength.STRENGTH_1)}
+              </button>
+              <button
+                type="button"
+                class={aiStrengthButtonClass(selectedCpuOneAiStrength === AiStrength.STRENGTH_2)}
+                onclick={() => (selectedCpuOneAiStrength = AiStrength.STRENGTH_2)}
+              >
+                {aiStrengthLabel(AiStrength.STRENGTH_2)}
+              </button>
+            </div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <p class="text-xs font-medium">{m.cpu_two()}</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                class={aiStrengthButtonClass(selectedCpuTwoAiStrength === AiStrength.STRENGTH_1)}
+                onclick={() => (selectedCpuTwoAiStrength = AiStrength.STRENGTH_1)}
+              >
+                {aiStrengthLabel(AiStrength.STRENGTH_1)}
+              </button>
+              <button
+                type="button"
+                class={aiStrengthButtonClass(selectedCpuTwoAiStrength === AiStrength.STRENGTH_2)}
+                onclick={() => (selectedCpuTwoAiStrength = AiStrength.STRENGTH_2)}
+              >
+                {aiStrengthLabel(AiStrength.STRENGTH_2)}
+              </button>
+            </div>
+          </div>
+        {:else}
+          <div class="flex flex-col gap-2">
+            <p class="text-xs font-medium">{m.ai_strength_opponent_cpu()}</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                class={aiStrengthButtonClass(selectedOpponentAiStrength === AiStrength.STRENGTH_1)}
+                onclick={() => (selectedOpponentAiStrength = AiStrength.STRENGTH_1)}
+              >
+                {aiStrengthLabel(AiStrength.STRENGTH_1)}
+              </button>
+              <button
+                type="button"
+                class={aiStrengthButtonClass(selectedOpponentAiStrength === AiStrength.STRENGTH_2)}
+                onclick={() => (selectedOpponentAiStrength = AiStrength.STRENGTH_2)}
+              >
+                {aiStrengthLabel(AiStrength.STRENGTH_2)}
+              </button>
+            </div>
+          </div>
+        {/if}
+        <button
+          type="button"
+          class="border-primary bg-primary text-onbackground dark:border-primary-dark dark:bg-primary-dark dark:text-onbackground-dark rounded-xl border px-3 py-2 font-semibold transition"
+          onclick={startMatch}
+        >
+          {m.start_match()}
         </button>
       </section>
 
@@ -90,23 +198,92 @@
           <h2 class="text-sm font-semibold tracking-wide uppercase">{m.match_mode_title()}</h2>
           <button
             type="button"
-            class="rounded-xl border px-3 py-2 text-left transition {matchControl.mode ===
-            'human-vs-cpu'
-              ? 'border-primary bg-primary-variant text-onbackground dark:border-primary-dark dark:bg-primary-variant-dark dark:text-onbackground-dark'
-              : 'border-outline dark:border-outline-dark'}"
-            onclick={() => startMatch("human-vs-cpu")}
+            class={modeButtonClass("human-vs-cpu")}
+            onclick={() => (selectedMode = "human-vs-cpu")}
           >
             {m.match_mode_human_vs_cpu()}
           </button>
           <button
             type="button"
-            class="rounded-xl border px-3 py-2 text-left transition {matchControl.mode ===
-            'cpu-vs-cpu'
-              ? 'border-primary bg-primary-variant text-onbackground dark:border-primary-dark dark:bg-primary-variant-dark dark:text-onbackground-dark'
-              : 'border-outline dark:border-outline-dark'}"
-            onclick={() => startMatch("cpu-vs-cpu")}
+            class={modeButtonClass("cpu-vs-cpu")}
+            onclick={() => (selectedMode = "cpu-vs-cpu")}
           >
             {m.match_mode_cpu_vs_cpu()}
+          </button>
+        </section>
+
+        <section class="flex flex-col gap-3">
+          <h2 class="text-sm font-semibold tracking-wide uppercase">{m.ai_strength_title()}</h2>
+          {#if selectedMode === "cpu-vs-cpu"}
+            <div class="flex flex-col gap-2">
+              <p class="text-xs font-medium">{m.cpu_one()}</p>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  class={aiStrengthButtonClass(selectedCpuOneAiStrength === AiStrength.STRENGTH_1)}
+                  onclick={() => (selectedCpuOneAiStrength = AiStrength.STRENGTH_1)}
+                >
+                  {aiStrengthLabel(AiStrength.STRENGTH_1)}
+                </button>
+                <button
+                  type="button"
+                  class={aiStrengthButtonClass(selectedCpuOneAiStrength === AiStrength.STRENGTH_2)}
+                  onclick={() => (selectedCpuOneAiStrength = AiStrength.STRENGTH_2)}
+                >
+                  {aiStrengthLabel(AiStrength.STRENGTH_2)}
+                </button>
+              </div>
+            </div>
+            <div class="flex flex-col gap-2">
+              <p class="text-xs font-medium">{m.cpu_two()}</p>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  class={aiStrengthButtonClass(selectedCpuTwoAiStrength === AiStrength.STRENGTH_1)}
+                  onclick={() => (selectedCpuTwoAiStrength = AiStrength.STRENGTH_1)}
+                >
+                  {aiStrengthLabel(AiStrength.STRENGTH_1)}
+                </button>
+                <button
+                  type="button"
+                  class={aiStrengthButtonClass(selectedCpuTwoAiStrength === AiStrength.STRENGTH_2)}
+                  onclick={() => (selectedCpuTwoAiStrength = AiStrength.STRENGTH_2)}
+                >
+                  {aiStrengthLabel(AiStrength.STRENGTH_2)}
+                </button>
+              </div>
+            </div>
+          {:else}
+            <div class="flex flex-col gap-2">
+              <p class="text-xs font-medium">{m.ai_strength_opponent_cpu()}</p>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  class={aiStrengthButtonClass(
+                    selectedOpponentAiStrength === AiStrength.STRENGTH_1,
+                  )}
+                  onclick={() => (selectedOpponentAiStrength = AiStrength.STRENGTH_1)}
+                >
+                  {aiStrengthLabel(AiStrength.STRENGTH_1)}
+                </button>
+                <button
+                  type="button"
+                  class={aiStrengthButtonClass(
+                    selectedOpponentAiStrength === AiStrength.STRENGTH_2,
+                  )}
+                  onclick={() => (selectedOpponentAiStrength = AiStrength.STRENGTH_2)}
+                >
+                  {aiStrengthLabel(AiStrength.STRENGTH_2)}
+                </button>
+              </div>
+            </div>
+          {/if}
+          <button
+            type="button"
+            class="border-primary bg-primary text-onbackground dark:border-primary-dark dark:bg-primary-dark dark:text-onbackground-dark rounded-xl border px-3 py-2 font-semibold transition"
+            onclick={startMatch}
+          >
+            {m.start_match()}
           </button>
         </section>
 
