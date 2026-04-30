@@ -11,12 +11,10 @@ import type {
 } from "$lib/domain/types/api";
 import { AiStrength } from "$lib/domain/enums/AiStrength";
 
-type MoveSelectionStrategy = "random" | "strategic" | "lookahead";
-type GenerationSelectionStrategy = "random-single" | "strategic-repeat";
+type MoveSelectionStrategy = "strategic" | "lookahead";
 
 interface AiStrengthProfile {
   moveSelection: MoveSelectionStrategy;
-  generationSelection: GenerationSelectionStrategy;
   lookaheadCandidateCount: number;
   lookaheadWeight: number;
   preferredPieceOrder: PieceType[];
@@ -78,41 +76,25 @@ export class AiService {
   private static generatePiece(player: Player, strength: AiStrength): void {
     const profile = this.getStrengthProfile(strength);
 
-    if (profile.generationSelection === "strategic-repeat") {
-      while (true) {
-        const gameState = GameApi.getGameState();
-        const currentResources = gameState.turn.resources[String(player)] ?? 0;
-        const preferredPieceType = this.selectStrategicPieceType(
-          gameState,
-          player,
-          currentResources,
-          profile.preferredPieceOrder,
-        );
+    while (true) {
+      const gameState = GameApi.getGameState();
+      const currentResources = gameState.turn.resources[String(player)] ?? 0;
+      const preferredPieceType = this.selectStrategicPieceType(
+        gameState,
+        player,
+        currentResources,
+        profile.preferredPieceOrder,
+      );
 
-        if (!preferredPieceType) {
-          return;
-        }
+      if (!preferredPieceType) {
+        return;
+      }
 
-        const generationResult = GameApi.generatePiece(player, preferredPieceType);
-        if (!generationResult.ok) {
-          return;
-        }
+      const generationResult = GameApi.generatePiece(player, preferredPieceType);
+      if (!generationResult.ok) {
+        return;
       }
     }
-
-    const gameState = GameApi.getGameState();
-    const currentResources = gameState.turn.resources[String(player)] ?? 0;
-
-    const affordablePieceTypes = this.getAffordablePieceTypes(
-      player,
-      currentResources,
-      profile.preferredPieceOrder,
-    );
-    if (affordablePieceTypes.length === 0) return;
-
-    const randomPieceType =
-      affordablePieceTypes[Math.floor(Math.random() * affordablePieceTypes.length)];
-    GameApi.generatePiece(player, randomPieceType);
   }
 
   private static selectStrategicPieceType(
@@ -157,32 +139,20 @@ export class AiService {
   }
 
   private static getStrengthProfile(strength: AiStrength): AiStrengthProfile {
-    if (strength === AiStrength.STRENGTH_3) {
+    if (strength === AiStrength.STRENGTH_2) {
       return {
         moveSelection: "lookahead",
-        generationSelection: "strategic-repeat",
         lookaheadCandidateCount: 3,
         lookaheadWeight: 0.25,
         preferredPieceOrder: [PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP],
       };
     }
 
-    if (strength === AiStrength.STRENGTH_2) {
-      return {
-        moveSelection: "strategic",
-        generationSelection: "strategic-repeat",
-        lookaheadCandidateCount: 0,
-        lookaheadWeight: 0,
-        preferredPieceOrder: [PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP],
-      };
-    }
-
     return {
-      moveSelection: "random",
-      generationSelection: "random-single",
+      moveSelection: "strategic",
       lookaheadCandidateCount: 0,
       lookaheadWeight: 0,
-      preferredPieceOrder: [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK],
+      preferredPieceOrder: [PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP],
     };
   }
 
@@ -224,10 +194,6 @@ export class AiService {
     player: Player,
     profile: AiStrengthProfile,
   ): PanelPosition {
-    if (profile.moveSelection === "random") {
-      return this.selectRandomTarget(targets);
-    }
-
     if (profile.moveSelection === "lookahead") {
       return this.selectLookaheadTarget(gameState, piece, targets, player, profile);
     }

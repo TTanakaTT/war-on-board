@@ -50,11 +50,7 @@ describe("AiService", () => {
     });
 
     test("advances the turn for each supported strength", () => {
-      const strengths = [
-        AiStrength.STRENGTH_1,
-        AiStrength.STRENGTH_2,
-        AiStrength.STRENGTH_3,
-      ] as const;
+      const strengths = [AiStrength.STRENGTH_1, AiStrength.STRENGTH_2] as const;
 
       for (const strength of strengths) {
         GameApi.initializeGame({ layer: 4 });
@@ -67,17 +63,17 @@ describe("AiService", () => {
       }
     });
 
-    test("can act for Player.OPPONENT with strength 3", () => {
+    test("can act for Player.OPPONENT with strength 2", () => {
       GameApi.endTurn(Player.SELF);
       addPiece(1, Player.OPPONENT, pos(2, 0));
       setResources(Player.OPPONENT, 50);
 
-      AiService.doAiTurn(Player.OPPONENT, AiStrength.STRENGTH_3);
+      AiService.doAiTurn(Player.OPPONENT, AiStrength.STRENGTH_2);
 
       expect(TurnRepository.get().player).toBe(Player.SELF);
     });
 
-    test("can act from a game state restored through GameApi.loadGameState with strength 3", () => {
+    test("can act from a game state restored through GameApi.loadGameState with strength 2", () => {
       addPiece(1, Player.SELF, pos(-2, 0));
       setResources(Player.SELF, 50);
 
@@ -87,7 +83,7 @@ describe("AiService", () => {
       const restoreResult = GameApi.loadGameState(snapshot);
       expect(restoreResult.ok).toBe(true);
 
-      AiService.doAiTurn(Player.SELF, AiStrength.STRENGTH_3);
+      AiService.doAiTurn(Player.SELF, AiStrength.STRENGTH_2);
 
       expect(TurnRepository.get().player).toBe(Player.OPPONENT);
     });

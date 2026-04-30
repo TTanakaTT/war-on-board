@@ -26,7 +26,7 @@
   let selectedOpponentAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
   let selectedCpuOneAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
   let selectedCpuTwoAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
-  const aiStrengthOptions = [AiStrength.STRENGTH_1, AiStrength.STRENGTH_2, AiStrength.STRENGTH_3];
+  const aiStrengthOptions = [AiStrength.STRENGTH_1, AiStrength.STRENGTH_2];
 
   $effect(() => {
     selectedMode = matchControl.mode;
@@ -36,10 +36,6 @@
   });
 
   function aiStrengthLabel(aiStrength: AiStrength): string {
-    if (aiStrength === AiStrength.STRENGTH_3) {
-      return m.ai_strength_level_3();
-    }
-
     if (aiStrength === AiStrength.STRENGTH_2) {
       return m.ai_strength_level_2();
     }
