@@ -27,6 +27,10 @@
   let selectedCpuOneAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
   let selectedCpuTwoAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
   const aiStrengthOptions = [AiStrength.STRENGTH_1, AiStrength.STRENGTH_2];
+  const aiStrengthLabels: Record<AiStrength, () => string> = {
+    [AiStrength.STRENGTH_1]: () => m.ai_strength_level_1(),
+    [AiStrength.STRENGTH_2]: () => m.ai_strength_level_2(),
+  };
 
   $effect(() => {
     selectedMode = matchControl.mode;
@@ -36,11 +40,7 @@
   });
 
   function aiStrengthLabel(aiStrength: AiStrength): string {
-    if (aiStrength === AiStrength.STRENGTH_2) {
-      return m.ai_strength_level_2();
-    }
-
-    return m.ai_strength_level_1();
+    return aiStrengthLabels[aiStrength]();
   }
 
   function modeButtonClass(mode: MatchMode): string {

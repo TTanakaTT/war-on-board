@@ -67,6 +67,22 @@ describe("MatchService", () => {
       expect(TurnRepository.get().winner).toBeNull();
       expect(GameApi.getGameStateHistory()).toHaveLength(3);
     });
+
+    test("preserves strength 2 when starting a cpu-vs-cpu match", () => {
+      MatchService.startMatch("cpu-vs-cpu", {
+        layer: 4,
+        automationTurnLimit: 10,
+        aiStrengths: {
+          self: AiStrength.STRENGTH_2,
+          opponent: AiStrength.STRENGTH_1,
+        },
+      });
+
+      const matchControl = MatchControlRepository.get();
+
+      expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_2);
+      expect(matchControl.aiStrengths.opponent).toBe(AiStrength.STRENGTH_1);
+    });
   });
 
   describe("runAutomatedTurnsIfNeeded", () => {

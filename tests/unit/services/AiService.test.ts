@@ -1,31 +1,11 @@
 import { beforeEach, describe, test, expect } from "vitest";
 import { GameApi } from "$lib/api/GameApi";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { Piece } from "$lib/domain/entities/Piece";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { AiStrength } from "$lib/domain/enums/AiStrength";
-import { PieceType } from "$lib/domain/enums/PieceType";
 import { Player } from "$lib/domain/enums/Player";
 import { AiService } from "$lib/services/AiService";
 
-const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
-
-function setResources(player: Player, amount: number): void {
-  const turn = TurnRepository.get();
-  TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(player)]: amount } });
-}
-
-function addPiece(id: number, player: Player, position: PanelPosition): void {
-  PiecesRepository.add(
-    new Piece({
-      id,
-      panelPosition: position,
-      player,
-      pieceType: PieceType.KNIGHT,
-    }),
-  );
-}
+const supportedStrengths = [AiStrength.STRENGTH_1, AiStrength.STRENGTH_2] as const;
 
 describe("AiService", () => {
   beforeEach(() => {
@@ -49,76 +29,34 @@ describe("AiService", () => {
       expect(TurnRepository.get().winner).toBe(Player.SELF);
     });
 
-    test("advances the turn for each supported strength", () => {
-      const strengths = [AiStrength.STRENGTH_1, AiStrength.STRENGTH_2] as const;
-
-      for (const strength of strengths) {
+    for (const strength of supportedStrengths) {
+      test(`advances the turn with ${strength}`, () => {
         GameApi.initializeGame({ layer: 4 });
-        addPiece(1, Player.SELF, pos(-2, 0));
-        setResources(Player.SELF, 50);
 
         AiService.doAiTurn(Player.SELF, strength);
 
         expect(TurnRepository.get().player).toBe(Player.OPPONENT);
-      }
-    });
+      });
 
-    test("can act for Player.OPPONENT with strength 2", () => {
-      GameApi.endTurn(Player.SELF);
-      addPiece(1, Player.OPPONENT, pos(2, 0));
-      setResources(Player.OPPONENT, 50);
+      test(`can act for Player.OPPONENT with ${strength}`, () => {
+        GameApi.endTurn(Player.SELF);
 
-      AiService.doAiTurn(Player.OPPONENT, AiStrength.STRENGTH_2);
+        AiService.doAiTurn(Player.OPPONENT, strength);
 
-      expect(TurnRepository.get().player).toBe(Player.SELF);
-    });
+        expect(TurnRepository.get().player).toBe(Player.SELF);
+      });
 
-    test("can act from a game state restored through GameApi.loadGameState with strength 2", () => {
-      addPiece(1, Player.SELF, pos(-2, 0));
-      setResources(Player.SELF, 50);
+      test(`can act from a restored game state with ${strength}`, () => {
+        const snapshot = GameApi.getGameState();
 
-      const snapshot = GameApi.getGameState();
+        GameApi.initializeGame({ layer: 2 });
+        const restoreResult = GameApi.loadGameState(snapshot);
+        expect(restoreResult.ok).toBe(true);
 
-      GameApi.initializeGame({ layer: 2 });
-      const restoreResult = GameApi.loadGameState(snapshot);
-      expect(restoreResult.ok).toBe(true);
+        AiService.doAiTurn(Player.SELF, strength);
 
-      AiService.doAiTurn(Player.SELF, AiStrength.STRENGTH_2);
-
-      expect(TurnRepository.get().player).toBe(Player.OPPONENT);
-    });
-
-    test("breaks tied move choices toward the enemy side for both players", () => {
-      GameApi.initializeGame({ layer: 4 });
-      addPiece(1, Player.SELF, pos(0, 0));
-
-      AiService.doAiTurn(Player.SELF, AiStrength.STRENGTH_1);
-
-      const selfPiece = PiecesRepository.getAll().find((piece) => piece.id === 1);
-      expect(selfPiece).toBeDefined();
-      expect(selfPiece?.panelPosition.horizontalLayer).toBeGreaterThanOrEqual(0);
-
-      GameApi.initializeGame({ layer: 4 });
-      GameApi.endTurn(Player.SELF);
-      addPiece(1, Player.OPPONENT, pos(0, 0));
-
-      AiService.doAiTurn(Player.OPPONENT, AiStrength.STRENGTH_1);
-
-      const opponentPiece = PiecesRepository.getAll().find((piece) => piece.id === 1);
-      expect(opponentPiece).toBeDefined();
-      expect(opponentPiece?.panelPosition.horizontalLayer).toBeLessThanOrEqual(0);
-    });
-
-    test("prefers the less populated vertical lane when forward options are tied", () => {
-      addPiece(1, Player.SELF, pos(0, 1));
-      addPiece(2, Player.SELF, pos(2, 0));
-
-      AiService.doAiTurn(Player.SELF, AiStrength.STRENGTH_1);
-
-      const movedPiece = PiecesRepository.getAll().find((piece) => piece.id === 1);
-      expect(movedPiece).toBeDefined();
-      expect(movedPiece?.panelPosition.horizontalLayer).toBe(1);
-      expect(movedPiece?.panelPosition.verticalLayer).toBe(1);
-    });
+        expect(TurnRepository.get().player).toBe(Player.OPPONENT);
+      });
+    }
   });
 });

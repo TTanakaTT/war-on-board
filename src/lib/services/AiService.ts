@@ -3,8 +3,10 @@ import { PieceType } from "$lib/domain/enums/PieceType";
 import { GameApi } from "$lib/api/GameApi";
 import { GameStateHistoryRepository } from "$lib/data/repositories/GameStateHistoryRepository";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import type { GenerationMode } from "$lib/domain/entities/Turn";
 import type {
   GameStateSnapshot,
+  HomeBaseSnapshot,
   PanelPositionSnapshot,
   PanelSnapshot,
   PieceSnapshot,
@@ -12,9 +14,11 @@ import type {
 import { AiStrength } from "$lib/domain/enums/AiStrength";
 
 type MoveSelectionStrategy = "strategic" | "lookahead";
+type GenerationModeSelectionStrategy = "frontline" | "adaptive-defense";
 
 interface AiStrengthProfile {
   moveSelection: MoveSelectionStrategy;
+  generationModeSelection: GenerationModeSelectionStrategy;
   lookaheadCandidateCount: number;
   lookaheadWeight: number;
   preferredPieceOrder: PieceType[];
@@ -34,6 +38,25 @@ interface ScoredTarget {
   laneShift: number;
 }
 
+const DEFAULT_PREFERRED_PIECE_ORDER = [PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP];
+
+const AI_STRENGTH_PROFILES: Record<AiStrength, AiStrengthProfile> = {
+  [AiStrength.STRENGTH_1]: {
+    moveSelection: "strategic",
+    generationModeSelection: "frontline",
+    lookaheadCandidateCount: 0,
+    lookaheadWeight: 0,
+    preferredPieceOrder: DEFAULT_PREFERRED_PIECE_ORDER,
+  },
+  [AiStrength.STRENGTH_2]: {
+    moveSelection: "lookahead",
+    generationModeSelection: "adaptive-defense",
+    lookaheadCandidateCount: 3,
+    lookaheadWeight: 0.25,
+    preferredPieceOrder: DEFAULT_PREFERRED_PIECE_ORDER,
+  },
+};
+
 export class AiService {
   /**
    * Execute an AI-controlled turn for the given player.
@@ -46,13 +69,15 @@ export class AiService {
     const gameState = GameApi.getGameState();
     if (gameState.turn.player !== String(player) || gameState.turn.winner) return;
 
-    this.assignMoves(player, strength);
-    this.generatePiece(player, strength);
+    const profile = this.getStrengthProfile(strength);
+
+    this.assignMoves(player, profile);
+    this.applyGenerationMode(player, profile);
+    this.generatePiece(player, profile);
     GameApi.endTurn(player);
   }
 
-  private static assignMoves(player: Player, strength: AiStrength): void {
-    const profile = this.getStrengthProfile(strength);
+  private static assignMoves(player: Player, profile: AiStrengthProfile): void {
     const pieces = GameApi.getGameState().pieces.filter((piece) => piece.player === String(player));
 
     for (const piece of pieces) {
@@ -75,9 +100,7 @@ export class AiService {
     }
   }
 
-  private static generatePiece(player: Player, strength: AiStrength): void {
-    const profile = this.getStrengthProfile(strength);
-
+  private static generatePiece(player: Player, profile: AiStrengthProfile): void {
     while (true) {
       const gameState = GameApi.getGameState();
       const currentResources = gameState.turn.resources[String(player)] ?? 0;
@@ -97,6 +120,12 @@ export class AiService {
         return;
       }
     }
+  }
+
+  private static applyGenerationMode(player: Player, profile: AiStrengthProfile): void {
+    const gameState = GameApi.getGameState();
+    const generationMode = this.selectGenerationMode(gameState, player, profile);
+    GameApi.setGenerationMode(player, generationMode);
   }
 
   private static selectStrategicPieceType(
@@ -141,21 +170,7 @@ export class AiService {
   }
 
   private static getStrengthProfile(strength: AiStrength): AiStrengthProfile {
-    if (strength === AiStrength.STRENGTH_2) {
-      return {
-        moveSelection: "lookahead",
-        lookaheadCandidateCount: 3,
-        lookaheadWeight: 0.25,
-        preferredPieceOrder: [PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP],
-      };
-    }
-
-    return {
-      moveSelection: "strategic",
-      lookaheadCandidateCount: 0,
-      lookaheadWeight: 0,
-      preferredPieceOrder: [PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP],
-    };
+    return AI_STRENGTH_PROFILES[strength] ?? AI_STRENGTH_PROFILES[AiStrength.STRENGTH_1];
   }
 
   private static getAffordablePieceTypes(
@@ -196,11 +211,26 @@ export class AiService {
     player: Player,
     profile: AiStrengthProfile,
   ): PanelPosition {
-    if (profile.moveSelection === "lookahead") {
-      return this.selectLookaheadTarget(gameState, piece, targets, player, profile);
-    }
+    const targetSelectors: Record<MoveSelectionStrategy, () => PanelPosition> = {
+      strategic: () => this.selectStrategicTarget(gameState, piece, targets),
+      lookahead: () => this.selectLookaheadTarget(gameState, piece, targets, player, profile),
+    };
 
-    return this.selectStrategicTarget(gameState, piece, targets);
+    return targetSelectors[profile.moveSelection]();
+  }
+
+  private static selectGenerationMode(
+    gameState: GameStateSnapshot,
+    player: Player,
+    profile: AiStrengthProfile,
+  ): GenerationMode {
+    const generationModeSelectors: Record<GenerationModeSelectionStrategy, () => GenerationMode> = {
+      frontline: () => "front",
+      "adaptive-defense": () =>
+        this.hasEnemyIntrusionOnHomeSide(gameState, player) ? "rear" : "front",
+    };
+
+    return generationModeSelectors[profile.generationModeSelection]();
   }
 
   private static selectStrategicTarget(
@@ -433,6 +463,36 @@ export class AiService {
     return 6 + friendlyPieces.length * 2;
   }
 
+  private static hasEnemyIntrusionOnHomeSide(
+    gameState: GameStateSnapshot,
+    player: Player,
+  ): boolean {
+    const playerHomeBase = this.findHomeBase(gameState, this.toPlayerSnapshot(player));
+    const opponentHomeBase = this.findHomeBase(
+      gameState,
+      this.toPlayerSnapshot(this.getOpponentPlayer(player)),
+    );
+
+    if (!playerHomeBase || !opponentHomeBase) {
+      return false;
+    }
+
+    return gameState.pieces.some((piece) => {
+      if (piece.player === String(player)) {
+        return false;
+      }
+
+      const distanceToPlayerHome = Math.abs(
+        piece.panelPosition.horizontalLayer - playerHomeBase.panelPosition.horizontalLayer,
+      );
+      const distanceToOpponentHome = Math.abs(
+        piece.panelPosition.horizontalLayer - opponentHomeBase.panelPosition.horizontalLayer,
+      );
+
+      return distanceToPlayerHome < distanceToOpponentHome;
+    });
+  }
+
   private static scoreAttackTarget(
     piece: PieceSnapshot,
     panel: PanelSnapshot,
@@ -503,6 +563,21 @@ export class AiService {
     target: PanelPositionSnapshot | { horizontalLayer: number; verticalLayer: number },
   ): PanelSnapshot | undefined {
     return gameState.panels.find((panel) => this.positionEquals(panel.panelPosition, target));
+  }
+
+  private static findHomeBase(
+    gameState: GameStateSnapshot,
+    player: HomeBaseSnapshot["player"],
+  ): HomeBaseSnapshot | undefined {
+    return gameState.homeBases.find((homeBase) => homeBase.player === player);
+  }
+
+  private static getOpponentPlayer(player: Player): Player {
+    return player === Player.SELF ? Player.OPPONENT : Player.SELF;
+  }
+
+  private static toPlayerSnapshot(player: Player): HomeBaseSnapshot["player"] {
+    return player === Player.SELF ? "self" : "opponent";
   }
 
   private static isEnemyHomeBase(

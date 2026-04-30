@@ -20,9 +20,13 @@
     }
   });
   let matchControl = $derived(MatchControlRepository.get());
+  const aiStrengthLabels: Record<AiStrength, () => string> = {
+    [AiStrength.STRENGTH_1]: () => m.ai_strength_level_1(),
+    [AiStrength.STRENGTH_2]: () => m.ai_strength_level_2(),
+  };
 
   function aiStrengthLabel(aiStrength: AiStrength): string {
-    return aiStrength === AiStrength.STRENGTH_2 ? m.ai_strength_level_2() : m.ai_strength_level_1();
+    return aiStrengthLabels[aiStrength]();
   }
 </script>
 
