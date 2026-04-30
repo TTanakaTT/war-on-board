@@ -30,6 +30,8 @@ interface PieceCombatStats {
 interface ScoredTarget {
   score: number;
   target: PanelPosition;
+  laneLoad: number;
+  laneShift: number;
 }
 
 export class AiService {
@@ -229,19 +231,11 @@ export class AiService {
         candidate.score +
         this.simulateTargetOutcome(gameState, player, piece.id, candidate.target) *
           profile.lookaheadWeight,
+      laneLoad: candidate.laneLoad,
+      laneShift: candidate.laneShift,
     }));
 
-    lookaheadTargets.sort((left, right) => {
-      if (right.score !== left.score) {
-        return right.score - left.score;
-      }
-
-      if (left.target.horizontalLayer !== right.target.horizontalLayer) {
-        return left.target.horizontalLayer - right.target.horizontalLayer;
-      }
-
-      return left.target.verticalLayer - right.target.verticalLayer;
-    });
+    lookaheadTargets.sort((left, right) => this.compareScoredTargets(left, right, player));
 
     return lookaheadTargets[0]?.target ?? targets[0];
   }
@@ -254,21 +248,55 @@ export class AiService {
     const scoredTargets: ScoredTarget[] = targets.map((target) => ({
       target,
       score: this.scoreTarget(gameState, piece, target),
+      laneLoad: this.countLaneLoad(gameState, piece.player, target.verticalLayer, piece.id),
+      laneShift: Math.abs(target.verticalLayer - piece.initialPosition.verticalLayer),
     }));
 
-    scoredTargets.sort((left, right) => {
-      if (right.score !== left.score) {
-        return right.score - left.score;
-      }
-
-      if (left.target.horizontalLayer !== right.target.horizontalLayer) {
-        return left.target.horizontalLayer - right.target.horizontalLayer;
-      }
-
-      return left.target.verticalLayer - right.target.verticalLayer;
-    });
+    scoredTargets.sort((left, right) => this.compareScoredTargets(left, right, piece.player));
 
     return scoredTargets;
+  }
+
+  private static countLaneLoad(
+    gameState: GameStateSnapshot,
+    player: PieceSnapshot["player"],
+    verticalLayer: number,
+    excludedPieceId: number,
+  ): number {
+    return gameState.pieces.filter((piece) => {
+      if (piece.id === excludedPieceId || piece.player !== player) {
+        return false;
+      }
+
+      const plannedPosition = piece.targetPosition ?? piece.panelPosition;
+      return plannedPosition.verticalLayer === verticalLayer;
+    }).length;
+  }
+
+  private static compareScoredTargets(
+    left: ScoredTarget,
+    right: ScoredTarget,
+    player: Player | PieceSnapshot["player"],
+  ): number {
+    if (right.score !== left.score) {
+      return right.score - left.score;
+    }
+
+    if (left.target.horizontalLayer !== right.target.horizontalLayer) {
+      return player === Player.SELF || player === "self"
+        ? right.target.horizontalLayer - left.target.horizontalLayer
+        : left.target.horizontalLayer - right.target.horizontalLayer;
+    }
+
+    if (left.laneLoad !== right.laneLoad) {
+      return left.laneLoad - right.laneLoad;
+    }
+
+    if (left.laneShift !== right.laneShift) {
+      return left.laneShift - right.laneShift;
+    }
+
+    return 0;
   }
 
   private static simulateTargetOutcome(

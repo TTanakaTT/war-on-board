@@ -87,5 +87,38 @@ describe("AiService", () => {
 
       expect(TurnRepository.get().player).toBe(Player.OPPONENT);
     });
+
+    test("breaks tied move choices toward the enemy side for both players", () => {
+      GameApi.initializeGame({ layer: 4 });
+      addPiece(1, Player.SELF, pos(0, 0));
+
+      AiService.doAiTurn(Player.SELF, AiStrength.STRENGTH_1);
+
+      const selfPiece = PiecesRepository.getAll().find((piece) => piece.id === 1);
+      expect(selfPiece).toBeDefined();
+      expect(selfPiece?.panelPosition.horizontalLayer).toBeGreaterThanOrEqual(0);
+
+      GameApi.initializeGame({ layer: 4 });
+      GameApi.endTurn(Player.SELF);
+      addPiece(1, Player.OPPONENT, pos(0, 0));
+
+      AiService.doAiTurn(Player.OPPONENT, AiStrength.STRENGTH_1);
+
+      const opponentPiece = PiecesRepository.getAll().find((piece) => piece.id === 1);
+      expect(opponentPiece).toBeDefined();
+      expect(opponentPiece?.panelPosition.horizontalLayer).toBeLessThanOrEqual(0);
+    });
+
+    test("prefers the less populated vertical lane when forward options are tied", () => {
+      addPiece(1, Player.SELF, pos(0, 1));
+      addPiece(2, Player.SELF, pos(2, 0));
+
+      AiService.doAiTurn(Player.SELF, AiStrength.STRENGTH_1);
+
+      const movedPiece = PiecesRepository.getAll().find((piece) => piece.id === 1);
+      expect(movedPiece).toBeDefined();
+      expect(movedPiece?.panelPosition.horizontalLayer).toBe(1);
+      expect(movedPiece?.panelPosition.verticalLayer).toBe(1);
+    });
   });
 });
