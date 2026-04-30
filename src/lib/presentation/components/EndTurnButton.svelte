@@ -1,29 +1,32 @@
 <script lang="ts">
   import { GameApi } from "$lib/api/GameApi";
-  import { AiService } from "$lib/services/AiService";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
-  import { Player } from "$lib/domain/enums/Player";
   import { m } from "$lib/paraglide/messages";
   import Icon from "$lib/presentation/components/Icon.svelte";
+  import { MatchService } from "$lib/services/MatchService";
 
-  let currentPlayer = $derived(TurnRepository.get().player);
-  let isPlayerTurn = $derived(currentPlayer === Player.SELF);
+  let turn = $derived(TurnRepository.get());
+  let currentPlayer = $derived(turn.player);
+  let isHumanTurn = $derived(MatchService.getControllerForCurrentTurn() === "human");
+  let isAutomationRunning = $derived(MatchService.isAutomationRunning());
 
   function handleEndTurn() {
-    if (!isPlayerTurn) return;
+    if (!isHumanTurn || isAutomationRunning || turn.winner !== null) return;
+
     SelectedPanelRepository.set(undefined);
-    const result = GameApi.endTurn(Player.SELF);
-    if (result.ok && result.value.nextPlayer === Player.OPPONENT && !result.value.winner) {
-      setTimeout(() => AiService.doAiTurn(Player.OPPONENT), 1000);
-    }
+
+    const result = GameApi.endTurn(currentPlayer);
+    if (!result.ok) return;
+
+    MatchService.runAutomatedTurnsIfNeeded();
   }
 </script>
 
 <button
   type="button"
   onclick={handleEndTurn}
-  disabled={!isPlayerTurn}
+  disabled={!isHumanTurn || isAutomationRunning || turn.winner !== null}
   class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hover:ring-primary dark:hover:ring-primary-dark flex items-center gap-2 rounded-3xl border px-5 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
 >
   <Icon icon="skip_next" size={24} />

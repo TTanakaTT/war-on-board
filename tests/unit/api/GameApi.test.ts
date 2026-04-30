@@ -11,6 +11,12 @@ import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { Piece } from "$lib/domain/entities/Piece";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { ActionError } from "$lib/domain/enums/ActionError";
+import type {
+  GameActionResult,
+  GameStateHistoryEntry,
+  GameStateSnapshot,
+  TurnEndResult,
+} from "$lib/domain/types/api";
 import {
   HOME_BASE_INIT_RESOURCE,
   HOME_BASE_INIT_CASTLE,
@@ -20,6 +26,100 @@ import {
   RESOURCE_THRESHOLD_FOR_GENERATION,
 } from "$lib/domain/constants/GameConstants";
 import { Panel } from "$lib/domain/entities/Panel";
+
+function snapshotFromRepositories(): GameStateSnapshot {
+  const turn = TurnRepository.get();
+
+  return {
+    panels: PanelRepository.getAll().map((panel) => {
+      const hasPiece = PiecesRepository.getPiecesByPosition(panel.panelPosition).length > 0;
+
+      return {
+        panelPosition: {
+          horizontalLayer: panel.panelPosition.horizontalLayer,
+          verticalLayer: panel.panelPosition.verticalLayer,
+        },
+        panelState: String(hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED) as
+          | "occupied"
+          | "unoccupied",
+        player: String(panel.player) as "self" | "opponent" | "unknown",
+        resource: panel.resource,
+        castle: panel.castle,
+      };
+    }),
+    pieces: PiecesRepository.getAll().map((piece) => ({
+      id: piece.id,
+      panelPosition: {
+        horizontalLayer: piece.panelPosition.horizontalLayer,
+        verticalLayer: piece.panelPosition.verticalLayer,
+      },
+      initialPosition: {
+        horizontalLayer: piece.initialPosition.horizontalLayer,
+        verticalLayer: piece.initialPosition.verticalLayer,
+      },
+      targetPosition: piece.targetPosition
+        ? {
+            horizontalLayer: piece.targetPosition.horizontalLayer,
+            verticalLayer: piece.targetPosition.verticalLayer,
+          }
+        : undefined,
+      player: String(piece.player) as "self" | "opponent",
+      pieceType: String(piece.pieceType) as "knight" | "rook" | "bishop",
+      hp: piece.hp,
+      stackCount: piece.stackCount,
+      maxHp: piece.maxHp,
+    })),
+    turn: {
+      num: turn.num,
+      player: String(turn.player) as "self" | "opponent",
+      resources: { ...turn.resources },
+      maxPiecesPerPanel: { ...turn.maxPiecesPerPanel },
+      generationMode: { ...turn.generationMode },
+      winner: turn.winner ? (String(turn.winner) as "self" | "opponent") : null,
+    },
+    homeBases: HomeBaseRepository.getAll().map((homeBase) => ({
+      player: String(homeBase.player) as "self" | "opponent",
+      panelPosition: {
+        horizontalLayer: homeBase.panelPosition.horizontalLayer,
+        verticalLayer: homeBase.panelPosition.verticalLayer,
+      },
+    })),
+    layer: LayerRepository.get(),
+  };
+}
+
+function expectGameStateToMatchRepositories(gameState: GameStateSnapshot) {
+  expect(gameState).toEqual(snapshotFromRepositories());
+}
+
+function expectActionSuccessWithSnapshot(
+  result: { ok: true; value: GameActionResult } | { ok: false; error: ActionError },
+) {
+  expect(result.ok).toBe(true);
+  if (result.ok) {
+    expectGameStateToMatchRepositories(result.value.gameState);
+  }
+}
+
+function expectTurnEndSuccessWithSnapshot(
+  result: { ok: true; value: TurnEndResult } | { ok: false; error: ActionError },
+) {
+  expect(result.ok).toBe(true);
+  if (result.ok) {
+    expectGameStateToMatchRepositories(result.value.gameState);
+  }
+}
+
+function expectHistoryEntryToMatchSnapshot(
+  entry: GameStateHistoryEntry,
+  expectedSequence: number,
+  expectedTurn: number,
+  expectedSnapshot: GameStateSnapshot,
+) {
+  expect(entry.sequence).toBe(expectedSequence);
+  expect(entry.capturedAtTurn).toBe(expectedTurn);
+  expect(entry.snapshot).toEqual(expectedSnapshot);
+}
 
 describe("GameApi.initializeGame", () => {
   describe("board generation", () => {
@@ -130,9 +230,24 @@ describe("GameApi.initializeGame", () => {
   });
 
   describe("return value", () => {
-    test("initializeGame({ layer: 4 }) returns { ok: true, value: undefined }", () => {
+    test("initializeGame({ layer: 4 }) returns the post-action game state snapshot", () => {
       const result = GameApi.initializeGame({ layer: 4 });
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
+    });
+
+    test("initializeGame({ layer: 4 }) records the initial board snapshot as history sequence 0", () => {
+      const result = GameApi.initializeGame({ layer: 4 });
+      expectActionSuccessWithSnapshot(result);
+
+      if (!result.ok) return;
+      const history = GameApi.getGameStateHistory();
+      expect(history).toHaveLength(1);
+      expectHistoryEntryToMatchSnapshot(
+        history[0],
+        0,
+        result.value.gameState.turn.num,
+        result.value.gameState,
+      );
     });
   });
 
@@ -195,6 +310,21 @@ describe("GameApi.initializeGame", () => {
       expect(PiecesRepository.getAll()).toHaveLength(0);
       expect(TurnRepository.get().num).toBe(1);
       expect(PanelRepository.getAll()).toHaveLength(16);
+    });
+
+    test("calling initializeGame again clears previously recorded history and replaces it with the new initial snapshot", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const endTurnResult = GameApi.endTurn(Player.SELF);
+      expectTurnEndSuccessWithSnapshot(endTurnResult);
+      expect(GameApi.getGameStateHistory()).toHaveLength(2);
+
+      const result = GameApi.initializeGame({ layer: 2 });
+      expectActionSuccessWithSnapshot(result);
+
+      if (!result.ok) return;
+      const history = GameApi.getGameStateHistory();
+      expect(history).toHaveLength(1);
+      expectHistoryEntryToMatchSnapshot(history[0], 0, 1, result.value.gameState);
     });
   });
 });
@@ -328,7 +458,7 @@ describe("GameApi.assignMove", () => {
       const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
 
       const result = GameApi.assignMove(Player.SELF, 1, target);
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
 
       const updated = PiecesRepository.getAll().find((p) => p.id === 1);
       expect(updated!.targetPosition).toBeDefined();
@@ -359,7 +489,7 @@ describe("GameApi.assignMove", () => {
       setupSelfPieceAt(0, 0, 1, PieceType.KNIGHT);
 
       const result = GameApi.assignMove(Player.SELF, 1, target);
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
 
       const updated = PiecesRepository.getAll().find((p) => p.id === 1);
       expect(updated!.targetPosition?.equals(target)).toBe(true);
@@ -380,8 +510,8 @@ describe("GameApi.assignMove", () => {
       setupSelfPieceAt(0, 0, 1, PieceType.KNIGHT);
       setupSelfPieceAt(1, 0, 2, PieceType.KNIGHT);
 
-      expect(GameApi.assignMove(Player.SELF, 1, target)).toEqual({ ok: true, value: undefined });
-      expect(GameApi.assignMove(Player.SELF, 2, target)).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(GameApi.assignMove(Player.SELF, 1, target));
+      expectActionSuccessWithSnapshot(GameApi.assignMove(Player.SELF, 2, target));
     });
 
     test("when target is empty, two incoming mergeable pieces and one other incoming piece can all be assigned within merged capacity", () => {
@@ -391,9 +521,9 @@ describe("GameApi.assignMove", () => {
       setupSelfPieceAt(1, 0, 2, PieceType.KNIGHT);
       setupSelfPieceAt(-1, 1, 3, PieceType.ROOK);
 
-      expect(GameApi.assignMove(Player.SELF, 3, target)).toEqual({ ok: true, value: undefined });
-      expect(GameApi.assignMove(Player.SELF, 1, target)).toEqual({ ok: true, value: undefined });
-      expect(GameApi.assignMove(Player.SELF, 2, target)).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(GameApi.assignMove(Player.SELF, 3, target));
+      expectActionSuccessWithSnapshot(GameApi.assignMove(Player.SELF, 1, target));
+      expectActionSuccessWithSnapshot(GameApi.assignMove(Player.SELF, 2, target));
     });
 
     test("when target panel has enemy pieces (hasEnemyPresence=true), assignment succeeds regardless of friendly capacity", () => {
@@ -431,7 +561,7 @@ describe("GameApi.assignMove", () => {
       setupSelfPieceAt(0, 0, 1);
 
       const result = GameApi.assignMove(Player.SELF, 1, target);
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
     });
 
     test("when target panel has enemy castle > 0 but no enemy pieces, assignment succeeds (enemy presence via wall)", () => {
@@ -451,7 +581,7 @@ describe("GameApi.assignMove", () => {
       const target = new PanelPosition({ horizontalLayer: 3, verticalLayer: 0 });
 
       const result = GameApi.assignMove(Player.SELF, 1, target);
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
     });
 
     test("when target equals piece's initialPosition (stay in place), assignment succeeds if capacity allows", () => {
@@ -460,7 +590,7 @@ describe("GameApi.assignMove", () => {
       const stayTarget = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
 
       const result = GameApi.assignMove(Player.SELF, 1, stayTarget);
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
 
       const updated = PiecesRepository.getAll().find((p) => p.id === 1);
       expect(updated!.targetPosition!.equals(stayTarget)).toBe(true);
@@ -474,7 +604,7 @@ describe("GameApi.assignMove", () => {
 
       GameApi.assignMove(Player.SELF, 1, firstTarget);
       const result = GameApi.assignMove(Player.SELF, 1, secondTarget);
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
 
       const updated = PiecesRepository.getAll().find((p) => p.id === 1);
       expect(updated!.targetPosition!.equals(secondTarget)).toBe(true);
@@ -642,7 +772,7 @@ describe("GameApi.cancelMove", () => {
       );
 
       const result = GameApi.cancelMove(Player.SELF, 1);
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
 
       const updated = PiecesRepository.getAll().find((p) => p.id === 1);
       expect(updated!.targetPosition).toBeUndefined();
@@ -666,7 +796,7 @@ describe("GameApi.cancelMove", () => {
       );
 
       const result = GameApi.cancelMove(Player.SELF, 1);
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
 
       const updated = PiecesRepository.getAll().find((p) => p.id === 1);
       expect(updated!.targetPosition).toBeUndefined();
@@ -751,7 +881,7 @@ describe("GameApi.generatePiece", () => {
       const cost = PieceType.KNIGHT.config.cost;
 
       const result = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
 
       const resourcesAfter = TurnRepository.get().resources[String(Player.SELF)];
       expect(resourcesAfter).toBe(resourcesBefore - cost);
@@ -835,7 +965,7 @@ describe("GameApi.setGenerationMode", () => {
       GameApi.initializeGame({ layer: 4 });
 
       const result = GameApi.setGenerationMode(Player.SELF, "front");
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
       expect(TurnRepository.get().generationMode[String(Player.SELF)]).toBe("front");
     });
 
@@ -843,7 +973,7 @@ describe("GameApi.setGenerationMode", () => {
       GameApi.initializeGame({ layer: 4 });
 
       const result = GameApi.setGenerationMode(Player.SELF, "rear");
-      expect(result).toEqual({ ok: true, value: undefined });
+      expectActionSuccessWithSnapshot(result);
       expect(TurnRepository.get().generationMode[String(Player.SELF)]).toBe("rear");
     });
   });
@@ -1386,6 +1516,7 @@ describe("GameApi.endTurn", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.value.winner).toBe(Player.SELF);
+        expectGameStateToMatchRepositories(result.value.gameState);
       }
       expect(TurnRepository.get().winner).toBe(Player.SELF);
     });
@@ -1515,19 +1646,20 @@ describe("GameApi.endTurn", () => {
   });
 
   describe("return value", () => {
-    test("endTurn returns TurnEndResult with combatOutcomes array, winner, and nextPlayer", () => {
+    test("endTurn returns TurnEndResult with combatOutcomes array, winner, nextPlayer, and gameState", () => {
       GameApi.initializeGame({ layer: 4 });
 
       const result = GameApi.endTurn(Player.SELF);
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.value).toHaveProperty("combatOutcomes");
-        expect(Array.isArray(result.value.combatOutcomes)).toBe(true);
-        expect(result.value).toHaveProperty("winner");
-        expect(result.value).toHaveProperty("nextPlayer");
-        expect(result.value.winner).toBeNull();
-        expect(result.value.nextPlayer).toBe(Player.OPPONENT);
-      }
+      expectTurnEndSuccessWithSnapshot(result);
+      if (!result.ok) return;
+
+      expect(result.value).toHaveProperty("combatOutcomes");
+      expect(Array.isArray(result.value.combatOutcomes)).toBe(true);
+      expect(result.value).toHaveProperty("winner");
+      expect(result.value).toHaveProperty("nextPlayer");
+      expect(result.value).toHaveProperty("gameState");
+      expect(result.value.winner).toBeNull();
+      expect(result.value.nextPlayer).toBe(Player.OPPONENT);
     });
   });
 });
@@ -1695,6 +1827,414 @@ describe("GameApi.getMovableTargets", () => {
 
     const targets = GameApi.getMovableTargets(3);
     expect(targets.some((t) => t.equals(pos))).toBe(true);
+  });
+});
+
+describe("GameApi state snapshot contract", () => {
+  describe("action responses include the post-action state", () => {
+    test("initializeGame returns the full game state snapshot after board setup", () => {
+      const result = GameApi.initializeGame({ layer: 4 });
+      expectActionSuccessWithSnapshot(result);
+    });
+
+    test("assignMove returns the full game state snapshot after targetPosition is updated", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+
+      const result = GameApi.assignMove(Player.SELF, 1, target);
+
+      expectActionSuccessWithSnapshot(result);
+      if (!result.ok) return;
+      expect(result.value.gameState.pieces[0].targetPosition).toEqual({
+        horizontalLayer: target.horizontalLayer,
+        verticalLayer: target.verticalLayer,
+      });
+    });
+
+    test("cancelMove returns the full game state snapshot after targetPosition is cleared", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+
+      const result = GameApi.cancelMove(Player.SELF, 1);
+
+      expectActionSuccessWithSnapshot(result);
+      if (!result.ok) return;
+      expect(result.value.gameState.pieces[0].targetPosition).toBeUndefined();
+    });
+
+    test("generatePiece returns the full game state snapshot after resources and pieces are updated", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const result = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+
+      expectActionSuccessWithSnapshot(result);
+      if (!result.ok) return;
+      expect(result.value.gameState.pieces).toHaveLength(1);
+      expect(result.value.gameState.turn.resources[String(Player.SELF)]).toBe(
+        PLAYER_INIT_RESOURCE + HOME_BASE_INIT_RESOURCE - PieceType.KNIGHT.config.cost,
+      );
+    });
+
+    test("setGenerationMode returns the full game state snapshot after generationMode is updated", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const result = GameApi.setGenerationMode(Player.SELF, "rear");
+
+      expectActionSuccessWithSnapshot(result);
+      if (!result.ok) return;
+      expect(result.value.gameState.turn.generationMode[String(Player.SELF)]).toBe("rear");
+    });
+
+    test("endTurn returns the full game state snapshot together with combat outcomes and next turn info", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const result = GameApi.endTurn(Player.SELF);
+
+      expectTurnEndSuccessWithSnapshot(result);
+      if (!result.ok) return;
+      expect(result.value.nextPlayer).toBe(Player.OPPONENT);
+      expect(result.value.gameState.turn.player).toBe(String(Player.OPPONENT));
+    });
+  });
+
+  describe("GameApi.getGameState", () => {
+    test("getGameStateHistory returns the initial snapshot and appends one entry after a successful endTurn", () => {
+      const initResult = GameApi.initializeGame({ layer: 4 });
+      expectActionSuccessWithSnapshot(initResult);
+      if (!initResult.ok) return;
+
+      const initialHistory = GameApi.getGameStateHistory();
+      expect(initialHistory).toHaveLength(1);
+      expectHistoryEntryToMatchSnapshot(
+        initialHistory[0],
+        0,
+        initResult.value.gameState.turn.num,
+        initResult.value.gameState,
+      );
+
+      const endTurnResult = GameApi.endTurn(Player.SELF);
+      expectTurnEndSuccessWithSnapshot(endTurnResult);
+      if (!endTurnResult.ok) return;
+
+      const history = GameApi.getGameStateHistory();
+      expect(history).toHaveLength(2);
+      expectHistoryEntryToMatchSnapshot(
+        history[1],
+        1,
+        endTurnResult.value.gameState.turn.num,
+        endTurnResult.value.gameState,
+      );
+    });
+
+    test("getGameStateHistory records the terminal winner in the final snapshot when endTurn captures a home base", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const target = new PanelPosition({ horizontalLayer: 3, verticalLayer: 0 });
+      const homeBasePanel = PanelRepository.find(target)!;
+      PanelRepository.update(new Panel({ ...homeBasePanel, castle: 0 }));
+
+      const origin = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+
+      const endTurnResult = GameApi.endTurn(Player.SELF);
+      expectTurnEndSuccessWithSnapshot(endTurnResult);
+      if (!endTurnResult.ok) return;
+
+      const history = GameApi.getGameStateHistory();
+      expect(history).toHaveLength(2);
+      expect(history[1].snapshot.turn.winner).toBe("self");
+      expectHistoryEntryToMatchSnapshot(
+        history[1],
+        1,
+        endTurnResult.value.gameState.turn.num,
+        endTurnResult.value.gameState,
+      );
+    });
+
+    test("getGameStateHistory does not append entries for successful non-endTurn actions", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+
+      expect(GameApi.getGameStateHistory()).toHaveLength(1);
+      expectActionSuccessWithSnapshot(
+        GameApi.assignMove(
+          Player.SELF,
+          1,
+          new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 }),
+        ),
+      );
+      expect(GameApi.getGameStateHistory()).toHaveLength(1);
+    });
+
+    test("getGameStateHistory returns immutable snapshots even if a caller mutates the returned value", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const historyBeforeMutation = GameApi.getGameStateHistory();
+      historyBeforeMutation[0].snapshot.turn.num = 999;
+      historyBeforeMutation[0].snapshot.panels[0].resource = 999;
+
+      const historyAfterMutation = GameApi.getGameStateHistory();
+      expect(historyAfterMutation[0].sequence).toBe(0);
+      expect(historyAfterMutation[0].capturedAtTurn).toBe(1);
+      expect(historyAfterMutation[0].snapshot.turn.num).toBe(1);
+      expect(historyAfterMutation[0].snapshot.panels[0].resource).not.toBe(999);
+    });
+
+    test("returns panels, pieces, turn, homeBases, and layer for an initialized game", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const gameState = GameApi.getGameState();
+
+      expectGameStateToMatchRepositories(gameState);
+      expect(gameState.panels).toHaveLength(16);
+      expect(gameState.homeBases).toHaveLength(2);
+      expect(gameState.layer).toBe(4);
+    });
+
+    test("normalizes panelState so UI highlight states are excluded from the returned game state", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const originalPanel = PanelRepository.find(target)!;
+      PanelRepository.update(
+        new Panel({
+          ...originalPanel,
+          panelState: PanelState.SELECTED,
+        }),
+      );
+
+      const gameState = GameApi.getGameState();
+      const panel = gameState.panels.find(
+        (candidate) =>
+          candidate.panelPosition.horizontalLayer === target.horizontalLayer &&
+          candidate.panelPosition.verticalLayer === target.verticalLayer,
+      );
+
+      expect(panel?.panelState).toBe(String(PanelState.UNOCCUPIED));
+    });
+
+    test("includes pending move targets and generation mode in an in-progress turn", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+      GameApi.setGenerationMode(Player.SELF, "rear");
+
+      const gameState = GameApi.getGameState();
+
+      expect(gameState.pieces[0].targetPosition).toEqual({
+        horizontalLayer: target.horizontalLayer,
+        verticalLayer: target.verticalLayer,
+      });
+      expect(gameState.turn.generationMode[String(Player.SELF)]).toBe("rear");
+    });
+  });
+
+  describe("GameApi.loadGameState", () => {
+    test("restores a snapshot produced by getGameState into the repositories", () => {
+      GameApi.initializeGame({ layer: 4 });
+      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const snapshot = GameApi.getGameState();
+
+      GameApi.initializeGame({ layer: 2 });
+
+      const result = GameApi.loadGameState(snapshot);
+
+      expectActionSuccessWithSnapshot(result);
+      expectGameStateToMatchRepositories(snapshot);
+    });
+
+    test("replaces the current game state completely when loading a different snapshot", () => {
+      GameApi.initializeGame({ layer: 4 });
+      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const originalSnapshot = GameApi.getGameState();
+
+      GameApi.initializeGame({ layer: 2 });
+      const smallBoardState = GameApi.getGameState();
+      expect(smallBoardState.layer).toBe(2);
+
+      GameApi.loadGameState(originalSnapshot);
+
+      expect(GameApi.getGameState()).toEqual(originalSnapshot);
+      expect(GameApi.getGameState()).not.toEqual(smallBoardState);
+    });
+
+    test("restores a snapshot that contains pending moves and a non-default generation mode", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+      GameApi.setGenerationMode(Player.SELF, "rear");
+      const snapshot = GameApi.getGameState();
+
+      GameApi.initializeGame({ layer: 2 });
+
+      const result = GameApi.loadGameState(snapshot);
+
+      expectActionSuccessWithSnapshot(result);
+      const restoredState = GameApi.getGameState();
+      expect(restoredState.turn.generationMode[String(Player.SELF)]).toBe("rear");
+      expect(restoredState.pieces[0].targetPosition).toEqual({
+        horizontalLayer: target.horizontalLayer,
+        verticalLayer: target.verticalLayer,
+      });
+    });
+
+    test("returns INVALID_GAME_STATE when the snapshot is missing one home base", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const snapshot = GameApi.getGameState();
+
+      const result = GameApi.loadGameState({
+        ...snapshot,
+        homeBases: snapshot.homeBases.filter((homeBase) => homeBase.player === String(Player.SELF)),
+      });
+
+      expect(result).toEqual({ ok: false, error: ActionError.INVALID_GAME_STATE });
+    });
+
+    test("accepts a JSON round-tripped snapshot and restores enum-backed values correctly", () => {
+      GameApi.initializeGame({ layer: 4 });
+      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      GameApi.setGenerationMode(Player.SELF, "rear");
+
+      const transportedSnapshot = JSON.parse(
+        JSON.stringify(GameApi.getGameState()),
+      ) as GameStateSnapshot;
+
+      GameApi.initializeGame({ layer: 2 });
+
+      const result = GameApi.loadGameState(transportedSnapshot);
+
+      expectActionSuccessWithSnapshot(result);
+      expect(GameApi.getGameState()).toEqual(transportedSnapshot);
+    });
+
+    test("normalizes panelState from an imported snapshot so UI-only states are not restored", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const snapshot = GameApi.getGameState();
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+
+      const result = GameApi.loadGameState({
+        ...snapshot,
+        panels: snapshot.panels.map((panel) =>
+          panel.panelPosition.horizontalLayer === target.horizontalLayer &&
+          panel.panelPosition.verticalLayer === target.verticalLayer
+            ? { ...panel, panelState: "occupied" }
+            : panel,
+        ),
+      });
+
+      expectActionSuccessWithSnapshot(result);
+      const restoredPanel = PanelRepository.find(target);
+      expect(restoredPanel?.panelState).toBe(PanelState.UNOCCUPIED);
+      expect(
+        GameApi.getGameState().panels.find(
+          (panel) =>
+            panel.panelPosition.horizontalLayer === target.horizontalLayer &&
+            panel.panelPosition.verticalLayer === target.verticalLayer,
+        )?.panelState,
+      ).toBe("unoccupied");
+    });
+
+    test("returns INVALID_GAME_STATE when a piece references a panel that does not exist", () => {
+      GameApi.initializeGame({ layer: 4 });
+      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const snapshot = GameApi.getGameState();
+
+      const result = GameApi.loadGameState({
+        ...snapshot,
+        pieces: snapshot.pieces.map((piece, index) =>
+          index === 0
+            ? {
+                ...piece,
+                panelPosition: { horizontalLayer: 99, verticalLayer: 99 },
+              }
+            : piece,
+        ),
+      });
+
+      expect(result).toEqual({ ok: false, error: ActionError.INVALID_GAME_STATE });
+    });
+  });
+
+  describe("snapshot round trip", () => {
+    test("the snapshot returned by an action matches the state returned by getGameState immediately after the action", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const result = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+
+      expectActionSuccessWithSnapshot(result);
+      if (!result.ok) return;
+      expect(result.value.gameState).toEqual(GameApi.getGameState());
+    });
+
+    test("a snapshot from getGameState can be loaded and then read back without losing information", () => {
+      GameApi.initializeGame({ layer: 4 });
+      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      GameApi.setGenerationMode(Player.SELF, "rear");
+      const snapshot = GameApi.getGameState();
+
+      GameApi.initializeGame({ layer: 2 });
+      GameApi.loadGameState(snapshot);
+
+      expect(GameApi.getGameState()).toEqual(snapshot);
+    });
   });
 });
 

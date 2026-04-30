@@ -23,4 +23,7 @@ export enum ActionError {
 
   /** The game has already ended (a winner exists). */
   GAME_ALREADY_OVER = "GAME_ALREADY_OVER",
+
+  /** The provided game state snapshot is structurally invalid. */
+  INVALID_GAME_STATE = "INVALID_GAME_STATE",
 }

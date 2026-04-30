@@ -2,6 +2,7 @@
   import HexagonPanel from "./HexagonPanel.svelte";
   import { PanelPosition } from "$lib/domain/entities/PanelPosition";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
+  import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
   import { GameApi } from "$lib/api/GameApi";
   import { InteractionService } from "$lib/services/InteractionService";
   import { Player } from "$lib/domain/enums/Player";
@@ -16,12 +17,17 @@
   import { BoardLayout } from "$lib/presentation/BoardLayout";
   import { m } from "$lib/paraglide/messages";
   import type { GenerationMode } from "$lib/domain/entities/Turn";
+  import { MatchService } from "$lib/services/MatchService";
 
   let turn = $derived(TurnRepository.get());
+  let matchControl = $derived(MatchControlRepository.get());
+  let currentPlayer = $derived(turn.player);
   let selfResources = $derived(turn.resources[String(Player.SELF)] ?? 0);
   let opponentResources = $derived(turn.resources[String(Player.OPPONENT)] ?? 0);
+  let isHumanTurn = $derived(MatchService.getControllerForCurrentTurn() === "human");
+  let isAutomationRunning = $derived(MatchService.isAutomationRunning());
 
-  const layer = LayerRepository.get();
+  let layer = $derived(LayerRepository.get());
 
   function sideRange(): number[] {
     const horizontalLayer = layer;
@@ -57,21 +63,33 @@
   );
 
   let generationMode = $derived<GenerationMode>(
-    (turn.generationMode[String(Player.SELF)] as GenerationMode) ?? "rear",
+    (turn.generationMode[String(currentPlayer)] as GenerationMode) ?? "rear",
+  );
+
+  let currentPlayerLabel = $derived(
+    matchControl.mode === "cpu-vs-cpu"
+      ? currentPlayer === Player.SELF
+        ? m.cpu_one()
+        : m.cpu_two()
+      : currentPlayer === Player.SELF
+        ? m.player_self()
+        : m.player_opponent(),
   );
 
   function toggleGenerationMode() {
+    if (!isHumanTurn || isAutomationRunning || turn.winner !== null) return;
+
     const currentTurn = TurnRepository.get();
-    const currentMode = currentTurn.generationMode[String(Player.SELF)] ?? "rear";
+    const currentMode = currentTurn.generationMode[String(currentTurn.player)] ?? "rear";
     const newMode: GenerationMode = currentMode === "rear" ? "front" : "rear";
-    GameApi.setGenerationMode(Player.SELF, newMode);
+    GameApi.setGenerationMode(currentTurn.player, newMode);
   }
 </script>
 
 <div class="m-2 flex justify-center gap-4">
   <span
     class="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border-2 p-1.5 text-sm {turnColor}"
-    >{m.turn_label()}<span class="text-2xl font-bold">{turn.num}</span> {turn.player}</span
+    >{m.turn_label()}<span class="text-2xl font-bold">{turn.num}</span> {currentPlayerLabel}</span
   >
   <EndTurnButton />
 </div>
@@ -119,6 +137,7 @@
     type="button"
     class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hover:ring-primary dark:hover:ring-primary-dark flex items-center gap-1 rounded-3xl border px-3 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none"
     onclick={toggleGenerationMode}
+    disabled={!isHumanTurn || isAutomationRunning || turn.winner !== null}
   >
     <Icon icon={generationMode === "rear" ? "arrow_back" : "arrow_forward"} size={20} />
     <span class="text-sm"

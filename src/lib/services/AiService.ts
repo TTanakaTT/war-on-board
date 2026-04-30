@@ -1,42 +1,98 @@
 import { Player } from "$lib/domain/enums/Player";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { GameApi } from "$lib/api/GameApi";
+import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import { AiStrength } from "$lib/domain/enums/AiStrength";
+import type { PieceSnapshot } from "$lib/domain/types/api";
+import { selectLookaheadTarget } from "$lib/services/ai/lookahead";
+import { selectStrategicPieceType, selectGenerationMode } from "$lib/services/ai/pieceGeneration";
+import { getStrengthProfile } from "$lib/services/ai/profiles";
+import { selectStrategicTarget } from "$lib/services/ai/targetScoring";
+import type { AiStrengthProfile } from "$lib/services/ai/types";
 
 export class AiService {
   /**
    * Execute an AI-controlled turn for the given player.
    *
-   * 1. Assign random moves for all pieces owned by the player.
+   * 1. Assign moves for all pieces owned by the player according to the configured strength.
    * 2. Attempt to generate a piece if affordable.
    * 3. End the turn via GameApi.
    */
-  static doAiTurn(player: Player) {
-    const turn = TurnRepository.get();
-    if (turn.player !== player || turn.winner) return;
+  static doAiTurn(player: Player, strength: AiStrength = AiStrength.STRENGTH_1) {
+    const gameState = GameApi.getGameState();
+    if (gameState.turn.player !== String(player) || gameState.turn.winner) return;
 
-    // 1. Assign moves for all pieces owned by the player
-    const pieces = PiecesRepository.getPiecesByPlayer(player);
+    const profile = getStrengthProfile(strength);
+
+    this.assignMoves(player, profile);
+    this.applyGenerationMode(player, profile);
+    this.generatePiece(player, profile);
+    GameApi.endTurn(player);
+  }
+
+  private static assignMoves(player: Player, profile: AiStrengthProfile): void {
+    const pieces = GameApi.getGameState().pieces.filter((piece) => piece.player === String(player));
+
     for (const piece of pieces) {
+      const latestGameState = GameApi.getGameState();
+      const latestPiece = latestGameState.pieces.find((candidate) => candidate.id === piece.id);
+      if (!latestPiece) continue;
+
       const targets = GameApi.getMovableTargets(piece.id);
-      if (targets.length > 0) {
-        const randomTarget = targets[Math.floor(Math.random() * targets.length)];
-        GameApi.assignMove(player, piece.id, randomTarget);
+      if (targets.length === 0) continue;
+
+      const selectedTarget = this.selectTarget(
+        latestGameState,
+        latestPiece,
+        targets,
+        player,
+        profile,
+      );
+
+      GameApi.assignMove(player, piece.id, selectedTarget);
+    }
+  }
+
+  private static generatePiece(player: Player, profile: AiStrengthProfile): void {
+    while (true) {
+      const gameState = GameApi.getGameState();
+      const currentResources = gameState.turn.resources[String(player)] ?? 0;
+      const preferredPieceType = selectStrategicPieceType(
+        gameState,
+        player,
+        currentResources,
+        profile.preferredPieceOrder,
+        profile,
+      );
+
+      if (!preferredPieceType) {
+        return;
+      }
+
+      const generationResult = GameApi.generatePiece(player, preferredPieceType);
+      if (!generationResult.ok) {
+        return;
       }
     }
+  }
 
-    // 2. Try to generate a piece
-    const currentResources = TurnRepository.get().resources[String(player)] ?? 0;
-    const pieceTypes = [PieceType.KNIGHT, PieceType.BISHOP, PieceType.ROOK];
-    const affordablePieceTypes = pieceTypes.filter((t) => t.config.cost <= currentResources);
-    if (affordablePieceTypes.length > 0) {
-      const randomPieceType =
-        affordablePieceTypes[Math.floor(Math.random() * affordablePieceTypes.length)];
-      GameApi.generatePiece(player, randomPieceType);
-    }
+  private static applyGenerationMode(player: Player, profile: AiStrengthProfile): void {
+    const gameState = GameApi.getGameState();
+    const generationMode = selectGenerationMode(gameState, player, profile);
+    GameApi.setGenerationMode(player, generationMode);
+  }
 
-    // 3. End the turn
-    GameApi.endTurn(player);
+  private static selectTarget(
+    gameState: ReturnType<typeof GameApi.getGameState>,
+    piece: PieceSnapshot,
+    targets: PanelPosition[],
+    player: Player,
+    profile: AiStrengthProfile,
+  ): PanelPosition {
+    const targetSelectors = {
+      strategic: () => selectStrategicTarget(gameState, piece, targets, profile),
+      lookahead: () => selectLookaheadTarget(gameState, piece, targets, player, profile),
+    } satisfies Record<AiStrengthProfile["moveSelection"], () => PanelPosition>;
+
+    return targetSelectors[profile.moveSelection]();
   }
 }

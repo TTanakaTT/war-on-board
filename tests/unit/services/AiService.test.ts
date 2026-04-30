@@ -1,14 +1,15 @@
 import { beforeEach, describe, test, expect } from "vitest";
 import { GameApi } from "$lib/api/GameApi";
-import { AiService } from "$lib/services/AiService";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { Piece } from "$lib/domain/entities/Piece";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { PieceType } from "$lib/domain/enums/PieceType";
+import { AiStrength } from "$lib/domain/enums/AiStrength";
 import { Player } from "$lib/domain/enums/Player";
+import { AiService } from "$lib/services/AiService";
 
-const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
+const supportedStrengths = [
+  AiStrength.STRENGTH_1,
+  AiStrength.STRENGTH_2,
+  AiStrength.STRENGTH_3,
+] as const;
 
 describe("AiService", () => {
   beforeEach(() => {
@@ -16,6 +17,8 @@ describe("AiService", () => {
   });
 
   describe("doAiTurn", () => {
+    // Keep this file as a smoke test for supported strengths and turn progression only.
+    // Add behavior-specific AI feature coverage to narrower tests outside this file.
     test("does nothing when it is not the given player's turn", () => {
       // Turn starts as SELF, so calling for OPPONENT should be a no-op
       const turnBefore = TurnRepository.get();
@@ -29,60 +32,37 @@ describe("AiService", () => {
       const turn = TurnRepository.get();
       TurnRepository.set({ ...turn, winner: Player.SELF });
       AiService.doAiTurn(Player.SELF);
-      // Turn should not change (endTurn not called)
       expect(TurnRepository.get().winner).toBe(Player.SELF);
     });
 
-    test("assigns moves to all pieces owned by the player", () => {
-      // Place a piece for SELF
-      PiecesRepository.add(
-        new Piece({
-          id: 1,
-          panelPosition: pos(-2, 0),
-          player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
-        }),
-      );
-      AiService.doAiTurn(Player.SELF);
-      // After AI turn ends, turn switches to OPPONENT, and pieces' moves are resolved
-      expect(TurnRepository.get().player).toBe(Player.OPPONENT);
-    });
+    for (const strength of supportedStrengths) {
+      test(`advances the turn with ${strength}`, () => {
+        GameApi.initializeGame({ layer: 4 });
 
-    test("generates a piece when resources are sufficient", () => {
-      // Give SELF plenty of resources
-      const turn = TurnRepository.get();
-      TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 50 } });
-      AiService.doAiTurn(Player.SELF);
-      // Turn ended, so we're now OPPONENT's turn
-      // At least one piece should have been generated (or attempted)
-      expect(TurnRepository.get().player).toBe(Player.OPPONENT);
-    });
+        AiService.doAiTurn(Player.SELF, strength);
 
-    test("does not generate a piece when resources are insufficient", () => {
-      // Set resources to 0
-      const turn = TurnRepository.get();
-      TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 0 } });
-      AiService.doAiTurn(Player.SELF);
-      // No piece generated, but turn still ends
-      expect(TurnRepository.get().player).toBe(Player.OPPONENT);
-    });
+        expect(TurnRepository.get().player).toBe(Player.OPPONENT);
+      });
 
-    test("ends the turn after assigning moves and generating", () => {
-      AiService.doAiTurn(Player.SELF);
-      expect(TurnRepository.get().player).toBe(Player.OPPONENT);
-    });
+      test(`can act for Player.OPPONENT with ${strength}`, () => {
+        GameApi.endTurn(Player.SELF);
 
-    test("works for Player.SELF (symmetry)", () => {
-      AiService.doAiTurn(Player.SELF);
-      expect(TurnRepository.get().player).toBe(Player.OPPONENT);
-    });
+        AiService.doAiTurn(Player.OPPONENT, strength);
 
-    test("works for Player.OPPONENT (symmetry)", () => {
-      // First end SELF's turn to make it OPPONENT's turn
-      GameApi.endTurn(Player.SELF);
-      expect(TurnRepository.get().player).toBe(Player.OPPONENT);
-      AiService.doAiTurn(Player.OPPONENT);
-      expect(TurnRepository.get().player).toBe(Player.SELF);
-    });
+        expect(TurnRepository.get().player).toBe(Player.SELF);
+      });
+
+      test(`can act from a restored game state with ${strength}`, () => {
+        const snapshot = GameApi.getGameState();
+
+        GameApi.initializeGame({ layer: 2 });
+        const restoreResult = GameApi.loadGameState(snapshot);
+        expect(restoreResult.ok).toBe(true);
+
+        AiService.doAiTurn(Player.SELF, strength);
+
+        expect(TurnRepository.get().player).toBe(Player.OPPONENT);
+      });
+    }
   });
 });
