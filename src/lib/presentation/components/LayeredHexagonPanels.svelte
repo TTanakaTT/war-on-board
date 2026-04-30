@@ -15,7 +15,7 @@
   import MovingPiecePreview from "./MovingPiecePreview.svelte";
   import { slide } from "svelte/transition";
   import { BoardLayout } from "$lib/presentation/BoardLayout";
-  import * as m from "$lib/paraglide/messages/_index.js";
+  import { m } from "$lib/paraglide/messages";
   import type { GenerationMode } from "$lib/domain/entities/Turn";
   import { MatchService } from "$lib/services/MatchService";
 

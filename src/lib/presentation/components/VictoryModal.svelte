@@ -4,7 +4,7 @@
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { Player } from "$lib/domain/enums/Player";
   import type { GameStateHistoryEntry, PlayerSnapshot } from "$lib/domain/types/api";
-  import * as m from "$lib/paraglide/messages/_index.js";
+  import { m } from "$lib/paraglide/messages";
   import { HistoryExportService } from "$lib/services/HistoryExportService";
 
   let turn = $derived(TurnRepository.get());

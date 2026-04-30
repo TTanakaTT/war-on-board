@@ -2,7 +2,7 @@
   import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
   import { AiStrength } from "$lib/domain/enums/AiStrength";
   import Icon from "$lib/presentation/components/Icon.svelte";
-  import * as m from "$lib/paraglide/messages/_index.js";
+  import { m } from "$lib/paraglide/messages";
   let {
     open,
     isNav,
