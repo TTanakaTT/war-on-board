@@ -6,6 +6,10 @@ function getAll(): GameStateHistoryEntry[] {
   return _history;
 }
 
+function getLength(): number {
+  return _history.length;
+}
+
 function add(entry: GameStateHistoryEntry): void {
   _history.push(entry);
 }
@@ -20,6 +24,7 @@ function clear(): void {
 
 export const gameStateHistoryState = {
   getAll,
+  getLength,
   add,
   setAll,
   clear,

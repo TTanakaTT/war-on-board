@@ -551,10 +551,9 @@ export class GameApi {
 
   private static recordCurrentGameStateHistory(): void {
     const snapshot = this.getGameState();
-    const history = GameStateHistoryRepository.getAll();
 
     GameStateHistoryRepository.add({
-      sequence: history.length,
+      sequence: GameStateHistoryRepository.getLength(),
       capturedAtTurn: snapshot.turn.num,
       snapshot,
     });

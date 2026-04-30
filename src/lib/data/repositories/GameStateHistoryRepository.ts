@@ -14,6 +14,10 @@ export class GameStateHistoryRepository {
     return gameStateHistoryState.getAll().map((entry) => this.cloneEntry(entry));
   }
 
+  static getLength(): number {
+    return gameStateHistoryState.getLength();
+  }
+
   static add(entry: GameStateHistoryEntry): void {
     gameStateHistoryState.add(this.cloneEntry(entry));
   }
