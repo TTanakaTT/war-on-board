@@ -8,6 +8,7 @@ export const DEFAULT_AUTOMATION_TURN_LIMIT = 100;
 // Passive growth caps (per-turn gain ceiling, does NOT reduce existing values above cap)
 export const PASSIVE_RESOURCE_CAP = 5;
 export const PASSIVE_CASTLE_CAP = 5;
+export const AI_SUPPORT_PIECE_CAP = 4;
 
 // Unit generation
 export const RESOURCE_THRESHOLD_FOR_GENERATION = 5;

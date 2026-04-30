@@ -23,6 +23,7 @@
   const aiStrengthLabels: Record<AiStrength, () => string> = {
     [AiStrength.STRENGTH_1]: () => m.ai_strength_level_1(),
     [AiStrength.STRENGTH_2]: () => m.ai_strength_level_2(),
+    [AiStrength.STRENGTH_3]: () => m.ai_strength_level_3(),
   };
 
   function aiStrengthLabel(aiStrength: AiStrength): string {

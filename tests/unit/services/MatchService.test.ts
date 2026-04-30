@@ -23,7 +23,7 @@ describe("MatchService", () => {
         automationTurnLimit: 10,
         aiStrengths: {
           self: AiStrength.STRENGTH_2,
-          opponent: AiStrength.STRENGTH_2,
+          opponent: AiStrength.STRENGTH_3,
         },
       });
 
@@ -33,7 +33,7 @@ describe("MatchService", () => {
       expect(matchControl.controllers.self).toBe("human");
       expect(matchControl.controllers.opponent).toBe("cpu");
       expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_1);
-      expect(matchControl.aiStrengths.opponent).toBe(AiStrength.STRENGTH_2);
+      expect(matchControl.aiStrengths.opponent).toBe(AiStrength.STRENGTH_3);
       expect(matchControl.automation.status).toBe("idle");
       expect(matchControl.automation.stopReason).toBeNull();
       expect(TurnRepository.get().player).toBe(Player.SELF);
@@ -68,19 +68,19 @@ describe("MatchService", () => {
       expect(GameApi.getGameStateHistory()).toHaveLength(3);
     });
 
-    test("preserves strength 2 when starting a cpu-vs-cpu match", () => {
+    test("preserves configured strengths when starting a cpu-vs-cpu match", () => {
       MatchService.startMatch("cpu-vs-cpu", {
         layer: 4,
         automationTurnLimit: 10,
         aiStrengths: {
-          self: AiStrength.STRENGTH_2,
+          self: AiStrength.STRENGTH_3,
           opponent: AiStrength.STRENGTH_1,
         },
       });
 
       const matchControl = MatchControlRepository.get();
 
-      expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_2);
+      expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_3);
       expect(matchControl.aiStrengths.opponent).toBe(AiStrength.STRENGTH_1);
     });
   });

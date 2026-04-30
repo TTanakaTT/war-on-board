@@ -26,10 +26,11 @@
   let selectedOpponentAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
   let selectedCpuOneAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
   let selectedCpuTwoAiStrength = $state<AiStrength>(AiStrength.STRENGTH_1);
-  const aiStrengthOptions = [AiStrength.STRENGTH_1, AiStrength.STRENGTH_2];
+  const aiStrengthOptions = [AiStrength.STRENGTH_1, AiStrength.STRENGTH_2, AiStrength.STRENGTH_3];
   const aiStrengthLabels: Record<AiStrength, () => string> = {
     [AiStrength.STRENGTH_1]: () => m.ai_strength_level_1(),
     [AiStrength.STRENGTH_2]: () => m.ai_strength_level_2(),
+    [AiStrength.STRENGTH_3]: () => m.ai_strength_level_3(),
   };
 
   $effect(() => {

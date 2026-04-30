@@ -5,7 +5,11 @@ import { AiStrength } from "$lib/domain/enums/AiStrength";
 import { Player } from "$lib/domain/enums/Player";
 import { AiService } from "$lib/services/AiService";
 
-const supportedStrengths = [AiStrength.STRENGTH_1, AiStrength.STRENGTH_2] as const;
+const supportedStrengths = [
+  AiStrength.STRENGTH_1,
+  AiStrength.STRENGTH_2,
+  AiStrength.STRENGTH_3,
+] as const;
 
 describe("AiService", () => {
   beforeEach(() => {
@@ -13,6 +17,8 @@ describe("AiService", () => {
   });
 
   describe("doAiTurn", () => {
+    // Keep this file as a smoke test for supported strengths and turn progression only.
+    // Add behavior-specific AI feature coverage to narrower tests outside this file.
     test("does nothing when it is not the given player's turn", () => {
       // Turn starts as SELF, so calling for OPPONENT should be a no-op
       const turnBefore = TurnRepository.get();
