@@ -1,4 +1,5 @@
 import { GameApi } from "$lib/api/GameApi";
+import { GameDialogRepository } from "$lib/data/repositories/GameDialogRepository";
 import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { DEFAULT_AUTOMATION_TURN_LIMIT } from "$lib/domain/constants/GameConstants";
@@ -20,12 +21,11 @@ const AUTOMATION_STEP_DELAY_MS = 120;
 export class MatchService {
   private static automationRunToken = 0;
 
-  static startMatch(mode: MatchMode, options: StartMatchOptions): void {
+  static startMatch(options: StartMatchOptions): void {
     this.cancelScheduledAutomation();
+    GameDialogRepository.reset();
     GameApi.initializeGame({ layer: options.layer });
-    MatchControlRepository.set(
-      this.createMatchControl(mode, options.automationTurnLimit, options.aiStrengths),
-    );
+    MatchControlRepository.set(this.createMatchControl(options));
     this.runAutomatedTurnsIfNeeded();
   }
 
@@ -69,26 +69,40 @@ export class MatchService {
     return AUTOMATION_STEP_DELAY_MS;
   }
 
-  private static createMatchControl(
-    mode: MatchMode,
-    automationTurnLimit: number,
-    aiStrengths: MatchAiStrengths,
-  ): MatchControl {
+  private static createMatchControl(options: StartMatchOptions): MatchControl {
+    const mode = this.createMatchMode(options.controllers);
+
     return {
       mode,
-      controllers:
-        mode === "cpu-vs-cpu"
-          ? { self: "cpu", opponent: "cpu" }
-          : { self: "human", opponent: "cpu" },
-      aiStrengths: this.normalizeAiStrengths(mode, aiStrengths),
+      controllers: {
+        self: options.controllers.self,
+        opponent: options.controllers.opponent,
+      },
+      aiStrengths: this.normalizeAiStrengths(options.controllers, options.aiStrengths),
       automation: {
         status: "idle",
         automatedTurns: 0,
-        turnLimit: automationTurnLimit,
+        turnLimit: options.automationTurnLimit,
         stopReason: null,
         stoppedAtWinner: null,
       },
     };
+  }
+
+  private static createMatchMode(controllers: MatchControllers): MatchMode {
+    if (controllers.self === "human" && controllers.opponent === "human") {
+      return "human-vs-human";
+    }
+
+    if (controllers.self === "human" && controllers.opponent === "cpu") {
+      return "human-vs-cpu";
+    }
+
+    if (controllers.self === "cpu" && controllers.opponent === "human") {
+      return "cpu-vs-human";
+    }
+
+    return "cpu-vs-cpu";
   }
 
   private static getControllerForPlayer(
@@ -103,12 +117,12 @@ export class MatchService {
   }
 
   private static normalizeAiStrengths(
-    mode: MatchMode,
+    controllers: MatchControllers,
     aiStrengths: MatchAiStrengths,
   ): MatchAiStrengths {
     return {
-      self: mode === "cpu-vs-cpu" ? aiStrengths.self : AiStrength.STRENGTH_1,
-      opponent: aiStrengths.opponent,
+      self: controllers.self === "cpu" ? aiStrengths.self : AiStrength.STRENGTH_1,
+      opponent: controllers.opponent === "cpu" ? aiStrengths.opponent : AiStrength.STRENGTH_1,
     };
   }
 

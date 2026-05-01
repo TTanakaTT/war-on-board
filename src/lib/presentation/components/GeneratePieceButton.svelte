@@ -14,6 +14,18 @@
   let canAfford = $derived(currentResources >= pieceType.config.cost);
   let isHumanTurn = $derived(MatchService.getControllerForCurrentTurn() === "human");
   let isAutomationRunning = $derived(MatchService.isAutomationRunning());
+
+  function pieceLabel(piece: PieceType): string {
+    if (piece === PieceType.KNIGHT) {
+      return m.piece_knight();
+    }
+
+    if (piece === PieceType.ROOK) {
+      return m.piece_rook();
+    }
+
+    return m.piece_bishop();
+  }
 </script>
 
 <button
@@ -22,7 +34,7 @@
   onclick={() => GameApi.generatePiece(actingPlayer, pieceType)}
   disabled={!canAfford || !isHumanTurn || isAutomationRunning || turn.winner !== null}
   title={m.piece_cost_tooltip({
-    piece: pieceType.config.iconName,
+    piece: pieceLabel(pieceType),
     cost: pieceType.config.cost,
     hp: pieceType.config.maxHp,
     apPiece: pieceType.config.attackPowerAgainstPiece,
@@ -30,5 +42,5 @@
   })}
 >
   <Icon icon={pieceType.config.iconName} size={20} />
-  <span>{m.produce()}</span>
+  <span>{pieceLabel(pieceType)}</span>
 </button>

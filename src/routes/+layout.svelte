@@ -1,5 +1,6 @@
 <script lang="ts">
   import "../app.css";
+  import { page } from "$app/state";
   import Header from "$lib/presentation/components/Header.svelte";
   import Drawer from "$lib/presentation/components/Drawer.svelte";
   import type { Snippet } from "svelte";
@@ -9,6 +10,7 @@
   let dialog = $state<HTMLDialogElement | undefined>(undefined);
   let windowWidth = $state(0);
   let isNav = $derived(windowWidth > 1024);
+  let routeId = $derived(page.route.id ?? "/");
 
   let mainPaddingStyle = $derived.by(() => {
     if (isNav) {
@@ -39,6 +41,19 @@
       open = true;
     }
   }
+
+  $effect(() => {
+    const currentRouteId = routeId;
+
+    if (!currentRouteId) {
+      return;
+    }
+
+    open = false;
+    if (dialog?.open) {
+      dialog.close();
+    }
+  });
 </script>
 
 <svelte:window bind:innerWidth={windowWidth} />
