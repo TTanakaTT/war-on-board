@@ -102,3 +102,13 @@ export function setThemePreference(themePreference: ThemePreference): void {
   applyThemeToDocument(themePreference);
   localStorage.setItem(THEME_STORAGE_KEY, themePreference);
 }
+
+export function clearThemePreference(): void {
+  if (!browser) {
+    return;
+  }
+
+  localStorage.removeItem(THEME_STORAGE_KEY);
+  startSystemThemeSync();
+  applyThemeToDocument(systemThemePreference());
+}

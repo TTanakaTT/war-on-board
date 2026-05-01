@@ -1,5 +1,4 @@
 {
-  "$schema": "https://inlang.com/schema/inlang-message-format",
   "produce": "生産",
   "piece_cost_tooltip": "{piece} (コスト: {cost}, HP: {hp}, 対駒攻撃力: {apPiece}, 対城壁攻撃力: {apWall})",
   "end_turn": "ターン終了",
@@ -29,6 +28,7 @@
   "theme_option_light": "ライト",
   "theme_option_dark": "ダーク",
   "settings_title": "設定",
+  "settings_reset": "設定初期化",
   "information_title": "情報",
   "history_title": "対局履歴",
   "history_download": "ダウンロード",

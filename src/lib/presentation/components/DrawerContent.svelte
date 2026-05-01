@@ -1,11 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/state";
-  import { getLocale, locales, setLocale } from "$lib/paraglide/runtime";
+  import { cookieDomain, cookieName, getLocale, locales, setLocale } from "$lib/paraglide/runtime";
   import { m } from "$lib/paraglide/messages";
+  import AppButton from "$lib/presentation/components/AppButton.svelte";
   import HorizontalRadioGroup from "$lib/presentation/components/HorizontalRadioGroup.svelte";
   import GameInfoDrawerContent from "$lib/presentation/components/GameInfoDrawerContent.svelte";
   import {
+    clearThemePreference,
     resolveThemePreference,
     setThemePreference,
     themePreferenceValues,
@@ -48,6 +50,15 @@
 
     selectedTheme = nextThemePreference;
     setThemePreference(nextThemePreference);
+  }
+
+  function resetSettings(): void {
+    clearThemePreference();
+    selectedTheme = resolveThemePreference();
+
+    const cookieString = `${cookieName}=; path=/; max-age=0`;
+    document.cookie = cookieDomain ? `${cookieString}; domain=${cookieDomain}` : cookieString;
+    window.location.reload();
   }
 </script>
 
@@ -94,5 +105,9 @@
         onChange={handleThemeChange}
       />
     </section>
+
+    <AppButton additionalClass="self-center" variant="error" onclick={resetSettings}>
+      {m.settings_reset()}
+    </AppButton>
   </div>
 {/if}

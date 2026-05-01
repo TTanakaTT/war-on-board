@@ -1,5 +1,4 @@
 {
-  "$schema": "https://inlang.com/schema/inlang-message-format",
   "produce": "Produce",
   "piece_cost_tooltip": "{piece} (Cost: {cost}, HP: {hp}, AP-Piece: {apPiece}, AP-Wall: {apWall})",
   "end_turn": "End Turn",
@@ -29,6 +28,7 @@
   "theme_option_light": "Light",
   "theme_option_dark": "Dark",
   "settings_title": "Settings",
+  "settings_reset": "Reset Settings",
   "information_title": "Information",
   "history_title": "Match History",
   "history_download": "Download",
