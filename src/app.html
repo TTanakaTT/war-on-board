@@ -12,6 +12,22 @@
 
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+    <script>
+      (() => {
+        const themeStorageKey = "war-on-board-theme";
+        const storedThemePreference = localStorage.getItem(themeStorageKey);
+        const themePreference =
+          storedThemePreference === "light" || storedThemePreference === "dark"
+            ? storedThemePreference
+            : window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+
+        document.documentElement.classList.toggle("dark", themePreference === "dark");
+        document.documentElement.style.colorScheme = themePreference;
+      })();
+    </script>
+
     %sveltekit.head%
   </head>
 

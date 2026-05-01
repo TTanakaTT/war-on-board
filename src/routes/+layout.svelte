@@ -3,6 +3,7 @@
   import { page } from "$app/state";
   import Header from "$lib/presentation/components/Header.svelte";
   import Drawer from "$lib/presentation/components/Drawer.svelte";
+  import { initializeThemePreference } from "$lib/presentation/themePreference";
   import type { Snippet } from "svelte";
 
   let { children }: { children: Snippet } = $props();
@@ -53,6 +54,10 @@
     if (dialog?.open) {
       dialog.close();
     }
+  });
+
+  $effect(() => {
+    initializeThemePreference();
   });
 </script>
 

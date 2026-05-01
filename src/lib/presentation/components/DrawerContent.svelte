@@ -1,14 +1,26 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { page } from "$app/state";
   import { getLocale, locales, setLocale } from "$lib/paraglide/runtime";
   import { m } from "$lib/paraglide/messages";
   import HorizontalRadioGroup from "$lib/presentation/components/HorizontalRadioGroup.svelte";
   import GameInfoDrawerContent from "$lib/presentation/components/GameInfoDrawerContent.svelte";
+  import {
+    resolveThemePreference,
+    setThemePreference,
+    themePreferenceValues,
+  } from "$lib/presentation/themePreference";
 
   type LocaleValue = (typeof locales)[number];
+  type ThemePreference = (typeof themePreferenceValues)[number];
 
   let isGamePage = $derived(page.route.id === "/game");
   let selectedLocale = $state<LocaleValue>(getLocale());
+  let selectedTheme = $state<ThemePreference>("light");
+
+  onMount(() => {
+    selectedTheme = resolveThemePreference();
+  });
 
   function localeOptions(): { value: LocaleValue; label: string }[] {
     return locales.map((locale) => ({
@@ -17,11 +29,25 @@
     }));
   }
 
+  function themeOptions(): { value: ThemePreference; label: string }[] {
+    return [
+      { value: "light", label: m.theme_option_light() },
+      { value: "dark", label: m.theme_option_dark() },
+    ];
+  }
+
   function handleLocaleChange(locale: string): void {
     const nextLocale = locale as LocaleValue;
 
     selectedLocale = nextLocale;
     void setLocale(nextLocale);
+  }
+
+  function handleThemeChange(themePreference: string): void {
+    const nextThemePreference = themePreference as ThemePreference;
+
+    selectedTheme = nextThemePreference;
+    setThemePreference(nextThemePreference);
   }
 </script>
 
@@ -32,6 +58,16 @@
     </div>
 
     <GameInfoDrawerContent />
+
+    <section class="flex flex-col gap-3">
+      <h2 class="font-semibold tracking-wide uppercase">{m.theme_title()}</h2>
+      <HorizontalRadioGroup
+        ariaLabel={m.theme_title()}
+        options={themeOptions()}
+        value={selectedTheme}
+        onChange={handleThemeChange}
+      />
+    </section>
   </div>
 {:else}
   <div class="flex flex-col gap-6 p-4">
@@ -46,6 +82,16 @@
         options={localeOptions()}
         value={selectedLocale}
         onChange={handleLocaleChange}
+      />
+    </section>
+
+    <section class="flex flex-col gap-3">
+      <h2 class="font-semibold tracking-wide uppercase">{m.theme_title()}</h2>
+      <HorizontalRadioGroup
+        ariaLabel={m.theme_title()}
+        options={themeOptions()}
+        value={selectedTheme}
+        onChange={handleThemeChange}
       />
     </section>
   </div>
