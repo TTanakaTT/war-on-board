@@ -8,9 +8,20 @@
   import { Player } from "$lib/domain/enums/Player";
   import type { Piece } from "$lib/domain/entities/Piece";
   import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+  import { BoardLayout } from "$lib/presentation/BoardLayout";
+  import HexagonPanelSvg from "$lib/presentation/components/HexagonPanelSvg.svelte";
   import Icon from "$lib/presentation/components/Icon.svelte";
   import PieceToken from "$lib/presentation/components/PieceToken.svelte";
   import { slide } from "svelte/transition";
+
+  type PanelAppearance = {
+    containerClass: string;
+    polygonClass: string;
+    strokeClass: string;
+    strokeDasharray?: string;
+  };
+
+  const PLAYER_PANEL_STROKE_DASHARRAY = "3 3";
 
   let {
     panelPosition,
@@ -28,7 +39,10 @@
   let resource = $derived(panel?.resource);
 
   let panelState = $derived(panel?.panelState);
-  let panelStyle = $derived(getPanelStyle());
+  let panelAppearance = $derived(getPanelAppearance());
+  let panelFrameStyle = $derived(
+    `width: ${BoardLayout.horizontalSideLength}px; height: ${BoardLayout.HEIGHT}px;`,
+  );
 
   let turn = $derived(TurnRepository.get());
 
@@ -54,7 +68,7 @@
     onclick();
   }
 
-  function getPanelStyle(): string {
+  function getPanelAppearance(): PanelAppearance {
     let _panelState: PanelState;
     if (panelState) {
       _panelState = panelState;
@@ -63,42 +77,77 @@
     } else {
       _panelState = PanelState.UNOCCUPIED;
     }
-    let playerStyle;
+    let strokeClass: string;
+    let strokeDasharray: string | undefined;
 
     switch (player) {
       case Player.SELF:
-        playerStyle = "all-el:border-y-2 all-el:border-white all-el:border-dotted";
+        strokeClass = "stroke-2 stroke-white";
+        strokeDasharray = PLAYER_PANEL_STROKE_DASHARRAY;
         break;
       case Player.OPPONENT:
-        playerStyle = "all-el:border-y-2 all-el:border-black all-el:border-dotted";
+        strokeClass = "stroke-2 stroke-black";
+        strokeDasharray = PLAYER_PANEL_STROKE_DASHARRAY;
         break;
       default:
-        playerStyle = "all-el:border-y all-el:border-outline dark:all-el:border-outline-dark";
+        strokeClass = "stroke-outline dark:stroke-outline-dark";
     }
-    let hoverStyle = "hover:all-el:bg-panel-selected dark:hover:all-el:bg-panel-selected-dark";
+
+    const baseContainerClass =
+      "group relative mx-0 my-2.5 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+    const basePolygonClass =
+      "transition-all duration-400 ease-out group-hover:duration-200 group-hover:ease-out";
+
     switch (_panelState) {
       case PanelState.UNOCCUPIED:
-        return `pointer-events-none ${playerStyle} all-el:bg-panel-unoccupied dark:all-el:bg-panel-unoccupied-dark`;
+        return {
+          containerClass: `${baseContainerClass} pointer-events-none`,
+          polygonClass: `${basePolygonClass} fill-panel-unoccupied dark:fill-panel-unoccupied-dark`,
+          strokeClass,
+          strokeDasharray,
+        };
       case PanelState.OCCUPIED:
-        return `${playerStyle} all-el:bg-panel-occupied dark:all-el:bg-panel-occupied-dark`;
+        return {
+          containerClass: baseContainerClass,
+          polygonClass: `${basePolygonClass} fill-panel-occupied dark:fill-panel-occupied-dark`,
+          strokeClass,
+          strokeDasharray,
+        };
       case PanelState.SELECTED:
       case PanelState.MOVABLE:
-        return `cursor-pointer ${playerStyle} ${hoverStyle} all-el:bg-panel-movable dark:all-el:bg-panel-movable-dark`;
+        return {
+          containerClass: `${baseContainerClass} cursor-pointer`,
+          polygonClass: `${basePolygonClass} fill-panel-movable group-hover:fill-panel-selected dark:fill-panel-movable-dark dark:group-hover:fill-panel-selected-dark`,
+          strokeClass,
+          strokeDasharray,
+        };
       case PanelState.IMMOVABLE:
       default:
-        return `pointer-events-none ${playerStyle} all-el:bg-panel-immovable dark:all-el:bg-panel-immovable-dark`;
+        return {
+          containerClass: `${baseContainerClass} pointer-events-none`,
+          polygonClass: `${basePolygonClass} fill-panel-immovable dark:fill-panel-immovable-dark`,
+          strokeClass,
+          strokeDasharray,
+        };
     }
   }
 </script>
 
 <div
-  class="pseudo-el:content-[''] all-el:transition-all all-el:duration-400 all-el:ease-out hover:all-el:transition-all hover:all-el:duration-200 hover:all-el:ease-out pseudo-el:-top-px pseudo-el:absolute all-el:h-25 all-el:w-[calc(100px/1.73)] relative mx-0 my-2.5 flex flex-col before:rotate-60 after:-rotate-60 {panelStyle}"
+  class={panelAppearance.containerClass}
   role="button"
   tabindex="0"
-  {onclick}
+  style={panelFrameStyle}
   {onkeydown}
 >
-  <div class="text-castle z-1 flex flex-1 items-start">
+  <HexagonPanelSvg
+    polygonClass={panelAppearance.polygonClass}
+    strokeClass={panelAppearance.strokeClass}
+    strokeDasharray={panelAppearance.strokeDasharray}
+    onClick={onclick}
+  />
+
+  <div class="pointer-events-none z-1 flex flex-1 items-start">
     {#if castle && castle > 0}
       <div
         class="bg-castle flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
@@ -115,11 +164,11 @@
     {/if}
   </div>
 
-  <div class="z-1 flex items-center justify-center">
+  <div class="pointer-events-none z-1 flex items-center justify-center">
     <div class="flex flex-row gap-2">
       {#each pieces as piece (piece.id)}
         <button
-          class="relative flex flex-col items-center {piece.targetPosition
+          class="pointer-events-auto relative flex flex-col items-center {piece.targetPosition
             ? 'opacity-40'
             : ''} {piece.player === turn.player ? 'cursor-pointer' : ''}"
           type="button"
@@ -138,7 +187,7 @@
     </div>
   </div>
 
-  <div class="text-resource z-1 flex flex-1 items-end">
+  <div class="pointer-events-none z-1 flex flex-1 items-end">
     {#if resource && resource > 0}
       <div
         class="bg-resource flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
