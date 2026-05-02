@@ -2,24 +2,24 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { GameDialogRepository } from "$lib/data/repositories/GameDialogRepository";
-  import { GameStateHistoryRepository } from "$lib/data/repositories/GameStateHistoryRepository";
   import { LayerRepository } from "$lib/data/repositories/LayerRepository";
   import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { Player } from "$lib/domain/enums/Player";
-  import type { GameStateHistoryEntry, PlayerSnapshot } from "$lib/domain/types/api";
+  import type { ControllablePlayerSnapshot } from "$lib/domain/types/api";
+  import type { MatchHistoryMetricPair } from "$lib/domain/types/history";
   import { m } from "$lib/paraglide/messages";
   import AppButton from "$lib/presentation/components/AppButton.svelte";
   import Icon from "$lib/presentation/components/Icon.svelte";
   import IconButton from "$lib/presentation/components/IconButton.svelte";
-  import { playerDisplayName, playerSlotSummary } from "$lib/presentation/matchPresentation";
   import { HistoryExportService } from "$lib/services/HistoryExportService";
   import { MatchService } from "$lib/services/MatchService";
+  import { MatchHistoryService } from "$lib/services/MatchHistoryService";
 
   let turn = $derived(TurnRepository.get());
   let matchControl = $derived(MatchControlRepository.get());
   let dialogState = $derived(GameDialogRepository.get());
-  let historyEntries = $derived(GameStateHistoryRepository.getAll());
+  let matchHistory = $derived(MatchHistoryService.getExportData());
   let isAutomationStopped = $derived(
     turn.winner === null &&
       matchControl.automation.status === "stopped" &&
@@ -52,42 +52,47 @@
       : "w-fit max-w-[calc(100vw-2rem)]",
   );
 
-  function playerLabel(player: Player | PlayerSnapshot | null): string {
-    if (
-      player === Player.SELF ||
-      player === "self" ||
-      player === Player.OPPONENT ||
-      player === "opponent"
-    ) {
-      return playerDisplayName(player, matchControl.controllers, matchControl.aiStrengths);
+  function isWinningPlayer(player: ControllablePlayerSnapshot): boolean {
+    return matchHistory.metadata.winner === player;
+  }
+
+  function metricValue(
+    metricPair: MatchHistoryMetricPair,
+    player: ControllablePlayerSnapshot,
+  ): number {
+    return metricPair[player];
+  }
+
+  function isCurrentTurnPlayer(
+    turnPlayer: ControllablePlayerSnapshot,
+    player: ControllablePlayerSnapshot,
+  ): boolean {
+    return turnPlayer === player;
+  }
+
+  function shouldRenderTurnCell(index: number): boolean {
+    const previousEntry = matchHistory.entries[index - 1];
+    const currentEntry = matchHistory.entries[index];
+
+    return previousEntry?.capturedAtTurn !== currentEntry?.capturedAtTurn;
+  }
+
+  function turnRowSpan(index: number): number {
+    const currentEntry = matchHistory.entries[index];
+    if (!currentEntry) {
+      return 1;
     }
 
-    return "-";
-  }
+    let rowSpan = 1;
+    for (let nextIndex = index + 1; nextIndex < matchHistory.entries.length; nextIndex += 1) {
+      if (matchHistory.entries[nextIndex]?.capturedAtTurn !== currentEntry.capturedAtTurn) {
+        break;
+      }
 
-  function playerSummary(player: Player | PlayerSnapshot | null): string {
-    if (
-      player === Player.SELF ||
-      player === "self" ||
-      player === Player.OPPONENT ||
-      player === "opponent"
-    ) {
-      return playerSlotSummary(player, matchControl.controllers, matchControl.aiStrengths);
+      rowSpan += 1;
     }
 
-    return "-";
-  }
-
-  function pieceCount(entry: GameStateHistoryEntry, player: PlayerSnapshot): number {
-    return entry.snapshot.pieces.filter((piece) => piece.player === player).length;
-  }
-
-  function resources(entry: GameStateHistoryEntry, player: PlayerSnapshot): number {
-    return entry.snapshot.turn.resources[player] ?? 0;
-  }
-
-  function snapshotPlayerLabel(player: PlayerSnapshot): string {
-    return playerLabel(player);
+    return rowSpan;
   }
 
   function downloadHistory(): void {
@@ -136,7 +141,7 @@
     <div
       class="bg-surface dark:bg-surface-dark text-onsurface dark:text-onsurface-dark flex max-h-[85vh] flex-col gap-6 overflow-hidden rounded-2xl p-4 shadow-2xl {dialogWidthClass}"
     >
-      <div class="grid min-h-8 grid-cols-[3rem_auto_3rem] items-center justify-center gap-3">
+      <div class="grid min-h-8 w-full grid-cols-[3rem_minmax(0,1fr)_3rem] items-center gap-3">
         <div aria-hidden="true"></div>
 
         <h2 class="text-center text-2xl leading-none font-bold">
@@ -155,59 +160,217 @@
         <div class="text-center text-lg">
           {m.automation_turn_limit_message({ turnLimit: matchControl.automation.turnLimit })}
         </div>
-      {:else if turn.winner !== null}
-        <div class="text-center text-lg">
-          {m.result_winner_message({ winner: playerSummary(turn.winner) })}
-        </div>
       {/if}
 
       {#if isResultDialog}
         <div class="flex items-center justify-between gap-4">
           <h3 class="text-xl font-semibold">{m.history_title()}</h3>
-          <AppButton additionalClass="rounded-xl px-3 py-2" onclick={downloadHistory}>
+          <AppButton onclick={downloadHistory}>
             <Icon icon="download" size={18} />
             {m.history_download()}
           </AppButton>
         </div>
 
         <div class="grid gap-3 overflow-y-auto pr-1">
-          {#each historyEntries as entry (entry.sequence)}
-            <article class="border-outline dark:border-outline-dark rounded-xl border p-4">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="text-sm font-semibold">
-                  {m.history_sequence_label()}
-                  {entry.sequence}
-                </div>
-                <div class="text-sm">
-                  {m.history_turn_label()}
-                  {entry.capturedAtTurn}
-                </div>
-              </div>
+          <div
+            class="border-outline dark:border-outline-dark grid gap-2 rounded-xl border p-4 text-sm sm:grid-cols-2"
+          >
+            <div
+              class="flex items-center gap-2"
+              class:text-primary={isWinningPlayer("self")}
+              class:dark:text-primary-dark={isWinningPlayer("self")}
+            >
+              <span class="inline-flex items-center gap-1.5 font-semibold">
+                {#if isWinningPlayer("self")}
+                  <Icon icon="emoji_events" size={18} />
+                {/if}
+                {matchHistory.metadata.players.self.seatLabel}
+              </span>
+              <span class:font-semibold={isWinningPlayer("self")}>
+                {matchHistory.metadata.players.self.displayName}
+              </span>
+            </div>
+            <div
+              class="flex items-center gap-2"
+              class:text-primary={isWinningPlayer("opponent")}
+              class:dark:text-primary-dark={isWinningPlayer("opponent")}
+            >
+              <span class="inline-flex items-center gap-1.5 font-semibold">
+                {#if isWinningPlayer("opponent")}
+                  <Icon icon="emoji_events" size={18} />
+                {/if}
+                {matchHistory.metadata.players.opponent.seatLabel}
+              </span>
+              <span class:font-semibold={isWinningPlayer("opponent")}>
+                {matchHistory.metadata.players.opponent.displayName}
+              </span>
+            </div>
+          </div>
 
-              <div class="mt-3 grid gap-2 text-sm md:grid-cols-3">
-                <div>
-                  <span class="font-semibold">{m.history_winner_label()}</span>
-                  <span class="ml-2">{playerLabel(entry.snapshot.turn.winner)}</span>
-                </div>
-                <div>
-                  <span class="font-semibold">{m.history_pieces_label()}</span>
-                  <span class="ml-2"
-                    >{snapshotPlayerLabel("self")}
-                    {pieceCount(entry, "self")} / {snapshotPlayerLabel("opponent")}
-                    {pieceCount(entry, "opponent")}</span
+          <div class="border-outline dark:border-outline-dark overflow-auto rounded-xl border">
+            <table
+              class="bg-surface dark:bg-surface-dark w-max min-w-full border-separate border-spacing-0 text-sm"
+            >
+              <thead
+                class="bg-surface dark:bg-surface-dark text-onsurface dark:text-onsurface-dark sticky top-0 z-10"
+              >
+                <tr>
+                  <th
+                    scope="col"
+                    rowspan="2"
+                    class="border-outline dark:border-outline-dark border-b px-3 py-2 text-center align-middle font-semibold whitespace-nowrap"
                   >
-                </div>
-                <div>
-                  <span class="font-semibold">{m.history_resources_label()}</span>
-                  <span class="ml-2"
-                    >{snapshotPlayerLabel("self")}
-                    {resources(entry, "self")} / {snapshotPlayerLabel("opponent")}
-                    {resources(entry, "opponent")}</span
+                    <span class="inline-flex h-5 items-center justify-center align-middle">
+                      {m.history_turn_label()}
+                    </span>
+                  </th>
+                  <th
+                    scope="colgroup"
+                    colspan="2"
+                    class="border-outline dark:border-outline-dark border-b px-3 py-2 text-center align-middle font-semibold whitespace-nowrap"
                   >
-                </div>
-              </div>
-            </article>
-          {/each}
+                    <span class="inline-flex h-5 items-center justify-center align-middle">
+                      {m.history_turn_player_label()}
+                    </span>
+                  </th>
+                  <th
+                    scope="colgroup"
+                    colspan="2"
+                    class="border-outline dark:border-outline-dark border-b px-3 py-2 text-center align-middle font-semibold whitespace-nowrap"
+                  >
+                    <span class="inline-flex h-5 items-center justify-center align-middle">
+                      {m.unit_count_label()}
+                    </span>
+                  </th>
+                  <th
+                    scope="colgroup"
+                    colspan="2"
+                    class="border-outline dark:border-outline-dark border-b px-3 py-2 text-center align-middle font-semibold whitespace-nowrap"
+                    title={m.history_resources_icon_label()}
+                  >
+                    <span class="inline-flex h-5 items-center justify-center align-middle">
+                      <span class="sr-only">{m.history_resources_icon_label()}</span>
+                      <Icon icon="home" size={18} />
+                    </span>
+                  </th>
+                  <th
+                    scope="colgroup"
+                    colspan="2"
+                    class="border-outline dark:border-outline-dark border-b px-3 py-2 text-center align-middle font-semibold whitespace-nowrap"
+                    title={m.history_wall_icon_label()}
+                  >
+                    <span class="inline-flex h-5 items-center justify-center align-middle">
+                      <span class="sr-only">{m.history_wall_icon_label()}</span>
+                      <Icon icon="castle" size={18} />
+                    </span>
+                  </th>
+                  <th
+                    scope="colgroup"
+                    colspan="2"
+                    class="border-outline dark:border-outline-dark border-b px-3 py-2 text-center align-middle font-semibold whitespace-nowrap"
+                  >
+                    <span class="inline-flex h-5 items-center justify-center align-middle">
+                      {m.occupied_panels_label()}
+                    </span>
+                  </th>
+                </tr>
+
+                <tr>
+                  {#each [matchHistory.metadata.players.self.seatLabel, matchHistory.metadata.players.opponent.seatLabel, matchHistory.metadata.players.self.seatLabel, matchHistory.metadata.players.opponent.seatLabel, matchHistory.metadata.players.self.seatLabel, matchHistory.metadata.players.opponent.seatLabel, matchHistory.metadata.players.self.seatLabel, matchHistory.metadata.players.opponent.seatLabel, matchHistory.metadata.players.self.seatLabel, matchHistory.metadata.players.opponent.seatLabel] as seatHeaders, seatHeaderIndex (`${seatHeaders}-${seatHeaderIndex}`)}
+                    <th
+                      scope="col"
+                      class="border-outline/80 dark:border-outline-dark/80 border-b px-3 py-2 text-center align-middle text-xs font-medium whitespace-nowrap"
+                    >
+                      <span class="inline-flex h-5 items-center justify-center align-middle">
+                        {seatHeaders}
+                      </span>
+                    </th>
+                  {/each}
+                </tr>
+              </thead>
+
+              <tbody>
+                {#each matchHistory.entries as entry, index (`${entry.capturedAtTurn}-${entry.turnPlayer}-${index}`)}
+                  <tr class="even:bg-surface-container/30 dark:even:bg-surface-container-dark/30">
+                    {#if shouldRenderTurnCell(index)}
+                      <td
+                        rowspan={turnRowSpan(index)}
+                        class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center align-middle whitespace-nowrap"
+                      >
+                        {entry.capturedAtTurn}
+                      </td>
+                    {/if}
+                    <td
+                      class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
+                    >
+                      {#if isCurrentTurnPlayer(entry.turnPlayer, "self")}
+                        <span
+                          class="inline-flex items-center justify-center"
+                          title={m.history_current_turn_marker_label()}
+                        >
+                          <span class="sr-only">{m.history_current_turn_marker_label()}</span>
+                          <Icon icon="task_alt" size={18} />
+                        </span>
+                      {/if}
+                    </td>
+                    <td
+                      class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
+                    >
+                      {#if isCurrentTurnPlayer(entry.turnPlayer, "opponent")}
+                        <span
+                          class="inline-flex items-center justify-center"
+                          title={m.history_current_turn_marker_label()}
+                        >
+                          <span class="sr-only">{m.history_current_turn_marker_label()}</span>
+                          <Icon icon="task_alt" size={18} />
+                        </span>
+                      {/if}
+                    </td>
+                    <td
+                      class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
+                    >
+                      {metricValue(entry.unitTotals, "self")}
+                    </td>
+                    <td
+                      class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
+                    >
+                      {metricValue(entry.unitTotals, "opponent")}
+                    </td>
+                    <td
+                      class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
+                    >
+                      {metricValue(entry.resources, "self")}
+                    </td>
+                    <td
+                      class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
+                    >
+                      {metricValue(entry.resources, "opponent")}
+                    </td>
+                    <td
+                      class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
+                    >
+                      {metricValue(entry.wallTotals, "self")}
+                    </td>
+                    <td
+                      class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
+                    >
+                      {metricValue(entry.wallTotals, "opponent")}
+                    </td>
+                    <td
+                      class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
+                    >
+                      {metricValue(entry.occupiedPanels, "self")}
+                    </td>
+                    <td
+                      class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
+                    >
+                      {metricValue(entry.occupiedPanels, "opponent")}
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
         </div>
       {/if}
 
