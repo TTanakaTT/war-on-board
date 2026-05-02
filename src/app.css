@@ -100,3 +100,12 @@ dialog::backdrop {
   animation: piece-preview-motion var(--piece-preview-duration) ease-in-out infinite;
   will-change: transform, opacity;
 }
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

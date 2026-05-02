@@ -25,6 +25,12 @@
     deadBishopCount: number;
   }
 
+  interface Props {
+    isWideLayout?: boolean;
+  }
+
+  let { isWideLayout = false }: Props = $props();
+
   let matchControl = $derived(MatchControlRepository.get());
   let matchStats = $derived(MatchStatsRepository.get());
   let panels = $derived(PanelRepository.getAll());
@@ -68,11 +74,14 @@
   }
 
   let playerCards = $derived([buildPlayerInfo(Player.SELF), buildPlayerInfo(Player.OPPONENT)]);
+  let containerClass = $derived(
+    isWideLayout ? "grid grid-cols-2 items-start gap-4" : "flex flex-col gap-4",
+  );
 </script>
 
-<div class="flex flex-col gap-4">
+<div class={containerClass}>
   {#each playerCards as card (card.id)}
-    <section class="rounded-2xl p-4 {panelClass(card.id)}">
+    <section class="min-w-0 rounded-2xl p-4 {panelClass(card.id)}">
       <h2 class="text-base font-semibold">
         {card.id === "self" ? card.label : card.label}
       </h2>

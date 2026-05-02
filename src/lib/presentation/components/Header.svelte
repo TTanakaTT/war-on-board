@@ -20,17 +20,23 @@
     open,
     isNav,
     onClickMenu,
+    drawerWidthUnits,
   }: {
     open: boolean;
     isNav: boolean;
     onClickMenu: () => void;
+    drawerWidthUnits: number;
   } = $props();
   let headerWidthStyle = $derived.by(() => {
-    if (isNav) {
-      return open ? "ml-64 w-[calc(100%-(var(--spacing)*64))]" : "w-screen";
-    } else {
-      return "w-screen";
+    if (!isNav) {
+      return "width: 100vw;";
     }
+
+    if (!open) {
+      return "width: 100vw;";
+    }
+
+    return `margin-left: calc(var(--spacing) * ${drawerWidthUnits}); width: calc(100vw - (var(--spacing) * ${drawerWidthUnits}));`;
   });
   let isGamePage = $derived(page.route.id === "/game");
   let matchControl = $derived(MatchControlRepository.get());
@@ -112,6 +118,7 @@
     void opponentResources;
     void generationModeLabel;
     void hoveredGenerationCost;
+    void drawerWidthUnits;
 
     void updateHeaderCompactMode();
   });
@@ -169,7 +176,8 @@
 {/snippet}
 
 <header
-  class="bg-surface dark:bg-surface-dark border-outline dark:border-outline-dark fixed inset-s-0 top-0 z-20 border-b shadow-md {headerWidthStyle}"
+  class="bg-surface dark:bg-surface-dark border-outline dark:border-outline-dark fixed inset-s-0 top-0 z-20 border-b shadow-md transition-[margin-left,width] duration-200 ease-out"
+  style={headerWidthStyle}
 >
   <div class="flex flex-wrap items-center gap-3 px-4 py-1">
     <IconButton icon="menu" label={m.drawer_title()} onclick={onClickMenu} />

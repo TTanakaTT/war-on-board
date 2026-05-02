@@ -16,6 +16,12 @@
   type LocaleValue = (typeof locales)[number];
   type ThemePreference = (typeof themePreferenceValues)[number];
 
+  interface Props {
+    isWideGameLayout?: boolean;
+  }
+
+  let { isWideGameLayout = false }: Props = $props();
+
   let isGamePage = $derived(page.route.id === "/game");
   let selectedLocale = $state<LocaleValue>(getLocale());
   let selectedTheme = $state<ThemePreference>("light");
@@ -63,15 +69,15 @@
 </script>
 
 {#if isGamePage}
-  <div class="flex h-full min-h-0 flex-col gap-6 overflow-y-auto p-4">
+  <div class="no-scrollbar flex h-full min-h-0 flex-col gap-6 overflow-y-auto p-4">
     <div>
       <h1 class="text-xl font-semibold">{m.information_title()}</h1>
     </div>
 
-    <GameInfoDrawerContent />
+    <GameInfoDrawerContent isWideLayout={isWideGameLayout} />
   </div>
 {:else}
-  <div class="flex h-full min-h-0 flex-col gap-6 overflow-y-auto p-4">
+  <div class="no-scrollbar flex h-full min-h-0 flex-col gap-6 overflow-y-auto p-4">
     <div>
       <h1 class="text-xl font-semibold">{m.settings_title()}</h1>
     </div>
