@@ -17,7 +17,7 @@
   aria-label={label}
   title={label}
   {disabled}
-  class="text-onsurface dark:text-onsurface-dark hover:bg-outline dark:hover:bg-outline-dark inline-flex h-8 w-8 items-center justify-center rounded-lg p-1 disabled:cursor-not-allowed disabled:opacity-50 {additionalClass}"
+  class="text-onsurface dark:text-onsurface-dark hover:bg-outline dark:hover:bg-outline-dark m-1 inline-flex h-11 w-11 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50 {additionalClass}"
   {onclick}
 >
   <Icon {icon} size={24} />

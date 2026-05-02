@@ -134,18 +134,20 @@
 {#if showModal}
   <div class="fixed inset-0 z-2000 flex items-center justify-center bg-black/60 px-4">
     <div
-      class="bg-surface dark:bg-surface-dark text-onsurface dark:text-onsurface-dark flex max-h-[85vh] flex-col gap-6 overflow-hidden rounded-2xl p-8 shadow-2xl {dialogWidthClass}"
+      class="bg-surface dark:bg-surface-dark text-onsurface dark:text-onsurface-dark flex max-h-[85vh] flex-col gap-6 overflow-hidden rounded-2xl p-4 shadow-2xl {dialogWidthClass}"
     >
-      <div class="relative flex min-h-8 items-start justify-center">
-        {#if isResultDialog}
-          <h2 class="text-center text-2xl font-bold">{m.match_finished_title()}</h2>
-        {/if}
+      <div class="grid min-h-8 grid-cols-[3rem_auto_3rem] items-center justify-center gap-3">
+        <div aria-hidden="true"></div>
+
+        <h2 class="text-center text-2xl leading-none font-bold">
+          {isResultDialog ? m.match_finished_title() : m.leave_match()}
+        </h2>
 
         <IconButton
           icon="close"
           label={m.close_dialog()}
           onclick={closeDialog}
-          additionalClass="absolute right-0 top-0"
+          additionalClass="place-self-center justify-self-end"
         />
       </div>
 

@@ -63,25 +63,15 @@
 </script>
 
 {#if isGamePage}
-  <div class="flex flex-col gap-6 p-4">
+  <div class="flex h-full min-h-0 flex-col gap-6 overflow-y-auto p-4">
     <div>
       <h1 class="text-xl font-semibold">{m.information_title()}</h1>
     </div>
 
     <GameInfoDrawerContent />
-
-    <section class="flex flex-col gap-3">
-      <h2 class="font-semibold tracking-wide uppercase">{m.theme_title()}</h2>
-      <HorizontalRadioGroup
-        ariaLabel={m.theme_title()}
-        options={themeOptions()}
-        value={selectedTheme}
-        onChange={handleThemeChange}
-      />
-    </section>
   </div>
 {:else}
-  <div class="flex flex-col gap-6 p-4">
+  <div class="flex h-full min-h-0 flex-col gap-6 overflow-y-auto p-4">
     <div>
       <h1 class="text-xl font-semibold">{m.settings_title()}</h1>
     </div>

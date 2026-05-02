@@ -45,12 +45,14 @@
 
   $effect(() => {
     const currentRouteId = routeId;
+    const desktopNav = isNav;
 
     if (!currentRouteId) {
       return;
     }
 
-    open = false;
+    open = desktopNav;
+
     if (dialog?.open) {
       dialog.close();
     }

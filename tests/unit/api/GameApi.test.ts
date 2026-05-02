@@ -5,6 +5,7 @@ import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
+import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
 import { Player } from "$lib/domain/enums/Player";
 import { PanelState } from "$lib/domain/enums/PanelState";
 import { PanelPosition } from "$lib/domain/entities/PanelPosition";
@@ -325,6 +326,24 @@ describe("GameApi.initializeGame", () => {
       const history = GameApi.getGameStateHistory();
       expect(history).toHaveLength(1);
       expectHistoryEntryToMatchSnapshot(history[0], 0, 1, result.value.gameState);
+    });
+
+    test("calling initializeGame again resets match stats and reapplies only the opening income", () => {
+      GameApi.initializeGame({ layer: 4 });
+      GameApi.endTurn(Player.SELF);
+
+      const result = GameApi.initializeGame({ layer: 4 });
+      expectActionSuccessWithSnapshot(result);
+
+      const matchStats = MatchStatsRepository.get();
+      expect(matchStats.self.totalProducedResources).toBe(
+        PLAYER_INIT_RESOURCE + HOME_BASE_INIT_RESOURCE,
+      );
+      expect(matchStats.opponent.totalProducedResources).toBe(PLAYER_INIT_RESOURCE);
+      expect(matchStats.self.totalBuiltCastle).toBe(HOME_BASE_INIT_CASTLE);
+      expect(matchStats.opponent.totalBuiltCastle).toBe(HOME_BASE_INIT_CASTLE);
+      expect(matchStats.self.deadUnitCounts).toEqual({ knight: 0, rook: 0, bishop: 0 });
+      expect(matchStats.opponent.deadUnitCounts).toEqual({ knight: 0, rook: 0, bishop: 0 });
     });
   });
 });
@@ -1630,6 +1649,26 @@ describe("GameApi.endTurn", () => {
       const hbPanel = PanelRepository.find(hbPos)!;
       expect(hbPanel.castle).toBe(HOME_BASE_INIT_CASTLE);
     });
+
+    test("ROOK passive gains add the actual castle growth to match stats", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const existingPanel = PanelRepository.find(pos)!;
+      PanelRepository.update(new Panel({ ...existingPanel, player: Player.OPPONENT, castle: 0 }));
+      PiecesRepository.add(
+        new Piece({
+          id: 52,
+          panelPosition: pos,
+          initialPosition: pos,
+          player: Player.OPPONENT,
+          pieceType: PieceType.ROOK,
+        }),
+      );
+
+      GameApi.endTurn(Player.SELF);
+
+      expect(MatchStatsRepository.get().opponent.totalBuiltCastle).toBe(HOME_BASE_INIT_CASTLE + 1);
+    });
   });
 
   describe("resource income", () => {
@@ -1642,6 +1681,56 @@ describe("GameApi.endTurn", () => {
       // OPPONENT owns home base (resource=5). Income = 5.
       const oppResourceAfter = TurnRepository.get().resources[String(Player.OPPONENT)];
       expect(oppResourceAfter).toBe(oppResourceBefore + HOME_BASE_INIT_RESOURCE);
+    });
+
+    test("match stats track cumulative produced resources for each player", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      GameApi.endTurn(Player.SELF);
+      GameApi.endTurn(Player.OPPONENT);
+
+      const matchStats = MatchStatsRepository.get();
+      expect(matchStats.self.totalProducedResources).toBe(
+        PLAYER_INIT_RESOURCE + HOME_BASE_INIT_RESOURCE * 2,
+      );
+      expect(matchStats.opponent.totalProducedResources).toBe(
+        PLAYER_INIT_RESOURCE + HOME_BASE_INIT_RESOURCE,
+      );
+    });
+  });
+
+  describe("match stats", () => {
+    test("when a defender dies in combat, dead unit counts increase for that player", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const attackerOrigin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      const targetPanel = PanelRepository.find(target)!;
+
+      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 0 }));
+      PiecesRepository.add(
+        new Piece({
+          id: 61,
+          panelPosition: attackerOrigin,
+          initialPosition: attackerOrigin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.KNIGHT,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 62,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.ROOK,
+          hp: PieceType.KNIGHT.config.attackPowerAgainstPiece,
+        }),
+      );
+
+      GameApi.endTurn(Player.SELF);
+
+      expect(MatchStatsRepository.get().opponent.deadUnitCounts.rook).toBe(1);
     });
   });
 

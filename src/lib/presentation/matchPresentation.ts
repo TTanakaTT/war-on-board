@@ -28,7 +28,15 @@ export function controllerSelectionLabel(
     return m.player_option_human();
   }
 
-  return aiStrengthLabel(aiStrength);
+  if (aiStrength === AiStrength.STRENGTH_1) {
+    return m.player_option_ai_strength_1();
+  }
+
+  if (aiStrength === AiStrength.STRENGTH_2) {
+    return m.player_option_ai_strength_2();
+  }
+
+  return m.player_option_ai_strength_3();
 }
 
 export function seatLabel(player: Player | PlayerSnapshot): string {

@@ -32,6 +32,7 @@ import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
 import { GameStateHistoryRepository } from "$lib/data/repositories/GameStateHistoryRepository";
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
+import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
 import { MovementRulesService } from "$lib/services/MovementRulesService";
 import { PieceService } from "$lib/services/PieceService";
 import { VictoryService } from "$lib/services/VictoryService";
@@ -178,6 +179,8 @@ export class GameApi {
       },
       winner: null,
     });
+
+    MatchStatsRepository.reset();
 
     // Add first player's income
     this.addResources(PlayerClass.SELF);
@@ -471,6 +474,7 @@ export class GameApi {
     HomeBaseRepository.setAll(snapshot.homeBases.map((homeBase) => this.restoreHomeBase(homeBase)));
     PiecesRepository.setAll(snapshot.pieces.map((piece) => this.restorePiece(piece)));
     TurnRepository.set(this.restoreTurn(snapshot.turn));
+    MatchStatsRepository.reset();
 
     return { ok: true, value: { gameState: this.getGameState() } };
   }
@@ -484,6 +488,7 @@ export class GameApi {
     newResources[String(player)] = (newResources[String(player)] || 0) + totalResource;
 
     TurnRepository.set({ ...turn, resources: newResources });
+    MatchStatsRepository.addProducedResources(player, totalResource);
   }
 
   // ── Queries ────────────────────────────────────────────────────

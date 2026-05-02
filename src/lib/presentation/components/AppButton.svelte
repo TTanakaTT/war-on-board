@@ -34,7 +34,7 @@
 <button
   {type}
   {disabled}
-  class="inline-flex items-center justify-center gap-2 rounded-3xl border px-5 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50 {variantClass} {additionalClass}"
+  class="mt-0.5 mb-2 inline-flex items-center justify-center gap-2 rounded-3xl border px-5 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50 {variantClass} {additionalClass}"
   {onclick}
 >
   {@render children?.()}

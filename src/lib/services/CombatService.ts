@@ -2,6 +2,7 @@ import { Piece } from "$lib/domain/entities/Piece";
 import { Panel } from "$lib/domain/entities/Panel";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
+import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
 
 /**
  * CombatService — handles all combat resolution (piece-vs-piece, piece-vs-wall).
@@ -40,6 +41,11 @@ export class CombatService {
 
     for (const outcome of outcomes) {
       if (outcome.newHp <= 0) {
+        MatchStatsRepository.addDeadUnits(
+          outcome.piece.player,
+          outcome.piece.pieceType,
+          outcome.piece.stackCount,
+        );
         PiecesRepository.remove(outcome.piece);
         deadIds.add(outcome.piece.id);
         continue;
