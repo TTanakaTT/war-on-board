@@ -15,7 +15,14 @@
     <script>
       (() => {
         const themeStorageKey = "war-on-board-theme";
-        const storedThemePreference = localStorage.getItem(themeStorageKey);
+        let storedThemePreference = null;
+
+        try {
+          storedThemePreference = localStorage.getItem(themeStorageKey);
+        } catch {
+          storedThemePreference = null;
+        }
+
         const themePreference =
           storedThemePreference === "light" || storedThemePreference === "dark"
             ? storedThemePreference
