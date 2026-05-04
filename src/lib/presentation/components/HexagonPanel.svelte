@@ -140,13 +140,13 @@
   role="button"
   tabindex="0"
   style={panelFrameStyle}
+  {onclick}
   {onkeydown}
 >
   <HexagonPanelSvg
     polygonClass={panelAppearance.polygonClass}
     strokeClass={panelAppearance.strokeClass}
     strokeDasharray={panelAppearance.strokeDasharray}
-    onClick={onclick}
   />
 
   <div class="absolute inset-0 z-1 flex rotate-90 flex-col lg:rotate-0">

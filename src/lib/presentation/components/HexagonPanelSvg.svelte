@@ -5,7 +5,6 @@
     polygonClass: string;
     strokeClass: string;
     strokeDasharray?: string;
-    onClick: () => void;
   };
 
   const SVG_HEIGHT = BoardLayout.HEIGHT;
@@ -14,7 +13,7 @@
   const ONE_AND_HALF_SIDE = BoardLayout.horizontalSideLength * 1.5;
   const HEXAGON_POINTS = `${HALF_SIDE},0 ${ONE_AND_HALF_SIDE},0 ${SVG_WIDTH},${SVG_HEIGHT / 2} ${ONE_AND_HALF_SIDE},${SVG_HEIGHT} ${HALF_SIDE},${SVG_HEIGHT} 0,${SVG_HEIGHT / 2}`;
 
-  let { polygonClass, strokeClass, strokeDasharray, onClick }: Props = $props();
+  let { polygonClass, strokeClass, strokeDasharray }: Props = $props();
 
   const svgStyle = `width: ${SVG_WIDTH}px; height: ${SVG_HEIGHT}px;`;
 </script>
@@ -27,10 +26,9 @@
 >
   <polygon
     points={HEXAGON_POINTS}
-    class="pointer-events-auto {polygonClass} {strokeClass}"
+    class="{polygonClass} {strokeClass}"
     stroke-dasharray={strokeDasharray}
     stroke-linejoin="round"
     vector-effect="non-scaling-stroke"
-    onclick={onClick}
   />
 </svg>
