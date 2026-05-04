@@ -80,6 +80,10 @@ export function playerDisplayNames(
   };
 }
 
+export function playerInfoOrder(isWideLayout: boolean): [Player, Player] {
+  return isWideLayout ? [Player.SELF, Player.OPPONENT] : [Player.OPPONENT, Player.SELF];
+}
+
 export function seatLabel(player: Player | PlayerSnapshot): string {
   return isSelfPlayer(player) ? m.first_player_label() : m.second_player_label();
 }

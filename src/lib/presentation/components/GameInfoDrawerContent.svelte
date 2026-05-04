@@ -7,7 +7,7 @@
   import { Player } from "$lib/domain/enums/Player";
   import { m } from "$lib/paraglide/messages";
   import Icon from "$lib/presentation/components/Icon.svelte";
-  import { playerDisplayName } from "$lib/presentation/matchPresentation";
+  import { playerDisplayName, playerInfoOrder } from "$lib/presentation/matchPresentation";
 
   interface PlayerInfoCard {
     id: "self" | "opponent";
@@ -59,8 +59,8 @@
     };
   }
 
-  function panelClass(playerId: PlayerInfoCard["id"]): string {
-    return `border-2 bg-stone-500 shadow-sm ${playerId === "self" ? "border-white text-white" : "border-black text-black"}`;
+  function panelClass(playerId: PlayerInfoCard["id"], isWideLayoutValue: boolean): string {
+    return `border-2 bg-stone-500 shadow-sm ${isWideLayoutValue ? "rounded-2xl p-4" : "rounded-xl p-3"} ${playerId === "self" ? "border-white text-white" : "border-black text-black"}`;
   }
 
   function unitPanelClass(playerId: PlayerInfoCard["id"]): string {
@@ -73,7 +73,9 @@
     return playerId === "self" ? "text-white/90" : "text-black/80";
   }
 
-  let playerCards = $derived([buildPlayerInfo(Player.SELF), buildPlayerInfo(Player.OPPONENT)]);
+  let playerCards = $derived(
+    playerInfoOrder(isWideLayout).map((player) => buildPlayerInfo(player)),
+  );
   let containerClass = $derived(
     isWideLayout ? "grid grid-cols-2 items-start gap-4" : "flex flex-col gap-4",
   );
@@ -81,7 +83,7 @@
 
 <div class={containerClass}>
   {#each playerCards as card (card.id)}
-    <section class="min-w-0 rounded-2xl p-4 {panelClass(card.id)}">
+    <section class="min-w-0 {panelClass(card.id, isWideLayout)}">
       <h2 class="text-base font-semibold">
         {card.id === "self" ? card.label : card.label}
       </h2>

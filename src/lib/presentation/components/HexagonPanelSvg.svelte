@@ -11,7 +11,6 @@
   const SVG_HEIGHT = BoardLayout.HEIGHT;
   const SVG_WIDTH = BoardLayout.horizontalSideLength * 2;
   const HALF_SIDE = BoardLayout.horizontalSideLength / 2;
-  const FULL_SIDE = BoardLayout.horizontalSideLength;
   const ONE_AND_HALF_SIDE = BoardLayout.horizontalSideLength * 1.5;
   const HEXAGON_POINTS = `${HALF_SIDE},0 ${ONE_AND_HALF_SIDE},0 ${SVG_WIDTH},${SVG_HEIGHT / 2} ${ONE_AND_HALF_SIDE},${SVG_HEIGHT} ${HALF_SIDE},${SVG_HEIGHT} 0,${SVG_HEIGHT / 2}`;
 

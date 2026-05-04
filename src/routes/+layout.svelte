@@ -23,6 +23,7 @@
   let isNav = $derived(windowWidth > DESKTOP_NAVIGATION_BREAKPOINT_PX);
   let routeId = $derived(page.route.id ?? "/");
   let isGamePage = $derived(routeId === "/game");
+  let mainTopPaddingClass = $derived(isGamePage ? "pt-32 lg:pt-16" : "pt-16");
   let isGameDrawerExpanded = $state(false);
   let isWideGameDrawerLayout = $state(false);
   let hasLoadedGameDrawerPreference = $state(false);
@@ -173,7 +174,7 @@
 <Header {open} {isNav} {onClickMenu} {drawerWidthUnits} />
 
 <main
-  class="h-screen pt-16 transition-[padding-left] duration-200 ease-out"
+  class="h-screen touch-pan-y transition-[padding-left] duration-200 ease-out {mainTopPaddingClass}"
   style={mainPaddingStyle}
 >
   {@render children()}

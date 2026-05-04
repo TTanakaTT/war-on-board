@@ -6,7 +6,8 @@
   import Icon from "$lib/presentation/components/Icon.svelte";
   import { MatchService } from "$lib/services/MatchService";
 
-  let { compact = false }: { compact?: boolean } = $props();
+  let { compact = false, additionalClass = "" }: { compact?: boolean; additionalClass?: string } =
+    $props();
 
   let turn = $derived(TurnRepository.get());
   let currentPlayer = $derived(turn.player);
@@ -33,7 +34,7 @@
   disabled={!isHumanTurn || isAutomationRunning || turn.winner !== null}
   title={compact ? label : undefined}
   aria-label={label}
-  class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hover:ring-primary dark:hover:ring-primary-dark mt-0.5 mb-2 flex items-center justify-center gap-2 rounded-3xl border px-5 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50 {buttonClass}"
+  class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hover:ring-primary dark:hover:ring-primary-dark mt-0.5 mb-2 flex items-center justify-center gap-2 rounded-3xl border px-5 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50 {buttonClass} {additionalClass}"
 >
   <Icon icon="skip_next" size={24} />
   {#if !compact}

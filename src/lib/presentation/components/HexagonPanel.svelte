@@ -147,60 +147,62 @@
     onClick={onclick}
   />
 
-  <div class="pointer-events-none z-1 flex flex-1 items-start">
-    {#if castle && castle > 0}
-      <div
-        class="bg-castle flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
-      >
-        <Icon
-          icon="castle"
-          size={12}
-          transition={slide}
-          transitionParams={{ duration: 500, axis: "y" }}
-        />
-
-        <div>{castle}</div>
-      </div>
-    {/if}
-  </div>
-
-  <div class="pointer-events-none z-1 flex items-center justify-center">
-    <div class="flex flex-row gap-2">
-      {#each pieces as piece (piece.id)}
-        <button
-          class="pointer-events-auto relative flex flex-col items-center {piece.targetPosition
-            ? 'opacity-40'
-            : ''} {piece.player === turn.player ? 'cursor-pointer' : ''}"
-          type="button"
-          tabindex="0"
-          onclick={(e) => handlePieceClick(e, piece)}
-          onkeydown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.stopPropagation();
-              InteractionService.pieceChange(piece);
-            }
-          }}
+  <div class="absolute inset-0 z-1 flex rotate-90 flex-col lg:rotate-0">
+    <div class="pointer-events-none flex flex-1 items-start">
+      {#if castle && castle > 0}
+        <div
+          class="bg-castle flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
         >
-          <PieceToken {piece} />
-        </button>
-      {/each}
+          <Icon
+            icon="castle"
+            size={12}
+            transition={slide}
+            transitionParams={{ duration: 500, axis: "y" }}
+          />
+
+          <div>{castle}</div>
+        </div>
+      {/if}
     </div>
-  </div>
 
-  <div class="pointer-events-none z-1 flex flex-1 items-end">
-    {#if resource && resource > 0}
-      <div
-        class="bg-resource flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
-      >
-        <Icon
-          icon="home"
-          size={12}
-          transition={slide}
-          transitionParams={{ duration: 500, axis: "y" }}
-        />
-
-        <div>{resource}</div>
+    <div class="pointer-events-none z-1 flex items-center justify-center">
+      <div class="flex flex-row gap-2">
+        {#each pieces as piece (piece.id)}
+          <button
+            class="pointer-events-auto relative flex flex-col items-center {piece.targetPosition
+              ? 'opacity-40'
+              : ''} {piece.player === turn.player ? 'cursor-pointer' : ''}"
+            type="button"
+            tabindex="0"
+            onclick={(e) => handlePieceClick(e, piece)}
+            onkeydown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.stopPropagation();
+                InteractionService.pieceChange(piece);
+              }
+            }}
+          >
+            <PieceToken {piece} />
+          </button>
+        {/each}
       </div>
-    {/if}
+    </div>
+
+    <div class="pointer-events-none flex flex-1 items-end">
+      {#if resource && resource > 0}
+        <div
+          class="bg-resource flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
+        >
+          <Icon
+            icon="home"
+            size={12}
+            transition={slide}
+            transitionParams={{ duration: 500, axis: "y" }}
+          />
+
+          <div>{resource}</div>
+        </div>
+      {/if}
+    </div>
   </div>
 </div>

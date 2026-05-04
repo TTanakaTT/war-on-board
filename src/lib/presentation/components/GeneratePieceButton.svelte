@@ -10,10 +10,12 @@
     pieceType,
     compact = false,
     onPreviewChange,
+    additionalClass = "",
   }: {
     pieceType: PieceType;
     compact?: boolean;
     onPreviewChange?: (previewCost: number | undefined) => void;
+    additionalClass?: string;
   } = $props();
 
   let turn = $derived(TurnRepository.get());
@@ -54,7 +56,7 @@
 >
   <button
     type="button"
-    class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hover:ring-primary dark:hover:ring-primary-dark mt-0.5 mb-2 flex items-center justify-center gap-2 rounded-3xl border px-5 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50 {buttonClass}"
+    class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hover:ring-primary dark:hover:ring-primary-dark mt-0.5 mb-2 flex items-center justify-center gap-2 rounded-3xl border px-5 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none disabled:cursor-not-allowed disabled:opacity-50 {buttonClass} {additionalClass}"
     onclick={() => GameApi.generatePiece(actingPlayer, pieceType)}
     disabled={!canAfford || !isHumanTurn || isAutomationRunning || turn.winner !== null}
     aria-label={pieceLabel(pieceType)}
