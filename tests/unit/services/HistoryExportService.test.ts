@@ -45,13 +45,13 @@ describe("HistoryExportService", () => {
         players: {
           self: {
             player: "self",
-            seatLabel: "First Player",
-            displayName: "AI 1 Lv.2",
+            controller: "cpu",
+            aiStrength: AiStrength.STRENGTH_2,
           },
           opponent: {
             player: "opponent",
-            seatLabel: "Second Player",
-            displayName: "AI 2 Lv.2",
+            controller: "cpu",
+            aiStrength: AiStrength.STRENGTH_2,
           },
         },
       },

@@ -1,4 +1,6 @@
+import type { AiStrength } from "$lib/domain/enums/AiStrength";
 import type { HomeBaseSnapshot, ControllablePlayerSnapshot } from "$lib/domain/types/api";
+import type { PlayerController } from "$lib/domain/types/match";
 
 export interface MatchHistoryMetricPair {
   self: number;
@@ -7,8 +9,8 @@ export interface MatchHistoryMetricPair {
 
 export interface MatchHistoryPlayerSummary {
   player: ControllablePlayerSnapshot;
-  seatLabel: string;
-  displayName: string;
+  controller: PlayerController;
+  aiStrength: AiStrength;
 }
 
 export interface MatchHistoryMetadata {

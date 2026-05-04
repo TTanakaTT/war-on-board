@@ -9,6 +9,7 @@
   import type { ControllablePlayerSnapshot } from "$lib/domain/types/api";
   import type { MatchHistoryMetricPair } from "$lib/domain/types/history";
   import { m } from "$lib/paraglide/messages";
+  import { playerDisplayName, seatLabel } from "$lib/presentation/matchPresentation";
   import AppButton from "$lib/presentation/components/AppButton.svelte";
   import Icon from "$lib/presentation/components/Icon.svelte";
   import IconButton from "$lib/presentation/components/IconButton.svelte";
@@ -16,10 +17,31 @@
   import { MatchService } from "$lib/services/MatchService";
   import { MatchHistoryService } from "$lib/services/MatchHistoryService";
 
+  const HISTORY_TABLE_HEADER_PLAYERS = [
+    "self",
+    "opponent",
+    "self",
+    "opponent",
+    "self",
+    "opponent",
+    "self",
+    "opponent",
+    "self",
+    "opponent",
+  ] as const satisfies readonly ControllablePlayerSnapshot[];
+
   let turn = $derived(TurnRepository.get());
   let matchControl = $derived(MatchControlRepository.get());
   let dialogState = $derived(GameDialogRepository.get());
   let matchHistory = $derived(MatchHistoryService.getExportData());
+  let historyControllers = $derived.by(() => ({
+    self: matchHistory.metadata.players.self.controller,
+    opponent: matchHistory.metadata.players.opponent.controller,
+  }));
+  let historyAiStrengths = $derived.by(() => ({
+    self: matchHistory.metadata.players.self.aiStrength,
+    opponent: matchHistory.metadata.players.opponent.aiStrength,
+  }));
   let isAutomationStopped = $derived(
     turn.winner === null &&
       matchControl.automation.status === "stopped" &&
@@ -54,6 +76,14 @@
 
   function isWinningPlayer(player: ControllablePlayerSnapshot): boolean {
     return matchHistory.metadata.winner === player;
+  }
+
+  function historySeatLabel(player: ControllablePlayerSnapshot): string {
+    return seatLabel(player);
+  }
+
+  function historyDisplayName(player: ControllablePlayerSnapshot): string {
+    return playerDisplayName(player, historyControllers, historyAiStrengths);
   }
 
   function metricValue(
@@ -184,10 +214,10 @@
                 {#if isWinningPlayer("self")}
                   <Icon icon="emoji_events" size={18} />
                 {/if}
-                {matchHistory.metadata.players.self.seatLabel}
+                {historySeatLabel("self")}
               </span>
               <span class:font-semibold={isWinningPlayer("self")}>
-                {matchHistory.metadata.players.self.displayName}
+                {historyDisplayName("self")}
               </span>
             </div>
             <div
@@ -199,10 +229,10 @@
                 {#if isWinningPlayer("opponent")}
                   <Icon icon="emoji_events" size={18} />
                 {/if}
-                {matchHistory.metadata.players.opponent.seatLabel}
+                {historySeatLabel("opponent")}
               </span>
               <span class:font-semibold={isWinningPlayer("opponent")}>
-                {matchHistory.metadata.players.opponent.displayName}
+                {historyDisplayName("opponent")}
               </span>
             </div>
           </div>
@@ -276,13 +306,13 @@
                 </tr>
 
                 <tr>
-                  {#each [matchHistory.metadata.players.self.seatLabel, matchHistory.metadata.players.opponent.seatLabel, matchHistory.metadata.players.self.seatLabel, matchHistory.metadata.players.opponent.seatLabel, matchHistory.metadata.players.self.seatLabel, matchHistory.metadata.players.opponent.seatLabel, matchHistory.metadata.players.self.seatLabel, matchHistory.metadata.players.opponent.seatLabel, matchHistory.metadata.players.self.seatLabel, matchHistory.metadata.players.opponent.seatLabel] as seatHeaders, seatHeaderIndex (`${seatHeaders}-${seatHeaderIndex}`)}
+                  {#each HISTORY_TABLE_HEADER_PLAYERS as seatHeaderPlayer, seatHeaderIndex (`${seatHeaderPlayer}-${seatHeaderIndex}`)}
                     <th
                       scope="col"
                       class="border-outline/80 dark:border-outline-dark/80 border-b px-3 py-2 text-center align-middle text-xs font-medium whitespace-nowrap"
                     >
                       <span class="inline-flex h-5 items-center justify-center align-middle">
-                        {seatHeaders}
+                        {historySeatLabel(seatHeaderPlayer)}
                       </span>
                     </th>
                   {/each}

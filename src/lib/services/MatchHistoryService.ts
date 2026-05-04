@@ -13,7 +13,6 @@ import type {
   MatchHistoryPlayerSummary,
 } from "$lib/domain/types/history";
 import type { MatchAiStrengths, MatchControllers } from "$lib/domain/types/match";
-import { playerDisplayNames, seatLabel } from "$lib/presentation/matchPresentation";
 
 const CONTROLLABLE_PLAYERS = [
   "self",
@@ -41,27 +40,27 @@ export class MatchHistoryService {
     aiStrengths: MatchAiStrengths,
   ): MatchHistoryMetadata {
     const latestSnapshot = historyEntries.at(-1)?.snapshot;
-    const displayNames = playerDisplayNames(controllers, aiStrengths);
 
     return {
       winner: latestSnapshot?.turn.winner ?? null,
       layer: latestSnapshot?.layer ?? 0,
       homeBases: latestSnapshot?.homeBases ?? [],
       players: {
-        self: this.buildPlayerSummary("self", displayNames.self),
-        opponent: this.buildPlayerSummary("opponent", displayNames.opponent),
+        self: this.buildPlayerSummary("self", controllers, aiStrengths),
+        opponent: this.buildPlayerSummary("opponent", controllers, aiStrengths),
       },
     };
   }
 
   private static buildPlayerSummary(
     player: ControllablePlayerSnapshot,
-    displayName: string,
+    controllers: MatchControllers,
+    aiStrengths: MatchAiStrengths,
   ): MatchHistoryPlayerSummary {
     return {
       player,
-      seatLabel: seatLabel(player),
-      displayName,
+      controller: controllers[player],
+      aiStrength: aiStrengths[player],
     };
   }
 
