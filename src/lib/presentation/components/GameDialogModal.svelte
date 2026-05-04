@@ -137,7 +137,7 @@
 </script>
 
 {#if showModal}
-  <div class="fixed inset-0 z-2000 flex items-center justify-center bg-black/60 px-4">
+  <div class="bg-modal-scrim fixed inset-0 z-2000 flex items-center justify-center px-4">
     <div
       class="bg-surface dark:bg-surface-dark text-onsurface dark:text-onsurface-dark flex max-h-[85vh] flex-col gap-6 overflow-hidden rounded-2xl p-4 shadow-2xl {dialogWidthClass}"
     >

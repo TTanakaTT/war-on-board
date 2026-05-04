@@ -11,17 +11,21 @@
   let { piece }: Props = $props();
 
   let pieceColorClass = $derived(
-    piece.player === Player.SELF ? "text-white border-white" : "text-black border-black",
+    piece.player === Player.SELF
+      ? "text-player-self border-player-self"
+      : "text-player-opponent border-player-opponent",
   );
   let stackBadgeClass = $derived(
-    piece.player === Player.SELF ? "bg-white text-black" : "bg-black text-white",
+    piece.player === Player.SELF
+      ? "bg-player-self text-player-opponent"
+      : "bg-player-opponent text-player-self",
   );
 </script>
 
 <div class="relative flex flex-col items-center">
   <div class="bg-outline dark:bg-outline-dark mb-1 h-1 w-6 overflow-hidden rounded-full">
     <div
-      class="h-full bg-white transition-all duration-300"
+      class="bg-health-fill h-full transition-all duration-300"
       style="width: {(piece.hp / piece.maxHp) * 100}%"
     ></div>
   </div>

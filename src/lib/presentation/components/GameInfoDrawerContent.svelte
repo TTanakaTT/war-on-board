@@ -60,17 +60,17 @@
   }
 
   function panelClass(playerId: PlayerInfoCard["id"], isWideLayoutValue: boolean): string {
-    return `border-2 bg-stone-500 shadow-sm ${isWideLayoutValue ? "rounded-2xl p-4" : "rounded-xl p-3"} ${playerId === "self" ? "border-white text-white" : "border-black text-black"}`;
+    return `border-2 bg-player-card-surface shadow-sm ${isWideLayoutValue ? "rounded-2xl p-4" : "rounded-xl p-3"} ${playerId === "self" ? "border-player-self text-player-self" : "border-player-opponent text-player-opponent"}`;
   }
 
   function unitPanelClass(playerId: PlayerInfoCard["id"]): string {
     return playerId === "self"
-      ? "border border-white text-white"
-      : "border border-black text-black";
+      ? "border border-player-self text-player-self"
+      : "border border-player-opponent text-player-opponent";
   }
 
   function infoLabelClass(playerId: PlayerInfoCard["id"]): string {
-    return playerId === "self" ? "text-white/90" : "text-black/80";
+    return playerId === "self" ? "text-player-self-muted" : "text-player-opponent-muted";
   }
 
   let playerCards = $derived(

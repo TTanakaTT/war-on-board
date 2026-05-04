@@ -47,7 +47,9 @@
   let turn = $derived(TurnRepository.get());
 
   let resourceColor = $derived(
-    panel?.player === Player.SELF ? "text-white border-white" : "text-black border-black",
+    panel?.player === Player.SELF
+      ? "text-player-self border-player-self"
+      : "text-player-opponent border-player-opponent",
   );
 
   function handlePieceClick(e: MouseEvent, piece: Piece) {
@@ -82,11 +84,11 @@
 
     switch (player) {
       case Player.SELF:
-        strokeClass = "stroke-2 stroke-white";
+        strokeClass = "stroke-2 stroke-player-self";
         strokeDasharray = PLAYER_PANEL_STROKE_DASHARRAY;
         break;
       case Player.OPPONENT:
-        strokeClass = "stroke-2 stroke-black";
+        strokeClass = "stroke-2 stroke-player-opponent";
         strokeDasharray = PLAYER_PANEL_STROKE_DASHARRAY;
         break;
       default:

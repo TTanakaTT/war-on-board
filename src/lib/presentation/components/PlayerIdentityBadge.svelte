@@ -22,7 +22,11 @@
   }: Props = $props();
 
   let isFirstPlayer = $derived(player === Player.SELF || player === "self");
-  let toneClass = $derived(isFirstPlayer ? "border-white text-white" : "border-black text-black");
+  let toneClass = $derived(
+    isFirstPlayer
+      ? "border-player-self text-player-self"
+      : "border-player-opponent text-player-opponent",
+  );
   let ariaLabel = $derived(resource === undefined ? label : `${label}: ${resource}`);
 </script>
 

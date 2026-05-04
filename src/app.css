@@ -44,6 +44,14 @@
 
   --color-castle: var(--color-slate-500);
   --color-resource: var(--color-lime-500);
+  --color-player-self: var(--color-white);
+  --color-player-opponent: var(--color-black);
+  --color-player-card-surface: var(--color-stone-500);
+  --color-player-self-muted: rgb(255 255 255 / 90%);
+  --color-player-opponent-muted: rgb(0 0 0 / 80%);
+  --color-health-fill: var(--color-white);
+  --color-modal-scrim: rgb(0 0 0 / 60%);
+  --color-dialog-backdrop: rgb(0 0 0 / 30%);
 }
 
 @custom-variant pseudo-el {
@@ -66,7 +74,7 @@ body {
 }
 
 dialog::backdrop {
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: var(--color-dialog-backdrop);
 }
 
 @keyframes piece-preview-motion {
