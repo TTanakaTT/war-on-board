@@ -85,6 +85,7 @@
     <section class="flex flex-col gap-3">
       <h2 class="font-semibold tracking-wide uppercase">{m.language_title()}</h2>
       <HorizontalRadioGroup
+        name="settings-language"
         ariaLabel={m.language_title()}
         options={localeOptions()}
         value={selectedLocale}
@@ -95,6 +96,7 @@
     <section class="flex flex-col gap-3">
       <h2 class="font-semibold tracking-wide uppercase">{m.theme_title()}</h2>
       <HorizontalRadioGroup
+        name="settings-theme"
         ariaLabel={m.theme_title()}
         options={themeOptions()}
         value={selectedTheme}

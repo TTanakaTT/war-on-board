@@ -129,6 +129,7 @@
             {m.first_player_label()}
           </h2>
           <HorizontalRadioGroup
+            name="match-setup-first-player"
             ariaLabel={m.first_player_label()}
             options={selectionOptions()}
             value={selfSelection}
@@ -141,6 +142,7 @@
             {m.second_player_label()}
           </h2>
           <HorizontalRadioGroup
+            name="match-setup-second-player"
             ariaLabel={m.second_player_label()}
             options={selectionOptions()}
             value={opponentSelection}
