@@ -9,11 +9,14 @@
   let { expanded, onclick }: Props = $props();
 
   let icon = $derived(expanded ? "keyboard_arrow_left" : "keyboard_arrow_right");
+  let ariaLabel = $derived(expanded ? "Collapse drawer" : "Expand drawer");
 </script>
 
 <button
   type="button"
   class="bg-background dark:bg-background-dark border-outline dark:border-outline-dark text-onsurface dark:text-onsurface-dark hover:bg-surface dark:hover:bg-surface-dark inline-flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors duration-200"
+  aria-label={ariaLabel}
+  title={ariaLabel}
   {onclick}
 >
   <Icon {icon} size={24} />
