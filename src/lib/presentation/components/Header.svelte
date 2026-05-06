@@ -14,6 +14,7 @@
   import Icon from "$lib/presentation/components/Icon.svelte";
   import IconButton from "$lib/presentation/components/IconButton.svelte";
   import PlayerIdentityBadge from "$lib/presentation/components/PlayerIdentityBadge.svelte";
+  import { DESKTOP_NAVIGATION_BREAKPOINT_PX } from "$lib/presentation/constants/UiConstants";
   import { playerDisplayName } from "$lib/presentation/matchPresentation";
   import { MatchService } from "$lib/services/MatchService";
 
@@ -45,6 +46,7 @@
   let isHumanTurn = $derived(isGamePage && MatchService.getControllerForCurrentTurn() === "human");
   let isAutomationRunning = $derived(isGamePage && MatchService.isAutomationRunning());
   let generationMode = $derived(turn.generationMode[String(turn.player)] ?? "rear");
+  let windowWidth = $state(0);
   let selfLabel = $derived(
     playerDisplayName("self", matchControl.controllers, matchControl.aiStrengths),
   );
@@ -54,7 +56,16 @@
   let generationModeLabel = $derived(
     generationMode === "rear" ? m.generation_rear() : m.generation_front(),
   );
-  let generationModeIcon = $derived(generationMode === "rear" ? "arrow_downward" : "arrow_upward");
+  let isRotatedBoardLayout = $derived(
+    isGamePage && windowWidth > 0 && windowWidth <= DESKTOP_NAVIGATION_BREAKPOINT_PX,
+  );
+  let generationModeIcon = $derived.by(() => {
+    if (isRotatedBoardLayout) {
+      return generationMode === "rear" ? "arrow_downward" : "arrow_upward";
+    }
+
+    return generationMode === "rear" ? "arrow_back" : "arrow_forward";
+  });
   const generateMenuPieceTypes = [PieceType.KNIGHT, PieceType.ROOK, PieceType.BISHOP] as const;
   let controlsViewport = $state<HTMLDivElement | undefined>(undefined);
   let measurementStrip = $state<HTMLDivElement | undefined>(undefined);
@@ -138,6 +149,8 @@
     }
   });
 </script>
+
+<svelte:window bind:innerWidth={windowWidth} />
 
 {#snippet desktopGameControls(compact: boolean)}
   <EndTurnButton {compact} />
