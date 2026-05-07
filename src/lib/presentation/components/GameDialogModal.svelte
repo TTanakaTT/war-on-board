@@ -30,7 +30,6 @@
     "opponent",
   ] as const satisfies readonly ControllablePlayerSnapshot[];
   const GAME_DIALOG_TITLE_ID = "game-dialog-modal-title";
-  const GAME_DIALOG_DESCRIPTION_ID = "game-dialog-modal-description";
 
   let dialog = $state<HTMLDialogElement | undefined>(undefined);
   let previousFocusedElement = $state<HTMLElement | null>(null);
@@ -205,7 +204,6 @@
   bind:this={dialog}
   aria-modal="true"
   aria-labelledby={GAME_DIALOG_TITLE_ID}
-  aria-describedby={GAME_DIALOG_DESCRIPTION_ID}
   tabindex="-1"
   class="fixed inset-0 z-2000 m-0 h-full max-h-none w-full max-w-none border-0 bg-transparent p-4"
   oncancel={handleDialogCancel}
