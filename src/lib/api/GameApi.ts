@@ -474,7 +474,6 @@ export class GameApi {
     HomeBaseRepository.setAll(snapshot.homeBases.map((homeBase) => this.restoreHomeBase(homeBase)));
     PiecesRepository.setAll(snapshot.pieces.map((piece) => this.restorePiece(piece)));
     TurnRepository.set(this.restoreTurn(snapshot.turn));
-    MatchStatsRepository.reset();
 
     return { ok: true, value: { gameState: this.getGameState() } };
   }
