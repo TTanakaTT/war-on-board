@@ -28,7 +28,7 @@
   const width = $derived(BoardLayout.boardWidth);
   const height = $derived(BoardLayout.boardHeight);
   const isMobileLayout = $derived(
-    windowWidth > 0 && windowWidth <= DESKTOP_NAVIGATION_BREAKPOINT_PX,
+    windowWidth > 0 && windowWidth < DESKTOP_NAVIGATION_BREAKPOINT_PX,
   );
   const boardScale = $derived.by(() => {
     if (!isMobileLayout || windowWidth === 0 || windowHeight === 0) {

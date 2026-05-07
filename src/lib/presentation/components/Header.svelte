@@ -57,7 +57,7 @@
     generationMode === "rear" ? m.generation_rear() : m.generation_front(),
   );
   let isRotatedBoardLayout = $derived(
-    isGamePage && windowWidth > 0 && windowWidth <= DESKTOP_NAVIGATION_BREAKPOINT_PX,
+    isGamePage && windowWidth > 0 && windowWidth < DESKTOP_NAVIGATION_BREAKPOINT_PX,
   );
   let generationModeIcon = $derived.by(() => {
     if (isRotatedBoardLayout) {
