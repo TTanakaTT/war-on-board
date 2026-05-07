@@ -18,9 +18,10 @@
 
   interface Props {
     isWideGameLayout?: boolean;
+    isBrowserLayout?: boolean;
   }
 
-  let { isWideGameLayout = false }: Props = $props();
+  let { isWideGameLayout = false, isBrowserLayout = false }: Props = $props();
 
   let isGamePage = $derived(page.route.id === "/game");
   let selectedLocale = $state<LocaleValue>(getLocale());
@@ -74,7 +75,7 @@
       <h1 class="text-xl font-semibold">{m.information_title()}</h1>
     </div>
 
-    <GameInfoDrawerContent isWideLayout={isWideGameLayout} />
+    <GameInfoDrawerContent isWideLayout={isWideGameLayout} {isBrowserLayout} />
   </div>
 {:else}
   <div class="no-scrollbar flex h-full min-h-0 flex-col gap-6 overflow-y-auto p-4">

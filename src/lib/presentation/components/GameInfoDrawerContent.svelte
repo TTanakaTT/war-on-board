@@ -27,9 +27,10 @@
 
   interface Props {
     isWideLayout?: boolean;
+    isBrowserLayout?: boolean;
   }
 
-  let { isWideLayout = false }: Props = $props();
+  let { isWideLayout = false, isBrowserLayout = false }: Props = $props();
 
   let matchControl = $derived(MatchControlRepository.get());
   let matchStats = $derived(MatchStatsRepository.get());
@@ -74,7 +75,7 @@
   }
 
   let playerCards = $derived(
-    playerInfoOrder(isWideLayout).map((player) => buildPlayerInfo(player)),
+    playerInfoOrder(isWideLayout || isBrowserLayout).map((player) => buildPlayerInfo(player)),
   );
   let containerClass = $derived(
     isWideLayout ? "grid grid-cols-2 items-start gap-4" : "flex flex-col gap-4",
