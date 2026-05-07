@@ -25,7 +25,7 @@ export class GenerationService {
    * Find the best panel for unit generation.
    *
    * Mode "rear": home base first → higher |horizontalLayer| (closer to home).
-   * Mode "front": lower distance to the opponent home base first.
+   * Mode "front": lower horizontal distance to the opponent home base first.
    *
    * Conditions: owned by player, resource >= RESOURCE_THRESHOLD_FOR_GENERATION,
    * and either not at max capacity OR the panel has a same-type mergeable piece
@@ -66,14 +66,14 @@ export class GenerationService {
         const bAbsHL = Math.abs(b.panelPosition.horizontalLayer);
         if (aAbsHL !== bAbsHL) return bAbsHL - aAbsHL;
       } else if (opponentHomeBase) {
-        const aDistanceToOpponent = Math.abs(
+        const aHorizontalDistanceToOpponent = Math.abs(
           a.panelPosition.horizontalLayer - opponentHomeBase.panelPosition.horizontalLayer,
         );
-        const bDistanceToOpponent = Math.abs(
+        const bHorizontalDistanceToOpponent = Math.abs(
           b.panelPosition.horizontalLayer - opponentHomeBase.panelPosition.horizontalLayer,
         );
-        if (aDistanceToOpponent !== bDistanceToOpponent) {
-          return aDistanceToOpponent - bDistanceToOpponent;
+        if (aHorizontalDistanceToOpponent !== bHorizontalDistanceToOpponent) {
+          return aHorizontalDistanceToOpponent - bHorizontalDistanceToOpponent;
         }
       }
 
