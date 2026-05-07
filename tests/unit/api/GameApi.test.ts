@@ -955,6 +955,36 @@ describe("GameApi.generatePiece", () => {
       expect(pieces).toHaveLength(1);
       expect(pieces[0].panelPosition.equals(hbPos)).toBe(true);
     });
+
+    test("in front mode, generation can use an enemy-side owned panel when it is closest to the opponent home base", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const homeSidePos = new PanelPosition({ horizontalLayer: -1, verticalLayer: 0 });
+      const homeSidePanel = PanelRepository.find(homeSidePos)!;
+      PanelRepository.update(
+        new Panel({
+          ...homeSidePanel,
+          player: Player.SELF,
+          resource: RESOURCE_THRESHOLD_FOR_GENERATION,
+        }),
+      );
+
+      const enemySidePos = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      const enemySidePanel = PanelRepository.find(enemySidePos)!;
+      PanelRepository.update(
+        new Panel({
+          ...enemySidePanel,
+          player: Player.SELF,
+          resource: RESOURCE_THRESHOLD_FOR_GENERATION + 1,
+        }),
+      );
+
+      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+
+      const pieces = PiecesRepository.getAll();
+      expect(pieces).toHaveLength(1);
+      expect(pieces[0].panelPosition.equals(enemySidePos)).toBe(true);
+    });
   });
 });
 

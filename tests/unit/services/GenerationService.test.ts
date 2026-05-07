@@ -161,6 +161,37 @@ describe("GenerationService", () => {
       expect(result!.horizontalLayer).toBe(-1);
     });
 
+    test("in front mode, prefers an enemy-side panel when it is closer to the opponent home base", () => {
+      const turn = TurnRepository.get();
+      TurnRepository.set({
+        ...turn,
+        generationMode: { ...turn.generationMode, [String(Player.SELF)]: "front" },
+      });
+
+      const homeSidePanel = PanelRepository.find(pos(-1, 0))!;
+      PanelRepository.update(
+        new Panel({
+          ...homeSidePanel,
+          player: Player.SELF,
+          resource: RESOURCE_THRESHOLD_FOR_GENERATION,
+        }),
+      );
+
+      const enemySidePanel = PanelRepository.find(pos(2, 0))!;
+      PanelRepository.update(
+        new Panel({
+          ...enemySidePanel,
+          player: Player.SELF,
+          resource: RESOURCE_THRESHOLD_FOR_GENERATION + 1,
+        }),
+      );
+
+      const result = GenerationService.findGenerationPanel(Player.SELF);
+
+      expect(result!.horizontalLayer).toBe(2);
+      expect(result!.verticalLayer).toBe(0);
+    });
+
     test("breaks ties by ascending verticalLayer", () => {
       // Give two panels at same |hl| enough resources
       const panel20 = PanelRepository.find(pos(-2, 0))!;
