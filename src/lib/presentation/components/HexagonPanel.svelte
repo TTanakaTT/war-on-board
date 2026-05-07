@@ -15,8 +15,8 @@
   import { slide } from "svelte/transition";
 
   type PanelAppearance = {
+    isInteractive: boolean;
     containerClass: string;
-    hitAreaClass: string;
     polygonClass: string;
     strokeClass: string;
     strokeDasharray?: string;
@@ -41,6 +41,7 @@
 
   let panelState = $derived(panel?.panelState);
   let panelAppearance = $derived(getPanelAppearance());
+  let isInteractive = $derived(panelAppearance.isInteractive);
   let panelFrameStyle = $derived(
     `width: ${BoardLayout.horizontalSideLength}px; height: ${BoardLayout.HEIGHT}px;`,
   );
@@ -59,19 +60,6 @@
   function handlePieceClick(e: MouseEvent, piece: Piece) {
     e.stopPropagation();
     InteractionService.pieceChange(piece);
-  }
-
-  function onkeydown(e: KeyboardEvent) {
-    if (!["Enter", " "].includes(e.key)) return;
-    if (
-      panelState &&
-      ![PanelState.OCCUPIED, PanelState.SELECTED, PanelState.MOVABLE].includes(panelState)
-    )
-      return;
-
-    if (pieces?.length === 0) return;
-
-    onclick();
   }
 
   function getPanelAppearance(): PanelAppearance {
@@ -107,16 +95,16 @@
     switch (_panelState) {
       case PanelState.UNOCCUPIED:
         return {
+          isInteractive: false,
           containerClass: `${baseContainerClass} pointer-events-none`,
-          hitAreaClass: "pointer-events-none",
           polygonClass: `${basePolygonClass} fill-panel-unoccupied dark:fill-panel-unoccupied-dark`,
           strokeClass,
           strokeDasharray,
         };
       case PanelState.OCCUPIED:
         return {
+          isInteractive: true,
           containerClass: baseContainerClass,
-          hitAreaClass: "cursor-pointer",
           polygonClass: `${basePolygonClass} fill-panel-occupied dark:fill-panel-occupied-dark`,
           strokeClass,
           strokeDasharray,
@@ -124,8 +112,8 @@
       case PanelState.SELECTED:
       case PanelState.MOVABLE:
         return {
+          isInteractive: true,
           containerClass: `${baseContainerClass} cursor-pointer`,
-          hitAreaClass: "cursor-pointer",
           polygonClass: `${basePolygonClass} fill-panel-movable group-hover:fill-panel-selected dark:fill-panel-movable-dark dark:group-hover:fill-panel-selected-dark`,
           strokeClass,
           strokeDasharray,
@@ -133,8 +121,8 @@
       case PanelState.IMMOVABLE:
       default:
         return {
+          isInteractive: false,
           containerClass: `${baseContainerClass} pointer-events-none`,
-          hitAreaClass: "pointer-events-none",
           polygonClass: `${basePolygonClass} fill-panel-immovable dark:fill-panel-immovable-dark`,
           strokeClass,
           strokeDasharray,
@@ -143,19 +131,24 @@
   }
 </script>
 
-<div
-  class={panelAppearance.containerClass}
-  role="button"
-  tabindex="0"
-  style={panelFrameStyle}
-  {onclick}
-  {onkeydown}
->
+{#snippet panelContent()}
   <div
-    class="absolute top-0 left-1/2 z-0 -translate-x-1/2 {panelAppearance.hitAreaClass}"
+    class="absolute top-0 left-1/2 z-0 -translate-x-1/2 {isInteractive
+      ? 'cursor-pointer'
+      : 'pointer-events-none'}"
     style={panelHitAreaStyle}
     aria-hidden="true"
   ></div>
+
+  {#if isInteractive}
+    <button
+      class="focus-visible:ring-primary absolute top-0 left-1/2 z-0 -translate-x-1/2 cursor-pointer focus-visible:ring-2 focus-visible:outline-none"
+      style={panelHitAreaStyle}
+      type="button"
+      aria-label="panel"
+      {onclick}
+    ></button>
+  {/if}
 
   <HexagonPanelSvg
     polygonClass={panelAppearance.polygonClass}
@@ -221,4 +214,8 @@
       {/if}
     </div>
   </div>
+{/snippet}
+
+<div class={panelAppearance.containerClass} style={panelFrameStyle}>
+  {@render panelContent()}
 </div>
