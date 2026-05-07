@@ -16,6 +16,7 @@
 
   type PanelAppearance = {
     containerClass: string;
+    hitAreaClass: string;
     polygonClass: string;
     strokeClass: string;
     strokeDasharray?: string;
@@ -42,6 +43,9 @@
   let panelAppearance = $derived(getPanelAppearance());
   let panelFrameStyle = $derived(
     `width: ${BoardLayout.horizontalSideLength}px; height: ${BoardLayout.HEIGHT}px;`,
+  );
+  let panelHitAreaStyle = $derived(
+    `width: ${BoardLayout.horizontalSideLength * 2}px; height: ${BoardLayout.HEIGHT}px; clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);`,
   );
 
   let turn = $derived(TurnRepository.get());
@@ -104,6 +108,7 @@
       case PanelState.UNOCCUPIED:
         return {
           containerClass: `${baseContainerClass} pointer-events-none`,
+          hitAreaClass: "pointer-events-none",
           polygonClass: `${basePolygonClass} fill-panel-unoccupied dark:fill-panel-unoccupied-dark`,
           strokeClass,
           strokeDasharray,
@@ -111,6 +116,7 @@
       case PanelState.OCCUPIED:
         return {
           containerClass: baseContainerClass,
+          hitAreaClass: "cursor-pointer",
           polygonClass: `${basePolygonClass} fill-panel-occupied dark:fill-panel-occupied-dark`,
           strokeClass,
           strokeDasharray,
@@ -119,6 +125,7 @@
       case PanelState.MOVABLE:
         return {
           containerClass: `${baseContainerClass} cursor-pointer`,
+          hitAreaClass: "cursor-pointer",
           polygonClass: `${basePolygonClass} fill-panel-movable group-hover:fill-panel-selected dark:fill-panel-movable-dark dark:group-hover:fill-panel-selected-dark`,
           strokeClass,
           strokeDasharray,
@@ -127,6 +134,7 @@
       default:
         return {
           containerClass: `${baseContainerClass} pointer-events-none`,
+          hitAreaClass: "pointer-events-none",
           polygonClass: `${basePolygonClass} fill-panel-immovable dark:fill-panel-immovable-dark`,
           strokeClass,
           strokeDasharray,
@@ -143,13 +151,19 @@
   {onclick}
   {onkeydown}
 >
+  <div
+    class="absolute top-0 left-1/2 z-0 -translate-x-1/2 {panelAppearance.hitAreaClass}"
+    style={panelHitAreaStyle}
+    aria-hidden="true"
+  ></div>
+
   <HexagonPanelSvg
     polygonClass={panelAppearance.polygonClass}
     strokeClass={panelAppearance.strokeClass}
     strokeDasharray={panelAppearance.strokeDasharray}
   />
 
-  <div class="absolute inset-0 z-1 flex rotate-90 flex-col lg:rotate-0">
+  <div class="pointer-events-none absolute inset-0 z-1 flex rotate-90 flex-col lg:rotate-0">
     <div class="pointer-events-none flex flex-1 items-start">
       {#if castle && castle > 0}
         <div
