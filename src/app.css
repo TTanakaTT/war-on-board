@@ -1,6 +1,8 @@
 @import "material-symbols/index.css";
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary: var(--color-lime-600);
   --color-primary-dark: var(--color-lime-600);
@@ -10,8 +12,8 @@
   --color-secondary-dark: oklch(0.971 0.013 17.38);
   --color-secondary-variant: oklch(0.971 0.013 17.38);
   --color-secondary-variant-dark: oklch(0.971 0.013 17.38);
-  --color-surface: var(--color-stone-200);
-  --color-surface-dark: var(--color-stone-900);
+  --color-surface: var(--color-stone-300);
+  --color-surface-dark: var(--color-stone-700);
   --color-background: var(--color-stone-100);
   --color-background-dark: var(--color-stone-800);
   --color-outline: var(--color-stone-300);
@@ -42,6 +44,14 @@
 
   --color-castle: var(--color-slate-500);
   --color-resource: var(--color-lime-500);
+  --color-player-self: var(--color-white);
+  --color-player-opponent: var(--color-black);
+  --color-player-card-surface: var(--color-stone-500);
+  --color-player-self-muted: rgb(255 255 255 / 90%);
+  --color-player-opponent-muted: rgb(0 0 0 / 80%);
+  --color-health-fill: var(--color-white);
+  --color-modal-scrim: rgb(0 0 0 / 60%);
+  --color-dialog-backdrop: rgb(0 0 0 / 30%);
 }
 
 @custom-variant pseudo-el {
@@ -64,9 +74,7 @@ body {
 }
 
 dialog::backdrop {
-  color-scheme: light dark;
-
-  background-color: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.1));
+  background-color: var(--color-dialog-backdrop);
 }
 
 @keyframes piece-preview-motion {
@@ -99,4 +107,13 @@ dialog::backdrop {
 .piece-preview-motion {
   animation: piece-preview-motion var(--piece-preview-duration) ease-in-out infinite;
   will-change: transform, opacity;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

@@ -1,33 +1,20 @@
 <script lang="ts">
   import HexagonPanel from "./HexagonPanel.svelte";
   import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-  import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-  import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
-  import { GameApi } from "$lib/api/GameApi";
   import { InteractionService } from "$lib/services/InteractionService";
-  import { Player } from "$lib/domain/enums/Player";
-  import { PieceType } from "$lib/domain/enums/PieceType";
   import { LayerRepository } from "$lib/data/repositories/LayerRepository";
-  import GeneratePieceButton from "$lib/presentation/components/GeneratePieceButton.svelte";
-  import EndTurnButton from "$lib/presentation/components/EndTurnButton.svelte";
-  import Icon from "$lib/presentation/components/Icon.svelte";
   import MoveArrows from "./MoveArrows.svelte";
   import MovingPiecePreview from "./MovingPiecePreview.svelte";
-  import { slide } from "svelte/transition";
   import { BoardLayout } from "$lib/presentation/BoardLayout";
-  import { m } from "$lib/paraglide/messages";
-  import type { GenerationMode } from "$lib/domain/entities/Turn";
-  import { MatchService } from "$lib/services/MatchService";
-
-  let turn = $derived(TurnRepository.get());
-  let matchControl = $derived(MatchControlRepository.get());
-  let currentPlayer = $derived(turn.player);
-  let selfResources = $derived(turn.resources[String(Player.SELF)] ?? 0);
-  let opponentResources = $derived(turn.resources[String(Player.OPPONENT)] ?? 0);
-  let isHumanTurn = $derived(MatchService.getControllerForCurrentTurn() === "human");
-  let isAutomationRunning = $derived(MatchService.isAutomationRunning());
+  import {
+    DESKTOP_NAVIGATION_BREAKPOINT_PX,
+    MOBILE_BOARD_VIEWPORT_GUTTER_PX,
+    MOBILE_GAME_HEADER_HEIGHT_PX,
+  } from "$lib/presentation/constants/UiConstants";
 
   let layer = $derived(LayerRepository.get());
+  let windowWidth = $state(0);
+  let windowHeight = $state(0);
 
   function sideRange(): number[] {
     const horizontalLayer = layer;
@@ -40,9 +27,29 @@
 
   const width = $derived(BoardLayout.boardWidth);
   const height = $derived(BoardLayout.boardHeight);
-  const layeredPanelContainerStyle = $derived(
-    `width: ${width}px; height: ${height}px; position: relative;`,
+  const isMobileLayout = $derived(
+    windowWidth > 0 && windowWidth < DESKTOP_NAVIGATION_BREAKPOINT_PX,
   );
+  const boardScale = $derived.by(() => {
+    if (!isMobileLayout || windowWidth === 0 || windowHeight === 0) {
+      return 1;
+    }
+
+    const availableWidth = Math.max(windowWidth - MOBILE_BOARD_VIEWPORT_GUTTER_PX, 0);
+    const availableHeight = Math.max(
+      windowHeight - MOBILE_GAME_HEADER_HEIGHT_PX - MOBILE_BOARD_VIEWPORT_GUTTER_PX,
+      0,
+    );
+
+    return Math.min(1, availableWidth / height, availableHeight / width);
+  });
+  const boardViewportStyle = $derived.by(() => {
+    const viewportWidth = isMobileLayout ? height * boardScale : width;
+    const viewportHeight = isMobileLayout ? width * boardScale : height;
+
+    return `--board-width: ${width}px; --board-height: ${height}px; --board-scale: ${boardScale}; --board-viewport-width: ${viewportWidth}px; --board-viewport-height: ${viewportHeight}px;`;
+  });
+  const layeredPanelContainerStyle = $derived(`width: ${width}px; height: ${height}px;`);
 
   // Ratio between hexagon height and width for a regular pointy-top hexagon.
   const HEXAGON_HORIZONTAL_RATIO = Math.sqrt(3);
@@ -57,107 +64,40 @@
     const top = coords.y - BoardLayout.HEIGHT / 2 - PANEL_VERTICAL_PIXEL_OFFSET;
     return `position: absolute; left: ${left}px; top: ${top}px;`;
   }
-
-  let turnColor = $derived(
-    turn.player === Player.SELF ? "text-white border-white" : "text-black border-black",
-  );
-
-  let generationMode = $derived<GenerationMode>(
-    (turn.generationMode[String(currentPlayer)] as GenerationMode) ?? "rear",
-  );
-
-  let currentPlayerLabel = $derived(
-    matchControl.mode === "cpu-vs-cpu"
-      ? currentPlayer === Player.SELF
-        ? m.cpu_one()
-        : m.cpu_two()
-      : currentPlayer === Player.SELF
-        ? m.player_self()
-        : m.player_opponent(),
-  );
-
-  function toggleGenerationMode() {
-    if (!isHumanTurn || isAutomationRunning || turn.winner !== null) return;
-
-    const currentTurn = TurnRepository.get();
-    const currentMode = currentTurn.generationMode[String(currentTurn.player)] ?? "rear";
-    const newMode: GenerationMode = currentMode === "rear" ? "front" : "rear";
-    GameApi.setGenerationMode(currentTurn.player, newMode);
-  }
 </script>
 
-<div class="m-2 flex justify-center gap-4">
-  <span
-    class="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border-2 p-1.5 text-sm {turnColor}"
-    >{m.turn_label()}<span class="text-2xl font-bold">{turn.num}</span> {currentPlayerLabel}</span
-  >
-  <EndTurnButton />
-</div>
+<svelte:window bind:innerWidth={windowWidth} bind:innerHeight={windowHeight} />
 
-<div class="m-2 flex justify-center">
-  <div style={layeredPanelContainerStyle}>
-    {#each sideRange() as hl (hl)}
-      {#each { length: layer - Math.abs(hl) }, vl}
-        <div style={panelPositionStyle(hl, vl)}>
-          <HexagonPanel
-            panelPosition={new PanelPosition({
-              horizontalLayer: hl,
-              verticalLayer: vl,
-            })}
-            onclick={() =>
-              InteractionService.panelChange(
-                new PanelPosition({
-                  horizontalLayer: hl,
-                  verticalLayer: vl,
-                }),
-              )}
-          />
-        </div>
-      {/each}
-    {/each}
-    <MoveArrows />
-    <MovingPiecePreview />
-  </div>
-</div>
-
-<div class="my-2 flex justify-center gap-2">
+<div class="flex h-full items-center justify-center overflow-auto p-4">
   <div
-    class="bg-resource flex items-center justify-center gap-1 rounded-lg border-2 border-white pr-2 pl-1 text-white"
+    class="relative h-(--board-viewport-height) w-(--board-viewport-width) shrink-0"
+    style={boardViewportStyle}
   >
-    <Icon
-      icon="home"
-      size={24}
-      transition={slide}
-      transitionParams={{ duration: 500, axis: "y" }}
-    />
-
-    <div class="text-2xl">{selfResources}</div>
-  </div>
-  <button
-    type="button"
-    class="border-primary dark:border-primary-dark text-onbackground dark:text-onbackground-dark shadow-primary dark:shadow-primary-dark hover:ring-primary dark:hover:ring-primary-dark flex items-center gap-1 rounded-3xl border px-3 py-2.5 shadow-md transition-all duration-200 ease-in-out hover:ring active:translate-y-1 active:shadow-none"
-    onclick={toggleGenerationMode}
-    disabled={!isHumanTurn || isAutomationRunning || turn.winner !== null}
-  >
-    <Icon icon={generationMode === "rear" ? "arrow_back" : "arrow_forward"} size={20} />
-    <span class="text-sm"
-      >{generationMode === "rear" ? m.generation_rear() : m.generation_front()}</span
+    <div
+      class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 scale-(--board-scale) -rotate-90 transform-gpu lg:scale-100 lg:rotate-0"
+      style={layeredPanelContainerStyle}
     >
-  </button>
-  <GeneratePieceButton pieceType={PieceType.KNIGHT} />
-  <GeneratePieceButton pieceType={PieceType.ROOK} />
-  <GeneratePieceButton pieceType={PieceType.BISHOP} />
-
-  <div
-    class="bg-resource flex items-center justify-center gap-1 rounded-lg border-2 border-black pr-2 pl-1 text-black"
-  >
-    <Icon
-      icon="home"
-      size={24}
-      transition={slide}
-      transitionParams={{ duration: 500, axis: "y" }}
-    />
-
-    <div class="text-2xl">{opponentResources}</div>
+      {#each sideRange() as hl (hl)}
+        {#each { length: layer - Math.abs(hl) }, vl}
+          <div style={panelPositionStyle(hl, vl)}>
+            <HexagonPanel
+              panelPosition={new PanelPosition({
+                horizontalLayer: hl,
+                verticalLayer: vl,
+              })}
+              onclick={() =>
+                InteractionService.panelChange(
+                  new PanelPosition({
+                    horizontalLayer: hl,
+                    verticalLayer: vl,
+                  }),
+                )}
+            />
+          </div>
+        {/each}
+      {/each}
+      <MoveArrows />
+      <MovingPiecePreview />
+    </div>
   </div>
 </div>

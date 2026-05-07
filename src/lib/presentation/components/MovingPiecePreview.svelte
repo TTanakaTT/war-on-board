@@ -46,7 +46,9 @@
         class="piece-preview-motion drop-shadow-md"
         style="--piece-preview-travel-x: {preview.travelX}px; --piece-preview-travel-y: {preview.travelY}px; --piece-preview-duration: {PIECE_PREVIEW_ANIMATION_MS}ms;"
       >
-        <PieceToken piece={preview.piece} />
+        <div class="rotate-90 lg:rotate-0">
+          <PieceToken piece={preview.piece} />
+        </div>
       </div>
     </div>
   {/each}

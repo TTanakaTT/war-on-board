@@ -1,14 +1,34 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { GameApi } from "$lib/api/GameApi";
+import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
+import { AiStrength } from "$lib/domain/enums/AiStrength";
 import { Player } from "$lib/domain/enums/Player";
 import { HistoryExportService } from "$lib/services/HistoryExportService";
 
 describe("HistoryExportService", () => {
   beforeEach(() => {
     GameApi.initializeGame({ layer: 4 });
+    MatchControlRepository.set({
+      mode: "cpu-vs-cpu",
+      controllers: {
+        self: "cpu",
+        opponent: "cpu",
+      },
+      aiStrengths: {
+        self: AiStrength.STRENGTH_2,
+        opponent: AiStrength.STRENGTH_2,
+      },
+      automation: {
+        status: "idle",
+        automatedTurns: 0,
+        turnLimit: 10,
+        stopReason: null,
+        stoppedAtWinner: null,
+      },
+    });
   });
 
-  test("serializes the recorded history as parseable JSON without altering repository state", () => {
+  test("serializes normalized history metadata and entries without altering repository state", () => {
     const endTurnResult = GameApi.endTurn(Player.SELF);
     expect(endTurnResult.ok).toBe(true);
 
@@ -17,7 +37,43 @@ describe("HistoryExportService", () => {
     const parsedHistory = JSON.parse(exportedJson);
     const historyAfterExport = GameApi.getGameStateHistory();
 
-    expect(parsedHistory).toEqual(historyBeforeExport);
+    expect(parsedHistory).toEqual({
+      metadata: {
+        winner: null,
+        layer: 4,
+        homeBases: historyBeforeExport[0].snapshot.homeBases,
+        players: {
+          self: {
+            player: "self",
+            controller: "cpu",
+            aiStrength: AiStrength.STRENGTH_2,
+          },
+          opponent: {
+            player: "opponent",
+            controller: "cpu",
+            aiStrength: AiStrength.STRENGTH_2,
+          },
+        },
+      },
+      entries: [
+        {
+          capturedAtTurn: 1,
+          turnPlayer: "self",
+          unitTotals: { self: 0, opponent: 0 },
+          resources: { self: 10, opponent: 5 },
+          wallTotals: { self: 10, opponent: 10 },
+          occupiedPanels: { self: 1, opponent: 1 },
+        },
+        {
+          capturedAtTurn: 1,
+          turnPlayer: "opponent",
+          unitTotals: { self: 0, opponent: 0 },
+          resources: { self: 10, opponent: 10 },
+          wallTotals: { self: 10, opponent: 10 },
+          occupiedPanels: { self: 1, opponent: 1 },
+        },
+      ],
+    });
     expect(historyAfterExport).toEqual(historyBeforeExport);
   });
 });

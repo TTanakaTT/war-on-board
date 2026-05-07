@@ -29,11 +29,10 @@
 
 {#if transitionFn}
   <span
-    class="material-symbols-outlined inline-block {additionalClass}"
-    style="{font} {styleAttr}"
+    class="flex items-center justify-center {additionalClass}"
     transition:transitionFn|global={transitionParams}
   >
-    {icon}
+    <span class="material-symbols-outlined" style="{font} {styleAttr}">{icon}</span>
   </span>
 {:else}
   <span class="material-symbols-outlined inline-block {additionalClass}" style="{font} {styleAttr}">

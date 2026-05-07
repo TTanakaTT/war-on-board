@@ -8,9 +8,21 @@
   import { Player } from "$lib/domain/enums/Player";
   import type { Piece } from "$lib/domain/entities/Piece";
   import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+  import { BoardLayout } from "$lib/presentation/BoardLayout";
+  import HexagonPanelSvg from "$lib/presentation/components/HexagonPanelSvg.svelte";
   import Icon from "$lib/presentation/components/Icon.svelte";
   import PieceToken from "$lib/presentation/components/PieceToken.svelte";
   import { slide } from "svelte/transition";
+
+  type PanelAppearance = {
+    isInteractive: boolean;
+    containerClass: string;
+    polygonClass: string;
+    strokeClass: string;
+    strokeDasharray?: string;
+  };
+
+  const PLAYER_PANEL_STROKE_DASHARRAY = "3 3";
 
   let {
     panelPosition,
@@ -28,12 +40,21 @@
   let resource = $derived(panel?.resource);
 
   let panelState = $derived(panel?.panelState);
-  let panelStyle = $derived(getPanelStyle());
+  let panelAppearance = $derived(getPanelAppearance());
+  let isInteractive = $derived(panelAppearance.isInteractive);
+  let panelFrameStyle = $derived(
+    `width: ${BoardLayout.horizontalSideLength}px; height: ${BoardLayout.HEIGHT}px;`,
+  );
+  let panelHitAreaStyle = $derived(
+    `width: ${BoardLayout.horizontalSideLength * 2}px; height: ${BoardLayout.HEIGHT}px; clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);`,
+  );
 
   let turn = $derived(TurnRepository.get());
 
   let resourceColor = $derived(
-    panel?.player === Player.SELF ? "text-white border-white" : "text-black border-black",
+    panel?.player === Player.SELF
+      ? "text-player-self border-player-self"
+      : "text-player-opponent border-player-opponent",
   );
 
   function handlePieceClick(e: MouseEvent, piece: Piece) {
@@ -41,20 +62,7 @@
     InteractionService.pieceChange(piece);
   }
 
-  function onkeydown(e: KeyboardEvent) {
-    if (!["Enter", " "].includes(e.key)) return;
-    if (
-      panelState &&
-      ![PanelState.OCCUPIED, PanelState.SELECTED, PanelState.MOVABLE].includes(panelState)
-    )
-      return;
-
-    if (pieces?.length === 0) return;
-
-    onclick();
-  }
-
-  function getPanelStyle(): string {
+  function getPanelAppearance(): PanelAppearance {
     let _panelState: PanelState;
     if (panelState) {
       _panelState = panelState;
@@ -63,95 +71,151 @@
     } else {
       _panelState = PanelState.UNOCCUPIED;
     }
-    let playerStyle;
+    let strokeClass: string;
+    let strokeDasharray: string | undefined;
 
     switch (player) {
       case Player.SELF:
-        playerStyle = "all-el:border-y-2 all-el:border-white all-el:border-dotted";
+        strokeClass = "stroke-2 stroke-player-self";
+        strokeDasharray = PLAYER_PANEL_STROKE_DASHARRAY;
         break;
       case Player.OPPONENT:
-        playerStyle = "all-el:border-y-2 all-el:border-black all-el:border-dotted";
+        strokeClass = "stroke-2 stroke-player-opponent";
+        strokeDasharray = PLAYER_PANEL_STROKE_DASHARRAY;
         break;
       default:
-        playerStyle = "all-el:border-y all-el:border-outline dark:all-el:border-outline-dark";
+        strokeClass = "stroke-outline dark:stroke-outline-dark";
     }
-    let hoverStyle = "hover:all-el:bg-panel-selected dark:hover:all-el:bg-panel-selected-dark";
+
+    const baseContainerClass =
+      "group relative mx-0 my-2.5 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+    const basePolygonClass =
+      "transition-all duration-400 ease-out group-hover:duration-200 group-hover:ease-out";
+
     switch (_panelState) {
       case PanelState.UNOCCUPIED:
-        return `pointer-events-none ${playerStyle} all-el:bg-panel-unoccupied dark:all-el:bg-panel-unoccupied-dark`;
+        return {
+          isInteractive: false,
+          containerClass: `${baseContainerClass} pointer-events-none`,
+          polygonClass: `${basePolygonClass} fill-panel-unoccupied dark:fill-panel-unoccupied-dark`,
+          strokeClass,
+          strokeDasharray,
+        };
       case PanelState.OCCUPIED:
-        return `${playerStyle} all-el:bg-panel-occupied dark:all-el:bg-panel-occupied-dark`;
+        return {
+          isInteractive: true,
+          containerClass: baseContainerClass,
+          polygonClass: `${basePolygonClass} fill-panel-occupied dark:fill-panel-occupied-dark`,
+          strokeClass,
+          strokeDasharray,
+        };
       case PanelState.SELECTED:
       case PanelState.MOVABLE:
-        return `cursor-pointer ${playerStyle} ${hoverStyle} all-el:bg-panel-movable dark:all-el:bg-panel-movable-dark`;
+        return {
+          isInteractive: true,
+          containerClass: `${baseContainerClass} cursor-pointer`,
+          polygonClass: `${basePolygonClass} fill-panel-movable group-hover:fill-panel-selected dark:fill-panel-movable-dark dark:group-hover:fill-panel-selected-dark`,
+          strokeClass,
+          strokeDasharray,
+        };
       case PanelState.IMMOVABLE:
       default:
-        return `pointer-events-none ${playerStyle} all-el:bg-panel-immovable dark:all-el:bg-panel-immovable-dark`;
+        return {
+          isInteractive: false,
+          containerClass: `${baseContainerClass} pointer-events-none`,
+          polygonClass: `${basePolygonClass} fill-panel-immovable dark:fill-panel-immovable-dark`,
+          strokeClass,
+          strokeDasharray,
+        };
     }
   }
 </script>
 
-<div
-  class="pseudo-el:content-[''] all-el:transition-all all-el:duration-400 all-el:ease-out hover:all-el:transition-all hover:all-el:duration-200 hover:all-el:ease-out pseudo-el:-top-px pseudo-el:absolute all-el:h-25 all-el:w-[calc(100px/1.73)] relative mx-0 my-2.5 flex flex-col before:rotate-60 after:-rotate-60 {panelStyle}"
-  role="button"
-  tabindex="0"
-  {onclick}
-  {onkeydown}
->
-  <div class="text-castle z-1 flex flex-1 items-start">
-    {#if castle && castle > 0}
-      <div
-        class="bg-castle flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
-      >
-        <Icon
-          icon="castle"
-          size={12}
-          transition={slide}
-          transitionParams={{ duration: 500, axis: "y" }}
-        />
+{#snippet panelContent()}
+  <div
+    class="absolute top-0 left-1/2 z-0 -translate-x-1/2 {isInteractive
+      ? 'cursor-pointer'
+      : 'pointer-events-none'}"
+    style={panelHitAreaStyle}
+    aria-hidden="true"
+  ></div>
 
-        <div>{castle}</div>
-      </div>
-    {/if}
-  </div>
+  {#if isInteractive}
+    <button
+      class="focus-visible:ring-primary absolute top-0 left-1/2 z-0 -translate-x-1/2 cursor-pointer focus-visible:ring-2 focus-visible:outline-none"
+      style={panelHitAreaStyle}
+      type="button"
+      aria-label="panel"
+      {onclick}
+    ></button>
+  {/if}
 
-  <div class="z-1 flex items-center justify-center">
-    <div class="flex flex-row gap-2">
-      {#each pieces as piece (piece.id)}
-        <button
-          class="relative flex flex-col items-center {piece.targetPosition
-            ? 'opacity-40'
-            : ''} {piece.player === turn.player ? 'cursor-pointer' : ''}"
-          type="button"
-          tabindex="0"
-          onclick={(e) => handlePieceClick(e, piece)}
-          onkeydown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.stopPropagation();
-              InteractionService.pieceChange(piece);
-            }
-          }}
+  <HexagonPanelSvg
+    polygonClass={panelAppearance.polygonClass}
+    strokeClass={panelAppearance.strokeClass}
+    strokeDasharray={panelAppearance.strokeDasharray}
+  />
+
+  <div class="pointer-events-none absolute inset-0 z-1 flex rotate-90 flex-col lg:rotate-0">
+    <div class="pointer-events-none flex flex-1 items-start">
+      {#if castle && castle > 0}
+        <div
+          class="bg-castle flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
         >
-          <PieceToken {piece} />
-        </button>
-      {/each}
+          <Icon
+            icon="castle"
+            size={12}
+            transition={slide}
+            transitionParams={{ duration: 500, axis: "y" }}
+          />
+
+          <div>{castle}</div>
+        </div>
+      {/if}
+    </div>
+
+    <div class="pointer-events-none z-1 flex items-center justify-center">
+      <div class="flex flex-row gap-2">
+        {#each pieces as piece (piece.id)}
+          <button
+            class="pointer-events-auto relative flex flex-col items-center {piece.targetPosition
+              ? 'opacity-40'
+              : ''} {piece.player === turn.player ? 'cursor-pointer' : ''}"
+            type="button"
+            tabindex="0"
+            onclick={(e) => handlePieceClick(e, piece)}
+            onkeydown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.stopPropagation();
+                InteractionService.pieceChange(piece);
+              }
+            }}
+          >
+            <PieceToken {piece} />
+          </button>
+        {/each}
+      </div>
+    </div>
+
+    <div class="pointer-events-none flex flex-1 items-end">
+      {#if resource && resource > 0}
+        <div
+          class="bg-resource flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
+        >
+          <Icon
+            icon="home"
+            size={12}
+            transition={slide}
+            transitionParams={{ duration: 500, axis: "y" }}
+          />
+
+          <div>{resource}</div>
+        </div>
+      {/if}
     </div>
   </div>
+{/snippet}
 
-  <div class="text-resource z-1 flex flex-1 items-end">
-    {#if resource && resource > 0}
-      <div
-        class="bg-resource flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
-      >
-        <Icon
-          icon="home"
-          size={12}
-          transition={slide}
-          transitionParams={{ duration: 500, axis: "y" }}
-        />
-
-        <div>{resource}</div>
-      </div>
-    {/if}
-  </div>
+<div class={panelAppearance.containerClass} style={panelFrameStyle}>
+  {@render panelContent()}
 </div>

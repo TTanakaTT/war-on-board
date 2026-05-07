@@ -1,12 +1,12 @@
-import { GameApi } from "$lib/api/GameApi";
-import type { GameStateHistoryEntry } from "$lib/domain/types/api";
+import type { MatchHistoryExport } from "$lib/domain/types/history";
+import { MatchHistoryService } from "$lib/services/MatchHistoryService";
 
 export class HistoryExportService {
-  static getHistoryEntries(): GameStateHistoryEntry[] {
-    return GameApi.getGameStateHistory();
+  static getExportData(): MatchHistoryExport {
+    return MatchHistoryService.getExportData();
   }
 
   static toJson(): string {
-    return JSON.stringify(this.getHistoryEntries(), null, 2);
+    return JSON.stringify(this.getExportData(), null, 2);
   }
 }

@@ -9,6 +9,7 @@ import { PanelState } from "$lib/domain/enums/PanelState";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { CombatService } from "$lib/services/CombatService";
 import { PASSIVE_RESOURCE_CAP, PASSIVE_CASTLE_CAP } from "$lib/domain/constants/GameConstants";
+import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
 
 export class PieceService {
   /**
@@ -232,12 +233,14 @@ export class PieceService {
       } else if (piece.pieceType === PieceType.ROOK) {
         // Increase castle by 1, cap growth at PASSIVE_CASTLE_CAP but never reduce existing values above it (e.g. home base=10)
         const increased = Math.min(PASSIVE_CASTLE_CAP, (panel.castle || 0) + 1);
+        const nextCastle = Math.max(panel.castle, increased);
         PanelRepository.update(
           new Panel({
             ...panel,
-            castle: Math.max(panel.castle, increased),
+            castle: nextCastle,
           }),
         );
+        MatchStatsRepository.addBuiltCastle(piece.player, nextCastle - panel.castle);
       } else {
         PanelRepository.update(
           new Panel({

@@ -16,8 +16,12 @@ describe("MatchService", () => {
   });
 
   describe("startMatch", () => {
-    test("starts a human-vs-cpu match without auto-playing the opening self turn", () => {
-      MatchService.startMatch("human-vs-cpu", {
+    test("starts a human-vs-human match without auto-playing the opening self turn", () => {
+      MatchService.startMatch({
+        controllers: {
+          self: "human",
+          opponent: "human",
+        },
         layer: 4,
         automationTurnLimit: 10,
         aiStrengths: {
@@ -28,19 +32,53 @@ describe("MatchService", () => {
 
       const matchControl = MatchControlRepository.get();
 
-      expect(matchControl.mode).toBe("human-vs-cpu");
+      expect(matchControl.mode).toBe("human-vs-human");
       expect(matchControl.controllers.self).toBe("human");
-      expect(matchControl.controllers.opponent).toBe("cpu");
+      expect(matchControl.controllers.opponent).toBe("human");
       expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_1);
-      expect(matchControl.aiStrengths.opponent).toBe(AiStrength.STRENGTH_3);
+      expect(matchControl.aiStrengths.opponent).toBe(AiStrength.STRENGTH_1);
       expect(matchControl.automation.status).toBe("idle");
       expect(matchControl.automation.stopReason).toBeNull();
       expect(TurnRepository.get().player).toBe(Player.SELF);
       expect(GameApi.getGameStateHistory()).toHaveLength(1);
     });
 
+    test("starts a cpu-vs-human match and auto-plays the opening self turn", async () => {
+      MatchService.startMatch({
+        controllers: {
+          self: "cpu",
+          opponent: "human",
+        },
+        layer: 4,
+        automationTurnLimit: 10,
+        aiStrengths: {
+          self: AiStrength.STRENGTH_2,
+          opponent: AiStrength.STRENGTH_3,
+        },
+      });
+
+      expect(MatchControlRepository.get().automation.status).toBe("running");
+
+      await vi.runAllTimersAsync();
+
+      const matchControl = MatchControlRepository.get();
+
+      expect(matchControl.mode).toBe("cpu-vs-human");
+      expect(matchControl.controllers.self).toBe("cpu");
+      expect(matchControl.controllers.opponent).toBe("human");
+      expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_2);
+      expect(matchControl.aiStrengths.opponent).toBe(AiStrength.STRENGTH_1);
+      expect(matchControl.automation.status).toBe("idle");
+      expect(TurnRepository.get().player).toBe(Player.OPPONENT);
+      expect(GameApi.getGameStateHistory()).toHaveLength(2);
+    });
+
     test("starts a cpu-vs-cpu match and stops after the configured number of full turns", async () => {
-      MatchService.startMatch("cpu-vs-cpu", {
+      MatchService.startMatch({
+        controllers: {
+          self: "cpu",
+          opponent: "cpu",
+        },
         layer: 4,
         automationTurnLimit: 1,
         aiStrengths: {
@@ -68,7 +106,11 @@ describe("MatchService", () => {
     });
 
     test("preserves configured strengths when starting a cpu-vs-cpu match", () => {
-      MatchService.startMatch("cpu-vs-cpu", {
+      MatchService.startMatch({
+        controllers: {
+          self: "cpu",
+          opponent: "cpu",
+        },
         layer: 4,
         automationTurnLimit: 10,
         aiStrengths: {
@@ -86,7 +128,11 @@ describe("MatchService", () => {
 
   describe("runAutomatedTurnsIfNeeded", () => {
     test("runs the opponent cpu response after a human ends the turn", async () => {
-      MatchService.startMatch("human-vs-cpu", {
+      MatchService.startMatch({
+        controllers: {
+          self: "human",
+          opponent: "cpu",
+        },
         layer: 4,
         automationTurnLimit: 10,
         aiStrengths: {
@@ -110,7 +156,11 @@ describe("MatchService", () => {
     });
 
     test("schedules cpu-vs-cpu turns asynchronously while counting completed full turns", async () => {
-      MatchService.startMatch("cpu-vs-cpu", {
+      MatchService.startMatch({
+        controllers: {
+          self: "cpu",
+          opponent: "cpu",
+        },
         layer: 4,
         automationTurnLimit: 2,
         aiStrengths: {

@@ -25,7 +25,7 @@ export class GenerationService {
    * Find the best panel for unit generation.
    *
    * Mode "rear": home base first → higher |horizontalLayer| (closer to home).
-   * Mode "front": lower |horizontalLayer| first (closer to enemy).
+   * Mode "front": lower horizontal distance to the opponent home base first.
    *
    * Conditions: owned by player, resource >= RESOURCE_THRESHOLD_FOR_GENERATION,
    * and either not at max capacity OR the panel has a same-type mergeable piece
@@ -35,6 +35,8 @@ export class GenerationService {
     const turn = TurnRepository.get();
     const maxPieces = turn.maxPiecesPerPanel[String(player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
     const homeBase = HomeBaseRepository.getByPlayer(player);
+    const opponent = player === Player.SELF ? Player.OPPONENT : Player.SELF;
+    const opponentHomeBase = HomeBaseRepository.getByPlayer(opponent);
     const mode = turn.generationMode[String(player)] ?? "rear";
 
     const candidates = PanelRepository.getAll().filter((panel) => {
@@ -59,9 +61,21 @@ export class GenerationService {
         if (aIsHome !== bIsHome) return aIsHome - bIsHome;
       }
 
-      const aAbsHL = Math.abs(a.panelPosition.horizontalLayer);
-      const bAbsHL = Math.abs(b.panelPosition.horizontalLayer);
-      if (aAbsHL !== bAbsHL) return mode === "rear" ? bAbsHL - aAbsHL : aAbsHL - bAbsHL;
+      if (mode === "rear") {
+        const aAbsHL = Math.abs(a.panelPosition.horizontalLayer);
+        const bAbsHL = Math.abs(b.panelPosition.horizontalLayer);
+        if (aAbsHL !== bAbsHL) return bAbsHL - aAbsHL;
+      } else if (opponentHomeBase) {
+        const aHorizontalDistanceToOpponent = Math.abs(
+          a.panelPosition.horizontalLayer - opponentHomeBase.panelPosition.horizontalLayer,
+        );
+        const bHorizontalDistanceToOpponent = Math.abs(
+          b.panelPosition.horizontalLayer - opponentHomeBase.panelPosition.horizontalLayer,
+        );
+        if (aHorizontalDistanceToOpponent !== bHorizontalDistanceToOpponent) {
+          return aHorizontalDistanceToOpponent - bHorizontalDistanceToOpponent;
+        }
+      }
 
       return a.panelPosition.verticalLayer - b.panelPosition.verticalLayer;
     });

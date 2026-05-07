@@ -32,8 +32,10 @@
   </defs>
 
   {#each piecesWithMoves as movingPiece (movingPiece.piece.id)}
-    {@const color = movingPiece.piece.player === Player.SELF ? "stroke-white" : "stroke-black"}
-    {@const textColor = movingPiece.piece.player === Player.SELF ? "text-white" : "text-black"}
+    {@const color =
+      movingPiece.piece.player === Player.SELF ? "stroke-player-self" : "stroke-player-opponent"}
+    {@const textColor =
+      movingPiece.piece.player === Player.SELF ? "text-player-self" : "text-player-opponent"}
 
     <g class="{textColor} opacity-35">
       <line
