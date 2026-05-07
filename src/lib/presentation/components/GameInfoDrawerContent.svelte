@@ -85,7 +85,7 @@
   {#each playerCards as card (card.id)}
     <section class="min-w-0 {panelClass(card.id, isWideLayout)}">
       <h2 class="text-base font-semibold">
-        {card.id === "self" ? card.label : card.label}
+        {card.label}
       </h2>
 
       <dl class="mt-4 grid gap-3 text-sm">
