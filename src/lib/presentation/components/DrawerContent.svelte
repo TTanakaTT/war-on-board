@@ -34,7 +34,7 @@
   function localeOptions(): { value: LocaleValue; label: string }[] {
     return locales.map((locale) => ({
       value: locale,
-      label: locale === "ja" ? m.language_option_japanese() : m.language_option_english(),
+      label: locale === "ja" ? "日本語" : "English",
     }));
   }
 
