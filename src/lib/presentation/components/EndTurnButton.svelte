@@ -1,9 +1,9 @@
 <script lang="ts">
   import { GameApi } from "$lib/api/GameApi";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-  import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
   import { m } from "$lib/paraglide/messages";
   import Icon from "$lib/presentation/components/Icon.svelte";
+  import { InteractionService } from "$lib/services/InteractionService";
   import { MatchService } from "$lib/services/MatchService";
 
   let { compact = false, additionalClass = "" }: { compact?: boolean; additionalClass?: string } =
@@ -19,7 +19,7 @@
   function handleEndTurn() {
     if (!isHumanTurn || isAutomationRunning || turn.winner !== null) return;
 
-    SelectedPanelRepository.set(undefined);
+    InteractionService.clearSelection();
 
     const result = GameApi.endTurn(currentPlayer);
     if (!result.ok) return;

@@ -2,7 +2,6 @@
   import { tick } from "svelte";
   import { page } from "$app/state";
   import { GameApi } from "$lib/api/GameApi";
-  import { GameDialogRepository } from "$lib/data/repositories/GameDialogRepository";
   import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { Player } from "$lib/domain/enums/Player";
@@ -16,6 +15,7 @@
   import PlayerIdentityBadge from "$lib/presentation/components/PlayerIdentityBadge.svelte";
   import { DESKTOP_NAVIGATION_BREAKPOINT_PX } from "$lib/presentation/constants/UiConstants";
   import { playerDisplayName } from "$lib/presentation/matchPresentation";
+  import { GameDialogService } from "$lib/services/GameDialogService";
   import { MatchService } from "$lib/services/MatchService";
 
   let {
@@ -84,7 +84,7 @@
   }
 
   function openLeaveDialog(): void {
-    GameDialogRepository.requestLeaveDialog();
+    GameDialogService.requestLeaveDialog();
   }
 
   async function updateHeaderCompactMode(): Promise<void> {

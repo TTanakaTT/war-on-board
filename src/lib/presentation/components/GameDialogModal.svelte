@@ -14,6 +14,7 @@
   import Icon from "$lib/presentation/components/Icon.svelte";
   import IconButton from "$lib/presentation/components/IconButton.svelte";
   import { HistoryExportService } from "$lib/services/HistoryExportService";
+  import { GameDialogService } from "$lib/services/GameDialogService";
   import { MatchService } from "$lib/services/MatchService";
   import { MatchHistoryService } from "$lib/services/MatchHistoryService";
 
@@ -140,12 +141,7 @@
   }
 
   function closeDialog(): void {
-    if (isResultDialog && resultSignature !== null) {
-      GameDialogRepository.dismissResult(resultSignature);
-      return;
-    }
-
-    GameDialogRepository.clearLeaveRequest();
+    GameDialogService.closeDialog(isResultDialog ? resultSignature : null);
   }
 
   function handleDialogCancel(event: Event): void {
@@ -169,7 +165,7 @@
   }
 
   async function backToGameSelection(): Promise<void> {
-    GameDialogRepository.reset();
+    GameDialogService.reset();
     await goto(resolve("/"));
   }
 

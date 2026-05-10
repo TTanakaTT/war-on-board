@@ -37,6 +37,7 @@
   "history_winner_label": "Winner",
   "history_resources_icon_label": "Resources",
   "history_wall_icon_label": "Walls",
+  "aria_label_board_panel": "Board panel",
   "top_page_eyebrow": "Game Select",
   "preset_vs_ai": "VS AI",
   "preset_ai_vs_ai": "AI VS AI",

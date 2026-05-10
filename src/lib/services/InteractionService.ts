@@ -23,6 +23,10 @@ import { MatchService } from "$lib/services/MatchService";
  * Delegates movement-rule queries to MovementRulesService.
  */
 export class InteractionService {
+  static clearSelection(): void {
+    SelectedPanelRepository.set(undefined);
+  }
+
   /**
    * Handle a panel background click.
    *
@@ -45,7 +49,7 @@ export class InteractionService {
 
           const cleared = PanelsService.clearSelected();
           PanelRepository.setAll(cleared);
-          SelectedPanelRepository.set(undefined);
+          this.clearSelection();
           return;
         }
         break;
