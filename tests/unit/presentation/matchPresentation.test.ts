@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { AiStrength } from "$lib/domain/enums/AiStrength";
+import { m } from "$lib/paraglide/messages";
 import { playerDisplayName } from "$lib/presentation/matchPresentation";
 
 describe("matchPresentation", () => {
@@ -14,8 +15,10 @@ describe("matchPresentation", () => {
         opponent: AiStrength.STRENGTH_2,
       } as const;
 
-      expect(playerDisplayName("self", controllers, aiStrengths)).toBe("Player");
-      expect(playerDisplayName("opponent", controllers, aiStrengths)).toBe("AI Lv.2");
+      expect(playerDisplayName("self", controllers, aiStrengths)).toBe(m.player_option_human());
+      expect(playerDisplayName("opponent", controllers, aiStrengths)).toBe(
+        m.player_option_ai_strength_2(),
+      );
     });
 
     test("adds seat-order numbers when both human labels match", () => {
@@ -28,8 +31,12 @@ describe("matchPresentation", () => {
         opponent: AiStrength.STRENGTH_1,
       } as const;
 
-      expect(playerDisplayName("self", controllers, aiStrengths)).toBe("Player 1");
-      expect(playerDisplayName("opponent", controllers, aiStrengths)).toBe("Player 2");
+      expect(playerDisplayName("self", controllers, aiStrengths)).toBe(
+        m.player_option_human_numbered({ index: "1" }),
+      );
+      expect(playerDisplayName("opponent", controllers, aiStrengths)).toBe(
+        m.player_option_human_numbered({ index: "2" }),
+      );
     });
 
     test("adds seat-order numbers when cpu labels match", () => {
@@ -42,8 +49,18 @@ describe("matchPresentation", () => {
         opponent: AiStrength.STRENGTH_2,
       } as const;
 
-      expect(playerDisplayName("self", controllers, aiStrengths)).toBe("AI 1 Lv.2");
-      expect(playerDisplayName("opponent", controllers, aiStrengths)).toBe("AI 2 Lv.2");
+      expect(playerDisplayName("self", controllers, aiStrengths)).toBe(
+        m.player_option_ai_strength_numbered({
+          index: "1",
+          level: m.ai_strength_level_2(),
+        }),
+      );
+      expect(playerDisplayName("opponent", controllers, aiStrengths)).toBe(
+        m.player_option_ai_strength_numbered({
+          index: "2",
+          level: m.ai_strength_level_2(),
+        }),
+      );
     });
 
     test("keeps cpu labels unchanged when strengths differ", () => {
@@ -56,8 +73,12 @@ describe("matchPresentation", () => {
         opponent: AiStrength.STRENGTH_3,
       } as const;
 
-      expect(playerDisplayName("self", controllers, aiStrengths)).toBe("AI Lv.1");
-      expect(playerDisplayName("opponent", controllers, aiStrengths)).toBe("AI Lv.3");
+      expect(playerDisplayName("self", controllers, aiStrengths)).toBe(
+        m.player_option_ai_strength_1(),
+      );
+      expect(playerDisplayName("opponent", controllers, aiStrengths)).toBe(
+        m.player_option_ai_strength_3(),
+      );
     });
   });
 });

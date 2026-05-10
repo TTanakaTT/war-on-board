@@ -4,16 +4,11 @@
   import { GameApi } from "$lib/api/GameApi";
   import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-  import { Player } from "$lib/domain/enums/Player";
   import { PieceType } from "$lib/domain/enums/PieceType";
   import { m } from "$lib/paraglide/messages";
-  import AppButton from "$lib/presentation/components/AppButton.svelte";
-  import EndTurnButton from "$lib/presentation/components/EndTurnButton.svelte";
-  import GeneratePieceButton from "$lib/presentation/components/GeneratePieceButton.svelte";
-  import Icon from "$lib/presentation/components/Icon.svelte";
+  import DesktopGameHeaderControls from "$lib/presentation/components/DesktopGameHeaderControls.svelte";
   import IconButton from "$lib/presentation/components/IconButton.svelte";
   import MobileGameHeaderControls from "$lib/presentation/components/MobileGameHeaderControls.svelte";
-  import PlayerIdentityBadge from "$lib/presentation/components/PlayerIdentityBadge.svelte";
   import { DESKTOP_NAVIGATION_BREAKPOINT_PX } from "$lib/presentation/constants/UiConstants";
   import { playerDisplayName } from "$lib/presentation/matchPresentation";
   import { GameDialogService } from "$lib/services/GameDialogService";
@@ -153,57 +148,6 @@
 
 <svelte:window bind:innerWidth={windowWidth} />
 
-{#snippet desktopGameControls(compact: boolean)}
-  <EndTurnButton {compact} />
-
-  <PlayerIdentityBadge
-    player="self"
-    label={selfLabel}
-    resource={selfResources}
-    {compact}
-    previewCost={turn.player === Player.SELF ? hoveredGenerationCost : undefined}
-  />
-
-  <div title={compact ? generationModeLabel : undefined} aria-label={generationModeLabel}>
-    <AppButton
-      additionalClass={compact ? "h-11 w-11 rounded-2xl px-0" : "px-4"}
-      onclick={toggleGenerationMode}
-      disabled={!isHumanTurn || isAutomationRunning || turn.winner !== null}
-    >
-      <Icon icon={generationModeIcon} size={20} />
-      {#if !compact}
-        <span>{generationModeLabel}</span>
-      {/if}
-    </AppButton>
-  </div>
-
-  <GeneratePieceButton
-    pieceType={PieceType.KNIGHT}
-    {compact}
-    onPreviewChange={handleGenerationCostPreview}
-  />
-  <GeneratePieceButton
-    pieceType={PieceType.ROOK}
-    {compact}
-    onPreviewChange={handleGenerationCostPreview}
-  />
-  <GeneratePieceButton
-    pieceType={PieceType.BISHOP}
-    {compact}
-    onPreviewChange={handleGenerationCostPreview}
-  />
-
-  <PlayerIdentityBadge
-    player="opponent"
-    label={opponentLabel}
-    resource={opponentResources}
-    {compact}
-    previewCost={turn.player === Player.OPPONENT ? hoveredGenerationCost : undefined}
-  />
-
-  <IconButton icon="exit_to_app" label={m.leave_match()} onclick={openLeaveDialog} />
-{/snippet}
-
 <header
   class="bg-surface dark:bg-surface-dark border-outline dark:border-outline-dark fixed inset-s-0 top-0 z-20 border-b shadow-md transition-[margin-left,width] duration-200 ease-out"
   style={headerWidthStyle}
@@ -221,7 +165,23 @@
           <div
             class="text-onsurface dark:text-onsurface-dark flex flex-nowrap items-center justify-end gap-2 whitespace-nowrap"
           >
-            {@render desktopGameControls(false)}
+            <DesktopGameHeaderControls
+              compact={false}
+              currentPlayer={turn.player}
+              {selfLabel}
+              {selfResources}
+              {opponentLabel}
+              {opponentResources}
+              {hoveredGenerationCost}
+              {generationModeLabel}
+              {generationModeIcon}
+              {isHumanTurn}
+              {isAutomationRunning}
+              winner={turn.winner}
+              onToggleGenerationMode={toggleGenerationMode}
+              onPreviewChange={handleGenerationCostPreview}
+              onOpenLeaveDialog={openLeaveDialog}
+            />
           </div>
         </div>
 
@@ -229,7 +189,23 @@
           bind:this={controlsViewport}
           class="text-onsurface dark:text-onsurface-dark flex flex-nowrap items-center justify-end gap-2 overflow-x-hidden"
         >
-          {@render desktopGameControls(isHeaderCompact)}
+          <DesktopGameHeaderControls
+            compact={isHeaderCompact}
+            currentPlayer={turn.player}
+            {selfLabel}
+            {selfResources}
+            {opponentLabel}
+            {opponentResources}
+            {hoveredGenerationCost}
+            {generationModeLabel}
+            {generationModeIcon}
+            {isHumanTurn}
+            {isAutomationRunning}
+            winner={turn.winner}
+            onToggleGenerationMode={toggleGenerationMode}
+            onPreviewChange={handleGenerationCostPreview}
+            onOpenLeaveDialog={openLeaveDialog}
+          />
         </div>
       </div>
     {/if}
