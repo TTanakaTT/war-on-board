@@ -6,7 +6,7 @@
   import { PieceType } from "$lib/domain/enums/PieceType";
   import { Player } from "$lib/domain/enums/Player";
   import { m } from "$lib/paraglide/messages";
-  import Icon from "$lib/presentation/components/Icon.svelte";
+  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
   import { playerDisplayName, playerInfoOrder } from "$lib/presentation/matchPresentation";
 
   interface PlayerInfoCard {

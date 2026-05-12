@@ -2,12 +2,12 @@
   import type { Player } from "$lib/domain/enums/Player";
   import { Player as PlayerEnum } from "$lib/domain/enums/Player";
   import { PieceType } from "$lib/domain/enums/PieceType";
-  import AppButton from "$lib/presentation/components/AppButton.svelte";
-  import EndTurnButton from "$lib/presentation/components/EndTurnButton.svelte";
-  import GeneratePieceButton from "$lib/presentation/components/GeneratePieceButton.svelte";
-  import Icon from "$lib/presentation/components/Icon.svelte";
-  import IconButton from "$lib/presentation/components/IconButton.svelte";
-  import PlayerIdentityBadge from "$lib/presentation/components/PlayerIdentityBadge.svelte";
+  import AppButton from "$lib/presentation/components/primitives/AppButton.svelte";
+  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
+  import IconButton from "$lib/presentation/components/primitives/IconButton.svelte";
+  import EndTurnButton from "./EndTurnButton.svelte";
+  import GeneratePieceButton from "./GeneratePieceButton.svelte";
+  import PlayerIdentityBadge from "./PlayerIdentityBadge.svelte";
   import { m } from "$lib/paraglide/messages";
 
   let {

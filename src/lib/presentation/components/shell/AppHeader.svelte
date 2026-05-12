@@ -6,9 +6,9 @@
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { PieceType } from "$lib/domain/enums/PieceType";
   import { m } from "$lib/paraglide/messages";
-  import DesktopGameHeaderControls from "$lib/presentation/components/DesktopGameHeaderControls.svelte";
-  import IconButton from "$lib/presentation/components/IconButton.svelte";
-  import MobileGameHeaderControls from "$lib/presentation/components/MobileGameHeaderControls.svelte";
+  import DesktopGameHeaderControls from "$lib/presentation/components/game-header/DesktopGameHeaderControls.svelte";
+  import MobileGameHeaderControls from "$lib/presentation/components/game-header/MobileGameHeaderControls.svelte";
+  import IconButton from "$lib/presentation/components/primitives/IconButton.svelte";
   import { DESKTOP_NAVIGATION_BREAKPOINT_PX } from "$lib/presentation/constants/UiConstants";
   import { playerDisplayName } from "$lib/presentation/matchPresentation";
   import { GameDialogService } from "$lib/services/GameDialogService";

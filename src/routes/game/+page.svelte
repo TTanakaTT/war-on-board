@@ -3,8 +3,8 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { GameApi } from "$lib/api/GameApi";
-  import GameDialogModal from "$lib/presentation/components/GameDialogModal.svelte";
-  import LayeredHexagonPanels from "$lib/presentation/components/LayeredHexagonPanels.svelte";
+  import GameBoard from "$lib/presentation/components/board/GameBoard.svelte";
+  import GameDialogModal from "$lib/presentation/components/match/GameDialogModal.svelte";
 
   let isReady = $state(false);
 
@@ -19,6 +19,6 @@
 </script>
 
 {#if isReady}
-  <LayeredHexagonPanels />
+  <GameBoard />
   <GameDialogModal />
 {/if}

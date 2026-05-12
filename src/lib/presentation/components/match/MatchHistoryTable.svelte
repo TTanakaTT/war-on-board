@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { MatchHistoryExport, MatchHistoryMetricPair } from "$lib/domain/types/history";
   import type { ControllablePlayerSnapshot } from "$lib/domain/types/api";
-  import Icon from "$lib/presentation/components/Icon.svelte";
+  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
   import { seatLabel } from "$lib/presentation/matchPresentation";
   import { m } from "$lib/paraglide/messages";
 

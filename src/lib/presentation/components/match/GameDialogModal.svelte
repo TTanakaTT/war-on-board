@@ -7,9 +7,9 @@
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { Player } from "$lib/domain/enums/Player";
   import { m } from "$lib/paraglide/messages";
-  import AppButton from "$lib/presentation/components/AppButton.svelte";
-  import IconButton from "$lib/presentation/components/IconButton.svelte";
-  import MatchHistoryPanel from "$lib/presentation/components/MatchHistoryPanel.svelte";
+  import AppButton from "$lib/presentation/components/primitives/AppButton.svelte";
+  import IconButton from "$lib/presentation/components/primitives/IconButton.svelte";
+  import MatchHistoryPanel from "./MatchHistoryPanel.svelte";
   import { HistoryExportService } from "$lib/services/HistoryExportService";
   import { GameDialogService } from "$lib/services/GameDialogService";
   import { MatchService } from "$lib/services/MatchService";

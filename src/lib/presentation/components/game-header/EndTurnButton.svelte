@@ -2,7 +2,7 @@
   import { GameApi } from "$lib/api/GameApi";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { m } from "$lib/paraglide/messages";
-  import Icon from "$lib/presentation/components/Icon.svelte";
+  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
   import { InteractionService } from "$lib/services/InteractionService";
   import { MatchService } from "$lib/services/MatchService";
 

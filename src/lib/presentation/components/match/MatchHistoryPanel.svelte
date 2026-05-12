@@ -3,9 +3,9 @@
   import type { ControllablePlayerSnapshot } from "$lib/domain/types/api";
   import { m } from "$lib/paraglide/messages";
   import { playerDisplayName, seatLabel } from "$lib/presentation/matchPresentation";
-  import AppButton from "$lib/presentation/components/AppButton.svelte";
-  import Icon from "$lib/presentation/components/Icon.svelte";
-  import MatchHistoryTable from "$lib/presentation/components/MatchHistoryTable.svelte";
+  import AppButton from "$lib/presentation/components/primitives/AppButton.svelte";
+  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
+  import MatchHistoryTable from "./MatchHistoryTable.svelte";
 
   let {
     matchHistory,

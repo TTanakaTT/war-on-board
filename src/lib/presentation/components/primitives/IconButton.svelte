@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Icon from "$lib/presentation/components/Icon.svelte";
+  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
 
   interface Props {
     icon: string;

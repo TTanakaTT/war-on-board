@@ -10,9 +10,9 @@
   import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
   import { m } from "$lib/paraglide/messages";
   import { BoardLayout } from "$lib/presentation/BoardLayout";
-  import HexagonPanelSvg from "$lib/presentation/components/HexagonPanelSvg.svelte";
-  import Icon from "$lib/presentation/components/Icon.svelte";
-  import PieceToken from "$lib/presentation/components/PieceToken.svelte";
+  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
+  import HexagonPanelSvg from "./HexagonPanelSvg.svelte";
+  import PieceToken from "./PieceToken.svelte";
   import { slide } from "svelte/transition";
 
   type PanelAppearance = {

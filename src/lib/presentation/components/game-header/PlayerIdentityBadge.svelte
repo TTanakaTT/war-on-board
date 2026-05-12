@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Player } from "$lib/domain/enums/Player";
   import type { PlayerSnapshot } from "$lib/domain/types/api";
-  import Icon from "$lib/presentation/components/Icon.svelte";
+  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
 
   interface Props {
     player: Player | PlayerSnapshot;
