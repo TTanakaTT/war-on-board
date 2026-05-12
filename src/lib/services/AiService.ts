@@ -1,5 +1,6 @@
 import { Player } from "$lib/domain/enums/Player";
 import { GameApi } from "$lib/api/GameApi";
+import { GameApiClient } from "$lib/api/GameApiClient";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { AiStrength } from "$lib/domain/enums/AiStrength";
 import type { PieceSnapshot } from "$lib/domain/types/api";
@@ -26,7 +27,7 @@ export class AiService {
     this.assignMoves(player, profile);
     this.applyGenerationMode(player, profile);
     this.generatePiece(player, profile);
-    GameApi.endTurn(player);
+    GameApiClient.endTurn(player);
   }
 
   private static assignMoves(player: Player, profile: AiStrengthProfile): void {
@@ -48,7 +49,7 @@ export class AiService {
         profile,
       );
 
-      GameApi.assignMove(player, piece.id, selectedTarget);
+      GameApiClient.assignMove(player, piece.id, selectedTarget);
     }
   }
 
@@ -68,7 +69,7 @@ export class AiService {
         return;
       }
 
-      const generationResult = GameApi.generatePiece(player, preferredPieceType);
+      const generationResult = GameApiClient.generatePiece(player, preferredPieceType);
       if (!generationResult.ok) {
         return;
       }
@@ -78,7 +79,7 @@ export class AiService {
   private static applyGenerationMode(player: Player, profile: AiStrengthProfile): void {
     const gameState = GameApi.getGameState();
     const generationMode = selectGenerationMode(gameState, player, profile);
-    GameApi.setGenerationMode(player, generationMode);
+    GameApiClient.setGenerationMode(player, generationMode);
   }
 
   private static selectTarget(

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { page } from "$app/state";
-  import { GameApi } from "$lib/api/GameApi";
+  import { GameApiClient } from "$lib/api/GameApiClient";
   import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { PieceType } from "$lib/domain/enums/PieceType";
@@ -76,7 +76,7 @@
     }
 
     const currentMode = turn.generationMode[String(turn.player)] ?? "rear";
-    GameApi.setGenerationMode(turn.player, currentMode === "rear" ? "front" : "rear");
+    GameApiClient.setGenerationMode(turn.player, currentMode === "rear" ? "front" : "rear");
   }
 
   function openLeaveDialog(): void {

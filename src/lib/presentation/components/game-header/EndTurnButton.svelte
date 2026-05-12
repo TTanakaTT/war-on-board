@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { GameApi } from "$lib/api/GameApi";
+  import { GameApiClient } from "$lib/api/GameApiClient";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { m } from "$lib/paraglide/messages";
   import Icon from "$lib/presentation/components/primitives/Icon.svelte";
@@ -21,7 +21,7 @@
 
     InteractionService.clearSelection();
 
-    const result = GameApi.endTurn(currentPlayer);
+    const result = GameApiClient.endTurn(currentPlayer);
     if (!result.ok) return;
 
     MatchService.runAutomatedTurnsIfNeeded();

@@ -1,4 +1,4 @@
-import { GameApi } from "$lib/api/GameApi";
+import { GameApiClient } from "$lib/api/GameApiClient";
 import { GameDialogRepository } from "$lib/data/repositories/GameDialogRepository";
 import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
@@ -24,7 +24,7 @@ export class MatchService {
   static startMatch(options: StartMatchOptions): void {
     this.cancelScheduledAutomation();
     GameDialogRepository.reset();
-    GameApi.initializeGame({ layer: options.layer });
+    GameApiClient.initializeGame({ layer: options.layer });
     MatchControlRepository.set(this.createMatchControl(options));
     this.runAutomatedTurnsIfNeeded();
   }
