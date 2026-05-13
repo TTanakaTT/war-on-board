@@ -7,7 +7,14 @@
   import { Player } from "$lib/domain/enums/Player";
   import { m } from "$lib/paraglide/messages";
   import Icon from "$lib/presentation/components/primitives/Icon.svelte";
+  import { PIECE_TYPE_DISPLAY_ORDER, pieceTypeLabel } from "$lib/presentation/piecePresentation";
   import { playerDisplayName, playerInfoOrder } from "$lib/presentation/matchPresentation";
+
+  type PieceCounter = {
+    pieceType: PieceType;
+    liveCount: number;
+    deadCount: number;
+  };
 
   interface PlayerInfoCard {
     id: "self" | "opponent";
@@ -17,12 +24,7 @@
     totalCastle: number;
     totalBuiltCastle: number;
     occupiedPanels: number;
-    knightCount: number;
-    rookCount: number;
-    bishopCount: number;
-    deadKnightCount: number;
-    deadRookCount: number;
-    deadBishopCount: number;
+    pieceCounters: PieceCounter[];
   }
 
   interface Props {
@@ -36,6 +38,20 @@
   let matchStats = $derived(MatchStatsRepository.get());
   let panels = $derived(PanelRepository.getAll());
   let pieces = $derived(PiecesRepository.getAll());
+
+  function deadCountByType(cardId: PlayerInfoCard["id"], pieceType: PieceType): number {
+    const playerStats = matchStats[cardId];
+
+    if (pieceType === PieceType.ROOK) {
+      return playerStats.deadUnitCounts.rook;
+    }
+
+    if (pieceType === PieceType.BISHOP) {
+      return playerStats.deadUnitCounts.bishop;
+    }
+
+    return playerStats.deadUnitCounts.knight;
+  }
 
   function buildPlayerInfo(player: Player): PlayerInfoCard {
     const playerId = player === Player.SELF ? "self" : "opponent";
@@ -51,12 +67,11 @@
       totalCastle: ownedPanels.reduce((sum, panel) => sum + panel.castle, 0),
       totalBuiltCastle: playerStats.totalBuiltCastle,
       occupiedPanels: ownedPanels.length,
-      knightCount: ownedPieces.filter((piece) => piece.pieceType === PieceType.KNIGHT).length,
-      rookCount: ownedPieces.filter((piece) => piece.pieceType === PieceType.ROOK).length,
-      bishopCount: ownedPieces.filter((piece) => piece.pieceType === PieceType.BISHOP).length,
-      deadKnightCount: playerStats.deadUnitCounts.knight,
-      deadRookCount: playerStats.deadUnitCounts.rook,
-      deadBishopCount: playerStats.deadUnitCounts.bishop,
+      pieceCounters: PIECE_TYPE_DISPLAY_ORDER.map((pieceType) => ({
+        pieceType,
+        liveCount: ownedPieces.filter((piece) => piece.pieceType === pieceType).length,
+        deadCount: deadCountByType(playerId, pieceType),
+      })),
     };
   }
 
@@ -125,24 +140,14 @@
 
           <dd class="rounded-xl border p-3 text-sm {unitPanelClass(card.id)}">
             <div class="grid gap-2">
-              <div class="flex items-center justify-between gap-4">
-                <span title={m.piece_knight()}>
-                  <Icon icon={PieceType.KNIGHT.config.iconName} size={20} />
-                </span>
-                <span class="font-semibold">{card.knightCount}</span>
-              </div>
-              <div class="flex items-center justify-between gap-4">
-                <span title={m.piece_rook()}>
-                  <Icon icon={PieceType.ROOK.config.iconName} size={20} />
-                </span>
-                <span class="font-semibold">{card.rookCount}</span>
-              </div>
-              <div class="flex items-center justify-between gap-4">
-                <span title={m.piece_bishop()}>
-                  <Icon icon={PieceType.BISHOP.config.iconName} size={20} />
-                </span>
-                <span class="font-semibold">{card.bishopCount}</span>
-              </div>
+              {#each card.pieceCounters as pieceCounter (pieceCounter.pieceType)}
+                <div class="flex items-center justify-between gap-4">
+                  <span title={pieceTypeLabel(pieceCounter.pieceType)}>
+                    <Icon icon={pieceCounter.pieceType.config.iconName} size={20} />
+                  </span>
+                  <span class="font-semibold">{pieceCounter.liveCount}</span>
+                </div>
+              {/each}
             </div>
           </dd>
         </div>
@@ -151,24 +156,14 @@
 
           <dd class="rounded-xl border p-3 text-sm {unitPanelClass(card.id)}">
             <div class="grid gap-2">
-              <div class="flex items-center justify-between gap-4">
-                <span title={m.piece_knight()}>
-                  <Icon icon={PieceType.KNIGHT.config.iconName} size={20} />
-                </span>
-                <span class="font-semibold">{card.deadKnightCount}</span>
-              </div>
-              <div class="flex items-center justify-between gap-4">
-                <span title={m.piece_rook()}>
-                  <Icon icon={PieceType.ROOK.config.iconName} size={20} />
-                </span>
-                <span class="font-semibold">{card.deadRookCount}</span>
-              </div>
-              <div class="flex items-center justify-between gap-4">
-                <span title={m.piece_bishop()}>
-                  <Icon icon={PieceType.BISHOP.config.iconName} size={20} />
-                </span>
-                <span class="font-semibold">{card.deadBishopCount}</span>
-              </div>
+              {#each card.pieceCounters as pieceCounter (pieceCounter.pieceType)}
+                <div class="flex items-center justify-between gap-4">
+                  <span title={pieceTypeLabel(pieceCounter.pieceType)}>
+                    <Icon icon={pieceCounter.pieceType.config.iconName} size={20} />
+                  </span>
+                  <span class="font-semibold">{pieceCounter.deadCount}</span>
+                </div>
+              {/each}
             </div>
           </dd>
         </div>

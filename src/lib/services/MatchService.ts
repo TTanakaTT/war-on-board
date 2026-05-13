@@ -1,5 +1,4 @@
 import { GameApiClient } from "$lib/api/GameApiClient";
-import { GameDialogRepository } from "$lib/data/repositories/GameDialogRepository";
 import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { DEFAULT_AUTOMATION_TURN_LIMIT } from "$lib/domain/constants/GameConstants";
@@ -15,6 +14,7 @@ import type {
   StartMatchOptions,
 } from "$lib/domain/types/match";
 import { AiService } from "$lib/services/AiService";
+import { GameDialogService } from "$lib/services/GameDialogService";
 
 const AUTOMATION_STEP_DELAY_MS = 120;
 
@@ -23,7 +23,7 @@ export class MatchService {
 
   static startMatch(options: StartMatchOptions): void {
     this.cancelScheduledAutomation();
-    GameDialogRepository.reset();
+    GameDialogService.reset();
     GameApiClient.initializeGame({ layer: options.layer });
     MatchControlRepository.set(this.createMatchControl(options));
     this.runAutomatedTurnsIfNeeded();

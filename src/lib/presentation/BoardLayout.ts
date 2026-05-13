@@ -1,5 +1,10 @@
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import {
+  BOARD_COLUMN_VERTICAL_OFFSET_RATIO,
+  BOARD_HORIZONTAL_MARGIN_RATIO,
+  BOARD_PANEL_VERTICAL_PIXEL_OFFSET,
+} from "$lib/presentation/constants/BoardLayoutConstants";
 import { PANEL_HEIGHT, PANEL_MARGIN } from "$lib/presentation/constants/UiConstants";
 
 export class BoardLayout {
@@ -24,7 +29,7 @@ export class BoardLayout {
   }
 
   static get horizontalMargin() {
-    return (this.HEIGHT * 0.1 * Math.sqrt(3)) / 2;
+    return (this.HEIGHT * BOARD_HORIZONTAL_MARGIN_RATIO * Math.sqrt(3)) / 2;
   }
 
   static get boardWidth() {
@@ -53,8 +58,12 @@ export class BoardLayout {
     // Match original float-based spacing:
     const x = i * (horizLength + margin) + 2 * hypo;
 
-    const topOffset = Math.abs(hl) * (this.HEIGHT / 2) * 1.1;
-    const y = topOffset + vl * (this.HEIGHT + this.PANEL_MARGIN) + this.HEIGHT / 2 + 5;
+    const topOffset = Math.abs(hl) * (this.HEIGHT / 2) * BOARD_COLUMN_VERTICAL_OFFSET_RATIO;
+    const y =
+      topOffset +
+      vl * (this.HEIGHT + this.PANEL_MARGIN) +
+      this.HEIGHT / 2 +
+      BOARD_PANEL_VERTICAL_PIXEL_OFFSET;
 
     return { x, y };
   }

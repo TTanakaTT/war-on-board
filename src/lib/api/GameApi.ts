@@ -478,6 +478,48 @@ export class GameApi {
     return { ok: true, value: { gameState: this.getGameState() } };
   }
 
+  /**
+   * Runs work against a temporary snapshot and restores the live state afterwards.
+   *
+   * This is intended for internal simulations such as AI lookahead. The callback may
+   * call any regular GameApi mutation, but the current game state, history, and match
+   * stats are restored before returning to the caller.
+   */
+  static withTemporaryGameState<TResult>(
+    snapshot: GameStateSnapshot,
+    callback: () => TResult,
+  ): Result<TResult> {
+    const originalGameState = this.getGameState();
+    const originalHistory = this.getGameStateHistory();
+    const originalMatchStats = MatchStatsRepository.get();
+
+    const loadResult = this.loadGameState(snapshot);
+    if (!loadResult.ok) {
+      return { ok: false, error: loadResult.error };
+    }
+
+    let callbackValue: TResult | undefined;
+    let restoreFailed = false;
+
+    try {
+      callbackValue = callback();
+    } finally {
+      const restoreResult = this.loadGameState(originalGameState);
+      MatchStatsRepository.set(originalMatchStats);
+      GameStateHistoryRepository.setAll(originalHistory);
+
+      if (!restoreResult.ok) {
+        restoreFailed = true;
+      }
+    }
+
+    if (restoreFailed) {
+      throw new Error("Failed to restore temporary game state.");
+    }
+
+    return { ok: true, value: callbackValue as TResult };
+  }
+
   private static addResources(player: Player) {
     const turn = TurnRepository.get();
     const panels = PanelRepository.getAll().filter((p) => p.player === player);
