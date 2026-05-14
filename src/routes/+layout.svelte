@@ -2,8 +2,8 @@
   import "../app.css";
   import { browser } from "$app/environment";
   import { page } from "$app/state";
-  import Header from "$lib/presentation/components/Header.svelte";
-  import Drawer from "$lib/presentation/components/Drawer.svelte";
+  import AppDrawer from "$lib/presentation/components/shell/AppDrawer.svelte";
+  import AppHeader from "$lib/presentation/components/shell/AppHeader.svelte";
   import {
     DEFAULT_DRAWER_WIDTH_UNITS,
     DESKTOP_NAVIGATION_BREAKPOINT_PX,
@@ -159,7 +159,7 @@
 
 <svelte:window bind:innerWidth={windowWidth} />
 
-<Drawer
+<AppDrawer
   {open}
   {isNav}
   {isGamePage}
@@ -171,7 +171,7 @@
   bind:dialog
 />
 
-<Header {open} {isNav} {onClickMenu} {drawerWidthUnits} />
+<AppHeader {open} {isNav} {onClickMenu} {drawerWidthUnits} />
 
 <main
   class="h-screen touch-pan-y transition-[padding-left] duration-200 ease-out {mainTopPaddingClass}"

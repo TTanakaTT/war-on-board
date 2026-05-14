@@ -8,10 +8,11 @@
   import { Player } from "$lib/domain/enums/Player";
   import type { Piece } from "$lib/domain/entities/Piece";
   import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+  import { m } from "$lib/paraglide/messages";
   import { BoardLayout } from "$lib/presentation/BoardLayout";
-  import HexagonPanelSvg from "$lib/presentation/components/HexagonPanelSvg.svelte";
-  import Icon from "$lib/presentation/components/Icon.svelte";
-  import PieceToken from "$lib/presentation/components/PieceToken.svelte";
+  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
+  import HexagonPanelSvg from "./HexagonPanelSvg.svelte";
+  import PieceToken from "./PieceToken.svelte";
   import { slide } from "svelte/transition";
 
   type PanelAppearance = {
@@ -145,7 +146,7 @@
       class="focus-visible:ring-primary absolute top-0 left-1/2 z-0 -translate-x-1/2 cursor-pointer focus-visible:ring-2 focus-visible:outline-none"
       style={panelHitAreaStyle}
       type="button"
-      aria-label="panel"
+      aria-label={m.aria_label_board_panel()}
       {onclick}
     ></button>
   {/if}

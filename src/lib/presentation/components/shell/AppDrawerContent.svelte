@@ -3,9 +3,9 @@
   import { page } from "$app/state";
   import { cookieDomain, cookieName, getLocale, locales, setLocale } from "$lib/paraglide/runtime";
   import { m } from "$lib/paraglide/messages";
-  import AppButton from "$lib/presentation/components/AppButton.svelte";
-  import HorizontalRadioGroup from "$lib/presentation/components/HorizontalRadioGroup.svelte";
-  import GameInfoDrawerContent from "$lib/presentation/components/GameInfoDrawerContent.svelte";
+  import AppButton from "$lib/presentation/components/primitives/AppButton.svelte";
+  import HorizontalRadioGroup from "$lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
+  import GameInfoDrawerContent from "$lib/presentation/components/match/GameInfoDrawerContent.svelte";
   import {
     clearThemePreference,
     resolveThemePreference,
@@ -34,7 +34,7 @@
   function localeOptions(): { value: LocaleValue; label: string }[] {
     return locales.map((locale) => ({
       value: locale,
-      label: locale === "ja" ? m.language_option_japanese() : m.language_option_english(),
+      label: locale === "ja" ? "日本語" : "English",
     }));
   }
 

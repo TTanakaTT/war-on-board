@@ -2,15 +2,12 @@ import { describe, test, expect } from "vitest";
 import { Player } from "$lib/domain/enums/Player";
 
 describe("Player", () => {
-  describe("singleton instances", () => {
-    test("Player.SELF is defined", () => {
-      expect(Player.SELF).toBeDefined();
-    });
-    test("Player.OPPONENT is defined", () => {
-      expect(Player.OPPONENT).toBeDefined();
-    });
-    test("Player.UNKNOWN is defined", () => {
-      expect(Player.UNKNOWN).toBeDefined();
+  describe("available values", () => {
+    test("exposes every player identity exactly once", () => {
+      const players = [Player.SELF, Player.OPPONENT, Player.UNKNOWN];
+
+      expect(players.map(String)).toEqual(["self", "opponent", "unknown"]);
+      expect(new Set(players).size).toBe(players.length);
     });
   });
 

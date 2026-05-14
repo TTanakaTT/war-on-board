@@ -14,7 +14,7 @@ This project follows **Clean Architecture** principles. Code is organized into c
 ├─────────────────────────────────────────┤
 │            Adapter                      │
 │  data (repositories, state),            │
-│  presentation (components)              │
+│  presentation (components, helpers)     │
 ├─────────────────────────────────────────┤
 │         Framework (outermost)           │
 │  routes, paraglide                      │
@@ -42,7 +42,7 @@ This project follows **Clean Architecture** principles. Code is organized into c
 | [**CombatService**](../src/lib/services/CombatService.ts)               | Combat resolution: multi-unit simultaneous damage, wall siege    |
 | [**PieceService**](../src/lib/services/PieceService.ts)                 | Piece CRUD, move execution, passive gains                        |
 | [**PanelService**](../src/lib/services/PanelService.ts)                 | Panel initialization, adjacent lookup, state clearing            |
-| [**AiService**](../src/lib/services/AiService.ts)                       | AI player logic (random strategy)                                |
+| [**AiService**](../src/lib/services/AiService.ts)                       | AI player logic (strength profiles, strategic/lookahead choices) |
 | [**VictoryService**](../src/lib/services/VictoryService.ts)             | Win condition check (home base capture)                          |
 
 ---
@@ -64,7 +64,10 @@ This project follows **Clean Architecture** principles. Code is organized into c
 - [`presentation/`](../src/lib/presentation/) — Adapter layer
   - [`components/`](../src/lib/presentation/components/) — Svelte components
   - [`constants/`](../src/lib/presentation/constants/) — UI rendering constants (UiConstants.ts)
+  - helper modules — presentation-specific formatting, layout, preference helpers
 - [`paraglide/`](../src/lib/paraglide/) — Framework layer — i18n generated output
+
+Presentation components may read repositories via `$derived`, but writes must be delegated to `GameApi`, `InteractionService`, or another dedicated UI-state service. Shared cross-layer contracts belong in `domain/types`; layer-local exported types may stay with the owning layer.
 
 [`tests/`](../tests/)
 

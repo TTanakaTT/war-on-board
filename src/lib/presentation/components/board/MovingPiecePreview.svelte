@@ -1,9 +1,9 @@
 <script lang="ts">
   import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
   import { BoardLayout } from "$lib/presentation/BoardLayout";
-  import PieceToken from "$lib/presentation/components/PieceToken.svelte";
   import { PIECE_PREVIEW_ANIMATION_MS } from "$lib/presentation/constants/PieceTokenConstants";
   import { getPieceTokenOffset } from "$lib/presentation/PieceTokenLayout";
+  import PieceToken from "./PieceToken.svelte";
 
   type MovingPreview = {
     id: number;

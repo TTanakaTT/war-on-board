@@ -2332,6 +2332,46 @@ describe("GameApi state snapshot contract", () => {
     });
   });
 
+  describe("GameApi.withTemporaryGameState", () => {
+    test("returns INVALID_GAME_STATE when the temporary snapshot is invalid", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const snapshot = GameApi.getGameState();
+
+      const result = GameApi.withTemporaryGameState(
+        {
+          ...snapshot,
+          homeBases: snapshot.homeBases.filter(
+            (homeBase) => homeBase.player === String(Player.SELF),
+          ),
+        },
+        () => "unreachable",
+      );
+
+      expect(result).toEqual({ ok: false, error: ActionError.INVALID_GAME_STATE });
+    });
+
+    test("returns a callback error Result and restores state, history, and match stats when the callback throws", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const originalGameState = GameApi.getGameState();
+      const originalHistory = GameApi.getGameStateHistory();
+      const originalMatchStats = MatchStatsRepository.get();
+
+      const result = GameApi.withTemporaryGameState(originalGameState, () => {
+        const endTurnResult = GameApi.endTurn(Player.SELF);
+        expectTurnEndSuccessWithSnapshot(endTurnResult);
+        throw new Error("temporary simulation failed");
+      });
+
+      expect(result).toEqual({
+        ok: false,
+        error: ActionError.TEMPORARY_GAME_STATE_CALLBACK_FAILED,
+      });
+      expect(GameApi.getGameState()).toEqual(originalGameState);
+      expect(GameApi.getGameStateHistory()).toEqual(originalHistory);
+      expect(MatchStatsRepository.get()).toEqual(originalMatchStats);
+    });
+  });
+
   describe("snapshot round trip", () => {
     test("the snapshot returned by an action matches the state returned by getGameState immediately after the action", () => {
       GameApi.initializeGame({ layer: 4 });

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import DrawerContent from "$lib/presentation/components/DrawerContent.svelte";
-  import DrawerEdgeToggleButton from "$lib/presentation/components/DrawerEdgeToggleButton.svelte";
+  import AppDrawerContent from "./AppDrawerContent.svelte";
+  import DrawerEdgeToggleButton from "./DrawerEdgeToggleButton.svelte";
   let {
     dialog = $bindable(),
     open,
@@ -33,7 +33,7 @@
   >
     <div class="relative h-full">
       <div class="h-full overflow-hidden {isGamePage && open ? 'pr-5' : ''}">
-        <DrawerContent isWideGameLayout={isWideGameDrawerLayout} isBrowserLayout={true} />
+        <AppDrawerContent isWideGameLayout={isWideGameDrawerLayout} isBrowserLayout={true} />
       </div>
 
       {#if isGamePage && open}
@@ -56,7 +56,7 @@
       class="dialog-content bg-surface dark:bg-surface-dark text-onsurface dark:text-onsurface-dark border-outline dark:border-outline-dark fixed h-screen overflow-hidden border transition-transform duration-200 ease-out {navTranslateStyle}"
       style={drawerWidthStyle}
     >
-      <DrawerContent isBrowserLayout={false} />
+      <AppDrawerContent isBrowserLayout={false} />
     </div>
   </dialog>
 {/if}

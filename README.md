@@ -35,4 +35,6 @@ Prompt files (`.github/prompts/`) can be invoked in VS Code Copilot Chat with `/
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — Clean Architecture layers, file map, extension points
+- [Glossary](docs/GLOSSARY.md) — English terminology definitions for public documentation and concepts
+- [Japanese Glossary](docs/GLOSSARY_JA.md) — Japanese terminology list aligned with the English glossary structure
 - [Coding Conventions](.github/copilot-instructions.md) — Style rules, TDD process, LLM guardrails

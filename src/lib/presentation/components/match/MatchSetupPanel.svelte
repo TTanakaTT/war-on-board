@@ -8,8 +8,8 @@
   import { AiStrength } from "$lib/domain/enums/AiStrength";
   import type { MatchControllers } from "$lib/domain/types/match";
   import { m } from "$lib/paraglide/messages";
-  import AppButton from "$lib/presentation/components/AppButton.svelte";
-  import HorizontalRadioGroup from "$lib/presentation/components/HorizontalRadioGroup.svelte";
+  import AppButton from "$lib/presentation/components/primitives/AppButton.svelte";
+  import HorizontalRadioGroup from "$lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
   import { MatchService } from "$lib/services/MatchService";
 
   type MatchSetupSelection = "human" | "ai-1" | "ai-2" | "ai-3";

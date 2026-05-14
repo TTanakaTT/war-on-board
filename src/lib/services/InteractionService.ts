@@ -9,7 +9,7 @@ import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
 import { MovementRulesService } from "$lib/services/MovementRulesService";
 import { DEFAULT_MAX_PIECES_PER_PANEL } from "$lib/domain/constants/GameConstants";
-import { GameApi } from "$lib/api/GameApi";
+import { GameApiClient } from "$lib/api/GameApiClient";
 import { MatchService } from "$lib/services/MatchService";
 
 /**
@@ -23,6 +23,10 @@ import { MatchService } from "$lib/services/MatchService";
  * Delegates movement-rule queries to MovementRulesService.
  */
 export class InteractionService {
+  static clearSelection(): void {
+    SelectedPanelRepository.set(undefined);
+  }
+
   /**
    * Handle a panel background click.
    *
@@ -40,12 +44,12 @@ export class InteractionService {
         const selectedPieceId = SelectedPanelRepository.getPieceId();
         const selectedPiece = PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
         if (selectedPiece && selectedPiece.targetPosition) {
-          const result = GameApi.cancelMove(selectedPiece.player, selectedPiece.id);
+          const result = GameApiClient.cancelMove(selectedPiece.player, selectedPiece.id);
           if (!result.ok) return;
 
           const cleared = PanelsService.clearSelected();
           PanelRepository.setAll(cleared);
-          SelectedPanelRepository.set(undefined);
+          this.clearSelection();
           return;
         }
         break;
@@ -54,7 +58,7 @@ export class InteractionService {
         const selectedPieceId = SelectedPanelRepository.getPieceId();
         if (selectedPieceId !== undefined) {
           const turn = TurnRepository.get();
-          const result = GameApi.assignMove(turn.player, selectedPieceId, panelPosition);
+          const result = GameApiClient.assignMove(turn.player, selectedPieceId, panelPosition);
           if (!result.ok) return;
         }
         break;

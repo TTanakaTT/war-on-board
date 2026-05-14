@@ -2,17 +2,12 @@ import { describe, test, expect } from "vitest";
 import { PieceType } from "$lib/domain/enums/PieceType";
 
 describe("PieceType", () => {
-  describe("singleton instances", () => {
-    test("PieceType.KNIGHT is defined", () => {
-      expect(PieceType.KNIGHT).toBeDefined();
-    });
+  describe("available values", () => {
+    test("exposes every piece type exactly once", () => {
+      const pieceTypes = [PieceType.KNIGHT, PieceType.ROOK, PieceType.BISHOP];
 
-    test("PieceType.ROOK is defined", () => {
-      expect(PieceType.ROOK).toBeDefined();
-    });
-
-    test("PieceType.BISHOP is defined", () => {
-      expect(PieceType.BISHOP).toBeDefined();
+      expect(pieceTypes.map(String)).toEqual(["knight", "rook", "bishop"]);
+      expect(new Set(pieceTypes).size).toBe(pieceTypes.length);
     });
   });
 
@@ -53,6 +48,12 @@ describe("PieceType", () => {
       expect(cfg.maxHp).toBe(5);
       expect(cfg.attackPowerAgainstPiece).toBe(0);
       expect(cfg.attackPowerAgainstWall).toBe(0);
+    });
+
+    test("mergeability matches the intended combat roles", () => {
+      expect(PieceType.KNIGHT.config.mergeable).toBe(true);
+      expect(PieceType.ROOK.config.mergeable).toBe(false);
+      expect(PieceType.BISHOP.config.mergeable).toBe(false);
     });
   });
 });

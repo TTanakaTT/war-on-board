@@ -26,4 +26,10 @@ export enum ActionError {
 
   /** The provided game state snapshot is structurally invalid. */
   INVALID_GAME_STATE = "INVALID_GAME_STATE",
+
+  /** The temporary game-state callback threw before producing a result. */
+  TEMPORARY_GAME_STATE_CALLBACK_FAILED = "TEMPORARY_GAME_STATE_CALLBACK_FAILED",
+
+  /** The live game state could not be restored after a temporary simulation. */
+  TEMPORARY_GAME_STATE_RESTORE_FAILED = "TEMPORARY_GAME_STATE_RESTORE_FAILED",
 }

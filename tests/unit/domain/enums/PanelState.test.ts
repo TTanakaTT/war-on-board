@@ -2,21 +2,24 @@ import { describe, test, expect } from "vitest";
 import { PanelState } from "$lib/domain/enums/PanelState";
 
 describe("PanelState", () => {
-  describe("singleton instances", () => {
-    test("PanelState.UNOCCUPIED is defined", () => {
-      expect(PanelState.UNOCCUPIED).toBeDefined();
-    });
-    test("PanelState.OCCUPIED is defined", () => {
-      expect(PanelState.OCCUPIED).toBeDefined();
-    });
-    test("PanelState.SELECTED is defined", () => {
-      expect(PanelState.SELECTED).toBeDefined();
-    });
-    test("PanelState.MOVABLE is defined", () => {
-      expect(PanelState.MOVABLE).toBeDefined();
-    });
-    test("PanelState.IMMOVABLE is defined", () => {
-      expect(PanelState.IMMOVABLE).toBeDefined();
+  describe("available values", () => {
+    test("exposes every board highlight state exactly once", () => {
+      const states = [
+        PanelState.UNOCCUPIED,
+        PanelState.OCCUPIED,
+        PanelState.SELECTED,
+        PanelState.MOVABLE,
+        PanelState.IMMOVABLE,
+      ];
+
+      expect(states.map(String)).toEqual([
+        "unoccupied",
+        "occupied",
+        "selected",
+        "movable",
+        "immovable",
+      ]);
+      expect(new Set(states).size).toBe(states.length);
     });
   });
 

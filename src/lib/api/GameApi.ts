@@ -478,6 +478,58 @@ export class GameApi {
     return { ok: true, value: { gameState: this.getGameState() } };
   }
 
+  /**
+   * Runs work against a temporary snapshot and restores the live state afterwards.
+   *
+   * This is intended for internal simulations such as AI lookahead. The callback may
+   * call any regular GameApi mutation, but the current game state, history, and match
+   * stats are restored before returning to the caller. Callback exceptions are converted
+   * into an error Result so callers can treat this helper like any other GameApi action.
+   */
+  static withTemporaryGameState<TResult>(
+    snapshot: GameStateSnapshot,
+    callback: () => TResult,
+  ): Result<TResult> {
+    const originalGameState = this.getGameState();
+    const originalHistory = this.getGameStateHistory();
+    const originalMatchStats = MatchStatsRepository.get();
+
+    const loadResult = this.loadGameState(snapshot);
+    if (!loadResult.ok) {
+      return { ok: false, error: loadResult.error };
+    }
+
+    let callbackValue: TResult | undefined;
+    let callbackFailed = false;
+    let restoreFailed: boolean | undefined;
+    try {
+      try {
+        callbackValue = callback();
+      } catch {
+        callbackFailed = true;
+      }
+    } finally {
+      try {
+        const restoreResult = this.loadGameState(originalGameState);
+        restoreFailed = !restoreResult.ok;
+      } catch {
+        restoreFailed = true;
+      }
+      MatchStatsRepository.set(originalMatchStats);
+      GameStateHistoryRepository.setAll(originalHistory);
+    }
+
+    if (restoreFailed === true) {
+      return { ok: false, error: ActionError.TEMPORARY_GAME_STATE_RESTORE_FAILED };
+    }
+
+    if (callbackFailed) {
+      return { ok: false, error: ActionError.TEMPORARY_GAME_STATE_CALLBACK_FAILED };
+    }
+
+    return { ok: true, value: callbackValue as TResult };
+  }
+
   private static addResources(player: Player) {
     const turn = TurnRepository.get();
     const panels = PanelRepository.getAll().filter((p) => p.player === player);
