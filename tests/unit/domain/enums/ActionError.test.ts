@@ -16,6 +16,8 @@ describe("ActionError", () => {
         "CANNOT_CANCEL",
         "GAME_ALREADY_OVER",
         "INVALID_GAME_STATE",
+        "TEMPORARY_GAME_STATE_CALLBACK_FAILED",
+        "TEMPORARY_GAME_STATE_RESTORE_FAILED",
       ]);
       expect(new Set(values).size).toBe(values.length);
     });
@@ -30,6 +32,16 @@ describe("ActionError", () => {
     });
     test("String(ActionError.INVALID_GAME_STATE) returns 'INVALID_GAME_STATE'", () => {
       expect(ActionError.INVALID_GAME_STATE).toBe("INVALID_GAME_STATE");
+    });
+    test("String(ActionError.TEMPORARY_GAME_STATE_CALLBACK_FAILED) returns 'TEMPORARY_GAME_STATE_CALLBACK_FAILED'", () => {
+      expect(ActionError.TEMPORARY_GAME_STATE_CALLBACK_FAILED).toBe(
+        "TEMPORARY_GAME_STATE_CALLBACK_FAILED",
+      );
+    });
+    test("String(ActionError.TEMPORARY_GAME_STATE_RESTORE_FAILED) returns 'TEMPORARY_GAME_STATE_RESTORE_FAILED'", () => {
+      expect(ActionError.TEMPORARY_GAME_STATE_RESTORE_FAILED).toBe(
+        "TEMPORARY_GAME_STATE_RESTORE_FAILED",
+      );
     });
   });
 });

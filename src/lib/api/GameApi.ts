@@ -483,7 +483,8 @@ export class GameApi {
    *
    * This is intended for internal simulations such as AI lookahead. The callback may
    * call any regular GameApi mutation, but the current game state, history, and match
-   * stats are restored before returning to the caller.
+   * stats are restored before returning to the caller. Callback exceptions are converted
+   * into an error Result so callers can treat this helper like any other GameApi action.
    */
   static withTemporaryGameState<TResult>(
     snapshot: GameStateSnapshot,
@@ -499,22 +500,31 @@ export class GameApi {
     }
 
     let callbackValue: TResult | undefined;
-    let restoreFailed = false;
-
+    let callbackFailed = false;
+    let restoreFailed: boolean | undefined;
     try {
-      callbackValue = callback();
+      try {
+        callbackValue = callback();
+      } catch {
+        callbackFailed = true;
+      }
     } finally {
-      const restoreResult = this.loadGameState(originalGameState);
-      MatchStatsRepository.set(originalMatchStats);
-      GameStateHistoryRepository.setAll(originalHistory);
-
-      if (!restoreResult.ok) {
+      try {
+        const restoreResult = this.loadGameState(originalGameState);
+        restoreFailed = !restoreResult.ok;
+      } catch {
         restoreFailed = true;
       }
+      MatchStatsRepository.set(originalMatchStats);
+      GameStateHistoryRepository.setAll(originalHistory);
     }
 
-    if (restoreFailed) {
-      throw new Error("Failed to restore temporary game state.");
+    if (restoreFailed === true) {
+      return { ok: false, error: ActionError.TEMPORARY_GAME_STATE_RESTORE_FAILED };
+    }
+
+    if (callbackFailed) {
+      return { ok: false, error: ActionError.TEMPORARY_GAME_STATE_CALLBACK_FAILED };
     }
 
     return { ok: true, value: callbackValue as TResult };
