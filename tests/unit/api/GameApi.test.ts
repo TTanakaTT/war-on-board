@@ -69,6 +69,7 @@ function snapshotFromRepositories(): GameStateSnapshot {
       hp: piece.hp,
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
+      movementPoints: piece.movementPoints,
     })),
     turn: {
       num: turn.num,
@@ -1091,6 +1092,30 @@ describe("GameApi.endTurn", () => {
 
       const piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
       expect(piece.panelPosition.equals(origin)).toBe(true);
+    });
+
+    test("moving spends 1 movementPoint; it is restored to the cap once this player's next turn starts", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      GameApi.endTurn(Player.SELF);
+      const movedPiece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(movedPiece.movementPoints).toBe(0);
+
+      GameApi.endTurn(Player.OPPONENT);
+      const nextTurnPiece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(nextTurnPiece.movementPoints).toBe(1);
     });
   });
 

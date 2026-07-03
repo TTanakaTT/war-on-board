@@ -122,6 +122,71 @@ describe("PieceService", () => {
       expect(updated.maxHp).toBe(20);
       expect(updated.hp).toBe(20);
     });
+
+    test("spends MOVEMENT_HOP_COST (1) of movementPoints per move", () => {
+      const piece = makePiece({
+        id: 1,
+        panelPosition: pos(-2, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 1,
+      });
+      PiecesRepository.add(piece);
+      PieceService.move(pos(-1, 0), piece);
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(updated.movementPoints).toBe(0);
+    });
+  });
+
+  describe("computeAccruedMovementPoints", () => {
+    test("refills to the cap each turn when movementRate=1 (matches today's real units)", () => {
+      expect(PieceService.computeAccruedMovementPoints(0, 1)).toBe(1);
+      expect(PieceService.computeAccruedMovementPoints(1, 1)).toBe(1);
+    });
+
+    test("caps at movementRate=2 (future Cavalry) instead of accumulating indefinitely", () => {
+      expect(PieceService.computeAccruedMovementPoints(0, 2)).toBe(2);
+      expect(PieceService.computeAccruedMovementPoints(2, 2)).toBe(2);
+    });
+
+    test("fractional movementRate=0.5 (future Heavy) takes two turns to reach the 1-point cap", () => {
+      const afterTurn1 = PieceService.computeAccruedMovementPoints(0, 0.5);
+      expect(afterTurn1).toBe(0.5);
+      const afterTurn2 = PieceService.computeAccruedMovementPoints(afterTurn1, 0.5);
+      expect(afterTurn2).toBe(1);
+      // Further idle turns don't exceed the cap.
+      expect(PieceService.computeAccruedMovementPoints(afterTurn2, 0.5)).toBe(1);
+    });
+  });
+
+  describe("accrueMovementForPlayer", () => {
+    test("restores a spent movement point back to the cap for every player piece", () => {
+      const piece = makePiece({
+        id: 1,
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 0,
+      });
+      PiecesRepository.add(piece);
+      PieceService.accrueMovementForPlayer(Player.SELF);
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(updated.movementPoints).toBe(1);
+    });
+
+    test("does not affect the other player's pieces", () => {
+      const oppPiece = makePiece({
+        id: 1,
+        panelPosition: pos(0, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 0,
+      });
+      PiecesRepository.add(oppPiece);
+      PieceService.accrueMovementForPlayer(Player.SELF);
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(updated.movementPoints).toBe(0);
+    });
   });
 
   describe("resetInitialPositions", () => {

@@ -211,4 +211,25 @@ describe("Piece", () => {
       expect(piece.defense).toBe(PieceType.ROOK.config.defense);
     });
   });
+
+  describe("movementPoints", () => {
+    test("defaults to pieceType.config.movement when omitted", () => {
+      const piece = new Piece({
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+      });
+      expect(piece.movementPoints).toBe(PieceType.INFANTRY.config.movement);
+    });
+
+    test("uses the explicitly provided value instead of the config default", () => {
+      const piece = new Piece({
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 0,
+      });
+      expect(piece.movementPoints).toBe(0);
+    });
+  });
 });

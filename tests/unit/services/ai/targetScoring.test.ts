@@ -48,6 +48,7 @@ function createPieceSnapshot(
     hp: overrides.hp ?? pieceType.config.maxHp,
     stackCount: overrides.stackCount ?? 1,
     maxHp: overrides.maxHp ?? pieceType.config.maxHp,
+    movementPoints: overrides.movementPoints ?? pieceType.config.movement,
   };
 }
 
@@ -108,6 +109,7 @@ describe("getPieceCombatStats", () => {
         hp: domainPiece.hp,
         stackCount: domainPiece.stackCount,
         maxHp: domainPiece.maxHp,
+        movementPoints: domainPiece.movementPoints,
       };
 
       expect(getPieceCombatStats(pieceSnapshot)).toEqual({

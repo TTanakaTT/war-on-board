@@ -14,6 +14,12 @@ interface PieceConfig {
   readonly attackPowerAgainstWall: number;
   readonly defense: number;
   /**
+   * Panels advanced toward a piece's target position per turn. Movement points
+   * accrue each turn up to max(movement, MOVEMENT_HOP_COST) — see
+   * PieceService.computeAccruedMovementPoints — and merge does not scale it.
+   */
+  readonly movement: number;
+  /**
    * Whether units of this type can merge when multiple occupy the same panel.
    * Merging sums HP, maxHp, stackCount. Merge multiplies attack *count*, not
    * attack power — see Piece.attackPowerAgainstPiece/attackPowerAgainstWall.
@@ -29,6 +35,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     attackPowerAgainstPiece: 5,
     attackPowerAgainstWall: 1,
     defense: 1,
+    movement: 1,
     mergeable: true,
   },
   [PIECETYPE.ROOK]: {
@@ -38,6 +45,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     attackPowerAgainstPiece: 2,
     attackPowerAgainstWall: 2,
     defense: 1,
+    movement: 1,
     mergeable: false,
   },
   [PIECETYPE.NOBLE]: {
@@ -47,6 +55,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     attackPowerAgainstPiece: 0,
     attackPowerAgainstWall: 0,
     defense: 0,
+    movement: 1,
     mergeable: false,
   },
 } as const;

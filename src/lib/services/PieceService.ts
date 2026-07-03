@@ -8,7 +8,11 @@ import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PanelState } from "$lib/domain/enums/PanelState";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { CombatService } from "$lib/services/CombatService";
-import { PASSIVE_RESOURCE_CAP, PASSIVE_CASTLE_CAP } from "$lib/domain/constants/GameConstants";
+import {
+  PASSIVE_RESOURCE_CAP,
+  PASSIVE_CASTLE_CAP,
+  MOVEMENT_HOP_COST,
+} from "$lib/domain/constants/GameConstants";
 import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
 
 export class PieceService {
@@ -96,8 +100,34 @@ export class PieceService {
       hp: selectedPiece.hp,
       stackCount: selectedPiece.stackCount,
       maxHp: selectedPiece.maxHp,
+      movementPoints: selectedPiece.movementPoints - MOVEMENT_HOP_COST,
     });
     PiecesRepository.update(newPiece);
+  }
+
+  /**
+   * Movement points accrued this turn, capped so a piece never banks more
+   * than max(movementRate, MOVEMENT_HOP_COST). A movementRate below
+   * MOVEMENT_HOP_COST (e.g. 0.5) takes multiple turns to reach the cap.
+   */
+  static computeAccruedMovementPoints(currentPoints: number, movementRate: number): number {
+    const cap = Math.max(movementRate, MOVEMENT_HOP_COST);
+    return Math.min(cap, currentPoints + movementRate);
+  }
+
+  static accrueMovementForPlayer(player: Player): void {
+    const pieces = PiecesRepository.getPiecesByPlayer(player);
+    pieces.forEach((piece: Piece) => {
+      PiecesRepository.update(
+        new Piece({
+          ...piece,
+          movementPoints: this.computeAccruedMovementPoints(
+            piece.movementPoints,
+            piece.pieceType.config.movement,
+          ),
+        }),
+      );
+    });
   }
 
   static resetInitialPositions(player: Player) {

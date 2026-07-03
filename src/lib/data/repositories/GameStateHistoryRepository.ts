@@ -76,6 +76,7 @@ export class GameStateHistoryRepository {
       hp: piece.hp,
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
+      movementPoints: piece.movementPoints,
     };
   }
 

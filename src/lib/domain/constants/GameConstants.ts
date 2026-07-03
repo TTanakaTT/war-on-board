@@ -15,3 +15,5 @@ export const RESOURCE_THRESHOLD_FOR_GENERATION = 5;
 
 // Movement
 export const DEFAULT_MAX_PIECES_PER_PANEL = 2;
+/** Movement points spent to advance one panel. Also the floor for the accrual cap: max(movement, MOVEMENT_HOP_COST). */
+export const MOVEMENT_HOP_COST = 1;

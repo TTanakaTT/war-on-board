@@ -36,6 +36,7 @@ export interface PieceSnapshot {
   hp: number;
   stackCount: number;
   maxHp: number;
+  movementPoints: number;
 }
 
 export interface HomeBaseSnapshot {

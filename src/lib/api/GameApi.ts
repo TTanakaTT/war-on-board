@@ -116,7 +116,7 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  *   2. Refresh panel ownership based on piece positions.
  *   3. Check victory (home base capture).
  *   4. Switch to next player.
- *   5. Reset initial positions + apply passive gains for the next player.
+ *   5. Reset initial positions + apply passive gains + accrue movement for the next player.
  *   6. Add resources (sum of owned panels' resource values).
  *
  * ## Resource system
@@ -368,7 +368,7 @@ export class GameApi {
    *   2. Refresh panel states.
    *   3. Check victory condition (home base captured → game ends).
    *   4. Switch player.
-   *   5. Reset initial positions + apply passive gains for the next player.
+   *   5. Reset initial positions + apply passive gains + accrue movement for the next player.
    *   6. Add resource income for the next player.
    *
    * See class-level JSDoc for combat rules, passive effects, and entry conditions.
@@ -417,9 +417,10 @@ export class GameApi {
     const nextPlayer = player === PlayerClass.SELF ? PlayerClass.OPPONENT : PlayerClass.SELF;
     const nextNum = player === PlayerClass.OPPONENT ? turn.num + 1 : turn.num;
 
-    // 5. Reset initial positions + apply passive gains for next player
+    // 5. Reset initial positions + apply passive gains + accrue movement for next player
     PieceService.resetInitialPositions(nextPlayer);
     PieceService.applyPassiveGains(nextPlayer);
+    PieceService.accrueMovementForPlayer(nextPlayer);
 
     // 6. Update turn state
     TurnRepository.set({
@@ -722,6 +723,7 @@ export class GameApi {
       hp: piece.hp,
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
+      movementPoints: piece.movementPoints,
     };
   }
 
@@ -736,6 +738,7 @@ export class GameApi {
       hp: piece.hp,
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
+      movementPoints: piece.movementPoints,
     });
   }
 
@@ -822,6 +825,7 @@ export class GameApi {
       if (!Number.isFinite(piece.hp) || piece.hp < 0) return false;
       if (!Number.isFinite(piece.maxHp) || piece.maxHp < 0) return false;
       if (!Number.isInteger(piece.stackCount) || piece.stackCount < 1) return false;
+      if (!Number.isFinite(piece.movementPoints) || piece.movementPoints < 0) return false;
       if (piece.hp > piece.maxHp) return false;
     }
 

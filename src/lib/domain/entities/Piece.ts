@@ -17,6 +17,12 @@ export class Piece {
    * Equals `pieceType.config.maxHp * stackCount` after merging.
    */
   maxHp: number;
+  /**
+   * Banked movement points. Accrues by `pieceType.config.movement` each turn
+   * (capped — see PieceService.computeAccruedMovementPoints) and is spent
+   * when the piece advances a panel. Not scaled by merge/stackCount.
+   */
+  movementPoints: number;
 
   /**
    * Base attack power against pieces (raw pieceType.config value).
@@ -59,6 +65,7 @@ export class Piece {
     hp,
     stackCount,
     maxHp,
+    movementPoints,
   }: {
     id?: number;
     initialPosition?: PanelPosition;
@@ -69,6 +76,7 @@ export class Piece {
     hp?: number;
     stackCount?: number;
     maxHp?: number;
+    movementPoints?: number;
   }) {
     this.id = id ?? 0;
     this.panelPosition = panelPosition;
@@ -79,6 +87,7 @@ export class Piece {
     this.stackCount = stackCount ?? 1;
     this.maxHp = maxHp ?? pieceType.config.maxHp * this.stackCount;
     this.hp = hp ?? this.maxHp;
+    this.movementPoints = movementPoints ?? pieceType.config.movement;
   }
 
   equals(other: Piece): boolean {
