@@ -218,7 +218,16 @@ export class PieceService {
       if (canEnter) {
         this.move(targetPosition, current);
       } else {
-        PiecesRepository.update(new Piece({ ...current, targetPosition: undefined }));
+        // Reaching this branch means an attack was actually attempted (wall or piece combat
+        // occurred) but didn't fully succeed — it still costs a movement point, same as a
+        // successful move, regardless of outcome.
+        PiecesRepository.update(
+          new Piece({
+            ...current,
+            targetPosition: undefined,
+            movementPoints: current.movementPoints - MOVEMENT_HOP_COST,
+          }),
+        );
       }
     }
 
@@ -289,11 +298,18 @@ export class PieceService {
    * Groups attackers by target panel, then resolves each group
    * with simultaneous multi-unit combat.
    *
+   * A piece whose banked movementPoints haven't yet reached MOVEMENT_HOP_COST is skipped
+   * entirely — its pending target and points are left untouched, to be resolved on a later
+   * turn once enough movement has accrued (see GameApi.assignMove for how a movement<1
+   * piece's points are committed down to its rate on assignment).
+   *
    * @returns Combat outcomes for groups where combat occurred.
    */
   static finalizePlayerMoves(player: Player): CombatOutcome[] {
     const pieces = PiecesRepository.getPiecesByPlayer(player);
-    const piecesWithMoves = pieces.filter((p) => p.targetPosition);
+    const piecesWithMoves = pieces.filter(
+      (p) => p.targetPosition && p.movementPoints >= MOVEMENT_HOP_COST,
+    );
 
     // Group by target panel position
     const groups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();

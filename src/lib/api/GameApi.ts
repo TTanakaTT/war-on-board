@@ -40,6 +40,7 @@ import { GenerationService } from "$lib/services/GenerationService";
 import {
   PLAYER_INIT_RESOURCE,
   DEFAULT_MAX_PIECES_PER_PANEL,
+  MOVEMENT_HOP_COST,
 } from "$lib/domain/constants/GameConstants";
 import { ActionError } from "$lib/domain/enums/ActionError";
 
@@ -238,6 +239,14 @@ export class GameApi {
     if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
     if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
 
+    // A piece whose banked movementPoints haven't reached MOVEMENT_HOP_COST cannot act at
+    // all yet (e.g. a movement<1 piece still winding up toward its next action). Since a
+    // slow piece's points drop below this threshold the moment it commits to a target (see
+    // below), this also blocks any attempt to redirect an already-committed pending action.
+    if (piece.movementPoints < MOVEMENT_HOP_COST) {
+      return { ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS };
+    }
+
     // Target must be adjacent to initialPosition or equal to it (stay)
     if (!piece.initialPosition.isAdjacent(target) && !piece.initialPosition.equals(target)) {
       return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
@@ -249,7 +258,18 @@ export class GameApi {
       return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
     }
 
-    PiecesRepository.update(new Piece({ ...piece, targetPosition: target }));
+    // A movement<1 piece commits its points down to the raw rate on assignment — this turn's
+    // accrual is considered "already spent" on declaring the action, and resolution only
+    // happens once accrual (see PieceService.computeAccruedMovementPoints) climbs back to
+    // MOVEMENT_HOP_COST over ceil(MOVEMENT_HOP_COST / movement) of the owner's turns.
+    const committedMovementPoints =
+      piece.pieceType.config.movement < MOVEMENT_HOP_COST
+        ? piece.pieceType.config.movement
+        : piece.movementPoints;
+
+    PiecesRepository.update(
+      new Piece({ ...piece, targetPosition: target, movementPoints: committedMovementPoints }),
+    );
     return { ok: true, value: { gameState: this.getGameState() } };
   }
 

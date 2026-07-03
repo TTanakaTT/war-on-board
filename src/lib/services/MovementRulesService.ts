@@ -3,7 +3,10 @@ import type { Piece } from "$lib/domain/entities/Piece";
 import { Player } from "$lib/domain/enums/Player";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { DEFAULT_MAX_PIECES_PER_PANEL } from "$lib/domain/constants/GameConstants";
+import {
+  DEFAULT_MAX_PIECES_PER_PANEL,
+  MOVEMENT_HOP_COST,
+} from "$lib/domain/constants/GameConstants";
 
 /**
  * MovementRulesService — pure query service for movement-related rules.
@@ -132,8 +135,12 @@ export class MovementRulesService {
 
   /**
    * Check whether cancelling a piece's pending move is allowed.
-   * Cancel is blocked if returning the piece to its current panel would
-   * exceed the capacity limit.
+   *
+   * Blocked if:
+   *   - The piece's movement is below MOVEMENT_HOP_COST (e.g. a movement<1 piece)
+   *     — its pending action is committed the instant it's assigned (see
+   *     GameApi.assignMove) and cannot be redirected or cancelled until it resolves.
+   *   - Returning the piece to its current panel would exceed the capacity limit.
    */
   static canCancelMove(
     pieceCurrentPosition: PanelPosition,
@@ -141,6 +148,9 @@ export class MovementRulesService {
     pieceId: number,
     maxPieces: number = DEFAULT_MAX_PIECES_PER_PANEL,
   ): boolean {
+    const piece = PiecesRepository.getAll().find((candidate) => candidate.id === pieceId);
+    if (piece && piece.pieceType.config.movement < MOVEMENT_HOP_COST) return false;
+
     const projectedStackCount = this.projectedFriendlyStackCount(
       pieceCurrentPosition,
       player,

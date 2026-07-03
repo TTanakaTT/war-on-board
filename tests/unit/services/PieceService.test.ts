@@ -157,6 +157,18 @@ describe("PieceService", () => {
       // Further idle turns don't exceed the cap.
       expect(PieceService.computeAccruedMovementPoints(afterTurn2, 0.5)).toBe(1);
     });
+
+    test("fractional movementRate=0.25 (hypothetical slower unit) takes four turns to reach the 1-point cap", () => {
+      let points = 0;
+      const perTurn: number[] = [];
+      for (let turn = 0; turn < 4; turn++) {
+        points = PieceService.computeAccruedMovementPoints(points, 0.25);
+        perTurn.push(points);
+      }
+      expect(perTurn).toEqual([0.25, 0.5, 0.75, 1]);
+      // Further idle turns don't exceed the cap.
+      expect(PieceService.computeAccruedMovementPoints(points, 0.25)).toBe(1);
+    });
   });
 
   describe("accrueMovementForPlayer", () => {
@@ -396,6 +408,71 @@ describe("PieceService", () => {
       expect(outcomes.length).toBe(1);
       expect(outcomes[0].wallDamageDealt).toBeGreaterThan(0);
       expect(outcomes[0].entered).toBe(false);
+    });
+
+    test("an attack that fails to enter still spends a movementPoint, same as a successful move", () => {
+      // Rook(def=1) survives Infantry's (5-1)*1=4 damage when given enough HP, so the
+      // attacker doesn't enter — but the attack was still attempted.
+      const attacker = makePiece({
+        id: 1,
+        panelPosition: pos(-1, 0),
+        targetPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 1,
+      });
+      const defender = makePiece({
+        id: 2,
+        panelPosition: pos(0, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.ROOK,
+        hp: 100,
+      });
+      PiecesRepository.add(attacker);
+      PiecesRepository.add(defender);
+      const outcomes = PieceService.finalizePlayerMoves(Player.SELF);
+      expect(outcomes[0].entered).toBe(false);
+      const updatedAttacker = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(updatedAttacker.movementPoints).toBe(0);
+    });
+
+    test("skips resolving a piece whose movementPoints haven't reached MOVEMENT_HOP_COST, leaving its target pending", () => {
+      // Synthetic movement<1 piece (future Heavy-like unit) — resolution must wait for
+      // further accrual, not fire immediately just because a target is assigned.
+      const slowPiece = makePiece({
+        id: 1,
+        panelPosition: pos(-2, 0),
+        targetPosition: pos(-1, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 0.5,
+      });
+      PiecesRepository.add(slowPiece);
+
+      const outcomes = PieceService.finalizePlayerMoves(Player.SELF);
+
+      expect(outcomes).toEqual([]);
+      const unchanged = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(unchanged.panelPosition.equals(pos(-2, 0))).toBe(true);
+      expect(unchanged.targetPosition?.equals(pos(-1, 0))).toBe(true);
+      expect(unchanged.movementPoints).toBe(0.5);
+    });
+
+    test("resolves a pending move once movementPoints reach MOVEMENT_HOP_COST", () => {
+      const readyPiece = makePiece({
+        id: 1,
+        panelPosition: pos(-2, 0),
+        targetPosition: pos(-1, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 1,
+      });
+      PiecesRepository.add(readyPiece);
+
+      PieceService.finalizePlayerMoves(Player.SELF);
+
+      const moved = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(moved.panelPosition.equals(pos(-1, 0))).toBe(true);
     });
 
     test("groups multiple attackers targeting the same panel", () => {

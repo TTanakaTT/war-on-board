@@ -262,5 +262,19 @@ describe("MovementRulesService", () => {
 
       expect(MovementRulesService.canCancelMove(pos(0, 0), Player.SELF, piece.id)).toBe(true);
     });
+
+    test("blocks cancel unconditionally for a movement<1 piece with a pending target, even within capacity", () => {
+      // Synthetic movement<1 piece type (future Heavy-like unit) — committed actions can
+      // never be cancelled, regardless of capacity headroom.
+      const slowPieceType = {
+        config: { ...PieceType.INFANTRY.config, movement: 0.5 },
+      } as unknown as PieceType;
+      const piece = addPiece(200, pos(0, 0), Player.SELF, {
+        pieceType: slowPieceType,
+        targetPosition: pos(1, 0),
+      });
+
+      expect(MovementRulesService.canCancelMove(pos(0, 0), Player.SELF, piece.id)).toBe(false);
+    });
   });
 });

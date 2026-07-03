@@ -11,6 +11,7 @@ describe("ActionError", () => {
         "PIECE_NOT_FOUND",
         "PIECE_NOT_OWNED",
         "TARGET_NOT_REACHABLE",
+        "INSUFFICIENT_MOVEMENT_POINTS",
         "INSUFFICIENT_RESOURCES",
         "NO_GENERATION_PANEL",
         "CANNOT_CANCEL",

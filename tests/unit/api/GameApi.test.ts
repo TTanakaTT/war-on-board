@@ -430,6 +430,29 @@ describe("GameApi.assignMove", () => {
       expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_OWNED });
     });
 
+    test("when piece's movementPoints are below MOVEMENT_HOP_COST, returns INSUFFICIENT_MOVEMENT_POINTS", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      // Synthetic movement<1 piece (future Heavy-like unit) mid-windup.
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          player: Player.SELF,
+          pieceType: PieceType.INFANTRY,
+          movementPoints: 0.5,
+        }),
+      );
+
+      const result = GameApi.assignMove(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS });
+    });
+
     test("when target is not adjacent to piece's initialPosition, returns TARGET_NOT_REACHABLE", () => {
       GameApi.initializeGame({ layer: 4 });
       setupSelfPieceAt(0, 0);
@@ -483,6 +506,41 @@ describe("GameApi.assignMove", () => {
       const updated = PiecesRepository.getAll().find((p) => p.id === 1);
       expect(updated!.targetPosition).toBeDefined();
       expect(updated!.targetPosition!.equals(target)).toBe(true);
+    });
+
+    test("assigning a movement<1 piece commits its movementPoints down to the rate value", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      // Synthetic movement<1 piece type (future Heavy-like unit), fully accrued (ready) at
+      // the movement cap of 1. Built as its own object rather than mutating the shared
+      // PieceType.INFANTRY singleton, which other tests depend on.
+      const slowPieceType = {
+        config: { ...PieceType.INFANTRY.config, movement: 0.5 },
+      } as unknown as PieceType;
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: slowPieceType,
+          movementPoints: 1,
+        }),
+      );
+
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      GameApi.assignMove(Player.SELF, 1, target);
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(updated.movementPoints).toBe(0.5);
+
+      // A second assignment attempt is now blocked — the piece has committed its points.
+      const redirect = GameApi.assignMove(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 }),
+      );
+      expect(redirect).toEqual({ ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS });
     });
 
     test("when target is a full friendly panel but a resident friendly piece can merge, assignment succeeds", () => {

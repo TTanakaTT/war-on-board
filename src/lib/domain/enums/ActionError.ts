@@ -12,6 +12,9 @@ export enum ActionError {
   /** The target panel is not reachable (not adjacent, or capacity exceeded). */
   TARGET_NOT_REACHABLE = "TARGET_NOT_REACHABLE",
 
+  /** The piece's banked movementPoints are below MOVEMENT_HOP_COST, so it cannot act yet. */
+  INSUFFICIENT_MOVEMENT_POINTS = "INSUFFICIENT_MOVEMENT_POINTS",
+
   /** The player does not have enough resources to perform this action. */
   INSUFFICIENT_RESOURCES = "INSUFFICIENT_RESOURCES",
 
