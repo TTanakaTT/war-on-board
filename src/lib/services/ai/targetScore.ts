@@ -94,7 +94,7 @@ function scoreHomeSideGrowthAdjustment(
   target: PanelPosition,
   candidateTargets: PanelPosition[],
 ): number {
-  if (piece.pieceType !== "rook" && piece.pieceType !== "bishop") {
+  if (piece.pieceType !== "rook" && piece.pieceType !== "noble") {
     return 0;
   }
 

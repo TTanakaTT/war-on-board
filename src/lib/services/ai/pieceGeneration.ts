@@ -25,12 +25,12 @@ export function selectStrategicPieceType(
     return null;
   }
 
-  if (pieceTypeCounts.bishop === 0 && availablePieceTypes.includes(PieceType.BISHOP)) {
-    return PieceType.BISHOP;
+  if (pieceTypeCounts.noble === 0 && availablePieceTypes.includes(PieceType.NOBLE)) {
+    return PieceType.NOBLE;
   }
 
-  if (pieceTypeCounts.knight === 0 && availablePieceTypes.includes(PieceType.KNIGHT)) {
-    return PieceType.KNIGHT;
+  if (pieceTypeCounts.infantry === 0 && availablePieceTypes.includes(PieceType.INFANTRY)) {
+    return PieceType.INFANTRY;
   }
 
   if (pieceTypeCounts.rook === 0 && availablePieceTypes.includes(PieceType.ROOK)) {
@@ -83,9 +83,9 @@ function countPieceTypes(gameState: GameStateSnapshot, player: Player): PieceTyp
         return counts;
       },
       {
-        knight: 0,
+        infantry: 0,
         rook: 0,
-        bishop: 0,
+        noble: 0,
       },
     );
 }
@@ -95,12 +95,12 @@ function filterAvailablePieceTypesForProfile(
   pieceTypeCounts: PieceTypeCounts,
   profile: AiStrengthProfile,
 ): PieceType[] {
-  if (profile.pieceSelection !== "knight-balanced-support") {
+  if (profile.pieceSelection !== "infantry-balanced-support") {
     return availablePieceTypes;
   }
 
   return availablePieceTypes.filter((pieceType) => {
-    if (pieceType === PieceType.KNIGHT) {
+    if (pieceType === PieceType.INFANTRY) {
       return true;
     }
 
@@ -108,7 +108,7 @@ function filterAvailablePieceTypesForProfile(
       return false;
     }
 
-    return pieceTypeCounts[String(pieceType) as keyof PieceTypeCounts] <= pieceTypeCounts.knight;
+    return pieceTypeCounts[String(pieceType) as keyof PieceTypeCounts] <= pieceTypeCounts.infantry;
   });
 }
 

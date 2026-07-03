@@ -8,11 +8,39 @@ import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepositor
  * CombatService — handles all combat resolution (piece-vs-piece, piece-vs-wall).
  *
  * Supports multi-unit simultaneous combat:
+ *   - Damage = (attack - target's HP-weighted average defense) * attacker's
+ *     stackCount, floored at 0, summed per source group
  *   - Total incoming damage is split across the opposing group by current HP ratio
  *   - Attack and counterattack are applied simultaneously
  *   - Fractional HP is allowed after proportional damage
  */
 export class CombatService {
+  /**
+   * HP-weighted average defense across a group. 0 if the group is empty or
+   * has no HP. Used to reduce a multi-unit defending group to a single
+   * defense value for damage calculation, independent of the defenders'
+   * own merge counts (a defender's stackCount never affects damage taken).
+   */
+  private static aggregatedDefense(group: Piece[]): number {
+    const totalHp = group.reduce((sum, piece) => sum + piece.hp, 0);
+    if (totalHp <= 0) return 0;
+    return group.reduce((sum, piece) => sum + piece.defense * piece.hp, 0) / totalHp;
+  }
+
+  /**
+   * Total damage a group of attacking pieces deals against a target whose
+   * aggregated defense is `targetDefense`. Per attacker:
+   * `max(0, attackPowerAgainstPiece - targetDefense) * stackCount` — merge
+   * multiplies attack *count*, not attack power.
+   */
+  private static groupDamage(source: Piece[], targetDefense: number): number {
+    return source.reduce(
+      (sum, piece) =>
+        sum + Math.max(0, piece.attackPowerAgainstPiece - targetDefense) * piece.stackCount,
+      0,
+    );
+  }
+
   /**
    * Calculate simultaneous proportional damage outcomes without mutating repositories.
    */
@@ -82,10 +110,12 @@ export class CombatService {
   /**
    * Resolve simultaneous multi-unit combat.
    *
-   * Algorithm:
-   *   1. Sum attacker AP and distribute it across all defenders by current HP ratio
-   *   2. Sum defender AP and distribute it across all attackers by current HP ratio
-   *   3. Apply both sides' damage simultaneously; remove dead pieces
+   * Damage formula: for each source group, aggregate the target group's
+   * defense by HP-weighted average, then sum `max(0, attack - targetDefense)
+   * * stackCount` per attacking piece (merge multiplies hit count, not
+   * attack power; a defender's own merge never affects damage taken).
+   * The resulting totals are distributed across each recipient group
+   * proportionally to current HP, applied simultaneously.
    *
    * @returns Set of piece IDs that died in this combat round
    */
@@ -93,8 +123,10 @@ export class CombatService {
     const deadIds = new Set<number>();
     if (attackers.length === 0 || defenders.length === 0) return { deadIds };
 
-    const totalDamageToDefender = attackers.reduce((sum, a) => sum + a.attackPowerAgainstPiece, 0);
-    const totalDamageToAttacker = defenders.reduce((sum, d) => sum + d.attackPowerAgainstPiece, 0);
+    const defenderDefense = this.aggregatedDefense(defenders);
+    const attackerDefense = this.aggregatedDefense(attackers);
+    const totalDamageToDefender = this.groupDamage(attackers, defenderDefense);
+    const totalDamageToAttacker = this.groupDamage(defenders, attackerDefense);
 
     return this.resolveDistributedExchange(
       attackers,
@@ -107,27 +139,30 @@ export class CombatService {
   /**
    * Resolve the post-wall overflow combat phase.
    *
-   * Attacker piece damage is scaled by the wall overflow ratio before this method is called.
-   * Defender counterattack uses full piece AP and is applied simultaneously, even if defenders die.
+   * Attacker piece damage uses the normal defense-adjusted formula
+   * (see resolveCombat), scaled by `overflowRatio` (the fraction of wall
+   * attack power that exceeded the castle's remaining HP). Defender
+   * counterattack uses the full defense-adjusted formula, unscaled, and is
+   * applied simultaneously, even if defenders die.
    */
   static resolveOverflowCombat(
     attackers: Piece[],
     defenders: Piece[],
-    overflowPieceDamage: number,
+    overflowRatio: number,
   ): { deadIds: Set<number> } {
     const deadIds = new Set<number>();
     if (attackers.length === 0 || defenders.length === 0) return { deadIds };
 
-    const totalDamageToAttackers = defenders.reduce(
-      (sum, defender) => sum + defender.attackPowerAgainstPiece,
-      0,
-    );
+    const defenderDefense = this.aggregatedDefense(defenders);
+    const attackerDefense = this.aggregatedDefense(attackers);
+    const totalDamageToDefenders = this.groupDamage(attackers, defenderDefense) * overflowRatio;
+    const totalDamageToAttackers = this.groupDamage(defenders, attackerDefense);
 
     return this.resolveDistributedExchange(
       attackers,
       totalDamageToAttackers,
       defenders,
-      overflowPieceDamage,
+      totalDamageToDefenders,
     );
   }
 
@@ -150,10 +185,18 @@ export class CombatService {
     wallDestroyed: boolean;
     wallDamageDealt: number;
     overflowRatio: number;
+    /**
+     * Raw (pre-defense) overflow piece-damage pool — used only to gate
+     * whether resolveOverflowCombat should run. The actual damage dealt is
+     * recomputed there with the target's defense subtracted.
+     */
     overflowPieceDamage: number;
   } {
     const totalWallDamage = attackers.reduce((sum, a) => sum + a.attackPowerAgainstWall, 0);
-    const totalPieceDamage = attackers.reduce((sum, a) => sum + a.attackPowerAgainstPiece, 0);
+    const totalPieceDamage = attackers.reduce(
+      (sum, a) => sum + a.attackPowerAgainstPiece * a.stackCount,
+      0,
+    );
     const wallDamageDealt = Math.min(panel.castle, totalWallDamage);
     const overflowWallDamage = Math.max(0, totalWallDamage - panel.castle);
     const overflowRatio = totalWallDamage === 0 ? 0 : overflowWallDamage / totalWallDamage;

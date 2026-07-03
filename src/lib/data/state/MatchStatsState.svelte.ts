@@ -7,18 +7,18 @@ function createInitialMatchStats(): MatchStats {
       totalProducedResources: PLAYER_INIT_RESOURCE,
       totalBuiltCastle: HOME_BASE_INIT_CASTLE,
       deadUnitCounts: {
-        knight: 0,
+        infantry: 0,
         rook: 0,
-        bishop: 0,
+        noble: 0,
       },
     },
     opponent: {
       totalProducedResources: PLAYER_INIT_RESOURCE,
       totalBuiltCastle: HOME_BASE_INIT_CASTLE,
       deadUnitCounts: {
-        knight: 0,
+        infantry: 0,
         rook: 0,
-        bishop: 0,
+        noble: 0,
       },
     },
   };

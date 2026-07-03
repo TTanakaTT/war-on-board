@@ -16,7 +16,7 @@ const standardProfile: AiStrengthProfile = {
   generationModeSelection: "frontline",
   lookaheadCandidateCount: 0,
   lookaheadWeight: 0,
-  preferredPieceOrder: [PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP],
+  preferredPieceOrder: [PieceType.ROOK, PieceType.INFANTRY, PieceType.NOBLE],
   targetScoring: "standard",
   pieceSelection: "standard",
 };
@@ -77,10 +77,10 @@ function createGameStateSnapshot(options: {
 
 describe("getPieceCombatStats", () => {
   test.each([
-    { pieceTypeSnapshot: "knight", pieceType: PieceType.KNIGHT, stackCount: 1 },
+    { pieceTypeSnapshot: "infantry", pieceType: PieceType.INFANTRY, stackCount: 1 },
     { pieceTypeSnapshot: "rook", pieceType: PieceType.ROOK, stackCount: 2 },
-    { pieceTypeSnapshot: "bishop", pieceType: PieceType.BISHOP, stackCount: 1 },
-    { pieceTypeSnapshot: "bishop", pieceType: PieceType.BISHOP, stackCount: 3 },
+    { pieceTypeSnapshot: "noble", pieceType: PieceType.NOBLE, stackCount: 1 },
+    { pieceTypeSnapshot: "noble", pieceType: PieceType.NOBLE, stackCount: 3 },
   ] as const)(
     "derives %s stats from PieceType config for stackCount=%i",
     ({ pieceTypeSnapshot, pieceType, stackCount }) => {
@@ -113,6 +113,7 @@ describe("getPieceCombatStats", () => {
       expect(getPieceCombatStats(pieceSnapshot)).toEqual({
         attackPowerAgainstPiece: domainPiece.attackPowerAgainstPiece,
         attackPowerAgainstWall: domainPiece.attackPowerAgainstWall,
+        defense: domainPiece.defense,
         canAttack: domainPiece.canAttack,
         mergeable: pieceType.config.mergeable,
       });
@@ -122,7 +123,7 @@ describe("getPieceCombatStats", () => {
 
 describe("selectStrategicTarget", () => {
   test("prioritizes capturing an undefended enemy home base", () => {
-    const piece = createPieceSnapshot(PieceType.KNIGHT, snapshotPosition(1, 0));
+    const piece = createPieceSnapshot(PieceType.INFANTRY, snapshotPosition(1, 0));
     const fallbackTarget = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
     const winningTarget = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
     const gameState = createGameStateSnapshot({

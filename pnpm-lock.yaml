@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       material-symbols:
-        specifier: ^0.44.6
-        version: 0.44.6
+        specifier: ^0.45.5
+        version: 0.45.5
       svelte:
         specifier: ^5.55.5
         version: 5.55.5(@typescript-eslint/types@8.59.3)
@@ -1145,8 +1145,8 @@ packages:
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
-  material-symbols@0.44.6:
-    resolution: {integrity: sha512-yEUZESJjKeVigMY2HCXZKEPhhVWdchzKsJ5u8YeTUBpov7oJCTVq9K2VA+uieeRYDf8L5QRgGANXZZmjXUWXZw==}
+  material-symbols@0.45.5:
+    resolution: {integrity: sha512-uQPo0keNsShmo7wstLHBwIdlqlsNonHGuaAp7CE731v4GQrhd4C3p2PkJpavxazc5+mB0LtHmJQlSuv9yIYsKg==}
 
   minimatch@10.2.5:
     resolution: {integrity: sha512-MULkVLfKGYDFYejP07QOurDLLQpcjk7Fw+7jXS2R2czRQzR56yHRveU5NDJEOviH+hETZKSkIk5c+T23GjFUMg==}
@@ -2522,7 +2522,7 @@ snapshots:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  material-symbols@0.44.6: {}
+  material-symbols@0.45.5: {}
 
   minimatch@10.2.5:
     dependencies:

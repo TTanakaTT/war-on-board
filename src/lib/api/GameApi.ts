@@ -51,46 +51,56 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  *
  * ## Game overview
  *
- * Hex-map turn-based strategy game with three unit types (Knight / Bishop / Rook)
+ * Hex-map turn-based strategy game with three unit types (Infantry / Noble / Rook)
  * forming a rock-paper-scissors macro balance:
- *   - Attack (Knight) > Economy (Bishop): Knight captures panels, nullifying investment.
- *   - Economy (Bishop) > Defence (Rook): accumulated resources fund an army to breach walls.
- *   - Defence (Rook) > Attack (Knight): auto-repairing walls stall Knight advances cheaply.
+ *   - Attack (Infantry) > Economy (Noble): Infantry captures panels, nullifying investment.
+ *   - Economy (Noble) > Defence (Rook): accumulated resources fund an army to breach walls.
+ *   - Defence (Rook) > Attack (Infantry): auto-repairing walls stall Infantry advances cheaply.
  *
  * Victory condition: capture the opponent's home base panel.
  *
  * ## Unit types
  *
  * Each type is defined in `PieceType.config` (cost, maxHp, attackPowerAgainstPiece,
- * attackPowerAgainstWall). Passive effects are applied at the start of each player's turn
- * by `endTurn`:
- *   - **Knight**: claims ownership of the panel it occupies.
- *   - **Bishop**: increases the panel's resource by 1 (capped by PASSIVE_RESOURCE_CAP).
+ * attackPowerAgainstWall, defense). Passive effects are applied at the start of each
+ * player's turn by `endTurn`:
+ *   - **Infantry**: claims ownership of the panel it occupies.
+ *   - **Noble**: increases the panel's resource by 1 (capped by PASSIVE_RESOURCE_CAP).
  *   - **Rook**: increases the panel's castle by 1 (capped by PASSIVE_CASTLE_CAP;
  *     never reduces existing values above the cap, e.g. home base castle = 10).
  *
  * ## Combat rules (resolved inside `endTurn`)
+ *
+ * ### Attack legality
+ * An attacker may only target an enemy-occupied panel if every defender's `defense`
+ * is <= the attacker's own raw `attackPowerAgainstPiece` (not merge-adjusted). If even
+ * one defender's defense exceeds it, the attacker cannot select that panel at all —
+ * a hard block on move/attack selection, distinct from dealing 0 damage. Wall-only
+ * panels (no defending pieces) are never gated by this rule.
  *
  * ### Castle-first rule
  * If the target panel has an enemy castle (castle > 0), all attackers first deal their
  * `attackPowerAgainstWall` to the castle.
  *
  * If the total wall damage exceeds the remaining castle value, the overflow ratio
- * `(totalWallDamage - castleBefore) / totalWallDamage` is applied to the attackers'
- * total `attackPowerAgainstPiece`, and that scaled damage is dealt to enemy units on
- * the target panel in the same action.
+ * `(totalWallDamage - castleBefore) / totalWallDamage` scales the attackers' defense-adjusted
+ * piece damage (see below), and that scaled damage is dealt to enemy units on the target
+ * panel in the same action.
  *
- * Overflow wall damage is distributed across all enemy units in proportion to their
- * current HP and may leave fractional HP values. During that same overflow resolution,
- * defenders counterattack with their full `attackPowerAgainstPiece`; defender damage is
- * not scaled down by the wall overflow ratio and still occurs even if a defender is also removed.
+ * Overflow damage is distributed across all enemy units in proportion to their current HP
+ * and may leave fractional HP values. During that same overflow resolution, defenders
+ * counterattack with their full defense-adjusted `attackPowerAgainstPiece`; defender damage
+ * is not scaled down by the wall overflow ratio and still occurs even if a defender is also removed.
  *
  * ### Multi-unit simultaneous combat
  * When castle = 0 before the attack and enemy pieces are present:
- *   1. **Damage accumulation** — all attackers' `attackPowerAgainstPiece` is summed, and all defenders'
- *      `attackPowerAgainstPiece` is summed.
- *   2. **Proportional distribution** — each side's incoming damage is split across that side's current units
- *      in proportion to their current HP.
+ *   1. **Damage accumulation** — the defending group's defense is aggregated by HP-weighted
+ *      average, then each attacker contributes `max(0, attackPowerAgainstPiece - aggregatedDefense)
+ *      * stackCount` (merge multiplies attack *count*, not attack power); contributions are
+ *      summed into a single total. The same computation runs symmetrically for the counterattack.
+ *   2. **Proportional distribution** — each side's incoming total is split across that side's current
+ *      units in proportion to their current HP. A defender's own merge count never affects the
+ *      damage it takes.
  *   3. **Simultaneous application** — damage is applied at the same time. Units with HP <= 0 are removed.
  *   4. **Fractional HP** — proportional damage may leave fractional HP values on surviving units.
  *
@@ -659,12 +669,12 @@ export class GameApi {
 
   private static restorePieceType(pieceType: PieceTypeSnapshot): PieceType {
     switch (pieceType) {
-      case "knight":
-        return PieceTypeClass.KNIGHT;
+      case "infantry":
+        return PieceTypeClass.INFANTRY;
       case "rook":
         return PieceTypeClass.ROOK;
       default:
-        return PieceTypeClass.BISHOP;
+        return PieceTypeClass.NOBLE;
     }
   }
 
@@ -852,7 +862,7 @@ export class GameApi {
   }
 
   private static isKnownPieceType(pieceType: string): pieceType is PieceTypeSnapshot {
-    return pieceType === "knight" || pieceType === "rook" || pieceType === "bishop";
+    return pieceType === "infantry" || pieceType === "rook" || pieceType === "noble";
   }
 
   private static isKnownPanelState(panelState: string): panelState is PanelStateSnapshot {

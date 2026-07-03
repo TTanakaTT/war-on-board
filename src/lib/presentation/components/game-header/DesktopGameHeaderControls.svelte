@@ -68,9 +68,9 @@
   </AppButton>
 </div>
 
-<GeneratePieceButton pieceType={PieceType.KNIGHT} {compact} {onPreviewChange} />
+<GeneratePieceButton pieceType={PieceType.INFANTRY} {compact} {onPreviewChange} />
 <GeneratePieceButton pieceType={PieceType.ROOK} {compact} {onPreviewChange} />
-<GeneratePieceButton pieceType={PieceType.BISHOP} {compact} {onPreviewChange} />
+<GeneratePieceButton pieceType={PieceType.NOBLE} {compact} {onPreviewChange} />
 
 <PlayerIdentityBadge
   player="opponent"

@@ -1,9 +1,9 @@
 import { EnumClass } from "./EnumFactory";
 
 enum PIECETYPE {
-  KNIGHT = "knight",
+  INFANTRY = "infantry",
   ROOK = "rook",
-  BISHOP = "bishop",
+  NOBLE = "noble",
 }
 
 interface PieceConfig {
@@ -12,20 +12,23 @@ interface PieceConfig {
   readonly maxHp: number;
   readonly attackPowerAgainstPiece: number;
   readonly attackPowerAgainstWall: number;
+  readonly defense: number;
   /**
    * Whether units of this type can merge when multiple occupy the same panel.
-   * Merging sums HP, maxHp, stackCount and adds +1 attack power per merge.
+   * Merging sums HP, maxHp, stackCount. Merge multiplies attack *count*, not
+   * attack power — see Piece.attackPowerAgainstPiece/attackPowerAgainstWall.
    */
   readonly mergeable: boolean;
 }
 
 const CONFIGS: Record<PIECETYPE, PieceConfig> = {
-  [PIECETYPE.KNIGHT]: {
+  [PIECETYPE.INFANTRY]: {
     iconName: "chess_knight",
     cost: 8,
     maxHp: 10,
     attackPowerAgainstPiece: 5,
-    attackPowerAgainstWall: 2,
+    attackPowerAgainstWall: 1,
+    defense: 1,
     mergeable: true,
   },
   [PIECETYPE.ROOK]: {
@@ -34,23 +37,25 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     maxHp: 10,
     attackPowerAgainstPiece: 2,
     attackPowerAgainstWall: 2,
+    defense: 1,
     mergeable: false,
   },
-  [PIECETYPE.BISHOP]: {
+  [PIECETYPE.NOBLE]: {
     iconName: "chess_bishop",
     cost: 10,
     maxHp: 5,
     attackPowerAgainstPiece: 0,
     attackPowerAgainstWall: 0,
+    defense: 0,
     mergeable: false,
   },
 } as const;
 
 @EnumClass(PIECETYPE)
 export class PieceType {
-  static KNIGHT: PieceType;
+  static INFANTRY: PieceType;
   static ROOK: PieceType;
-  static BISHOP: PieceType;
+  static NOBLE: PieceType;
 
   private readonly _value: PIECETYPE;
   constructor(value: PIECETYPE) {

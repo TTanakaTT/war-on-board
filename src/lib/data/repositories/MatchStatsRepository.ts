@@ -98,11 +98,11 @@ export class MatchStatsRepository {
       return "rook";
     }
 
-    if (pieceType === PieceType.BISHOP) {
-      return "bishop";
+    if (pieceType === PieceType.NOBLE) {
+      return "noble";
     }
 
-    return "knight";
+    return "infantry";
   }
 
   private static clonePlayerStats(playerStats: PlayerMatchStats): PlayerMatchStats {
@@ -115,9 +115,9 @@ export class MatchStatsRepository {
 
   private static clonePieceTypeStats(pieceTypeStats: PieceTypeMatchStats): PieceTypeMatchStats {
     return {
-      knight: pieceTypeStats.knight,
+      infantry: pieceTypeStats.infantry,
       rook: pieceTypeStats.rook,
-      bishop: pieceTypeStats.bishop,
+      noble: pieceTypeStats.noble,
     };
   }
 }

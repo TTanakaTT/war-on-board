@@ -1,4 +1,5 @@
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import type { Piece } from "$lib/domain/entities/Piece";
 import { Player } from "$lib/domain/enums/Player";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
@@ -70,9 +71,24 @@ export class MovementRulesService {
   }
 
   /**
+   * Whether <attacker> may target a panel occupied by <defenders> at all.
+   * Every defender's defense must be <= the attacker's raw base attack power
+   * against pieces (not merge/stackCount adjusted — merge multiplies hit
+   * count, never raw attack power). If even one defender's defense exceeds
+   * it, the attacker cannot legally select this target — a hard block on
+   * move/attack selection, distinct from dealing 0 damage. Only meaningful
+   * when defenders are present; wall-only panels are never gated by this.
+   */
+  static canDefeatAllDefenders(attacker: Piece, defenders: Piece[]): boolean {
+    return defenders.every((defender) => defender.defense <= attacker.attackPowerAgainstPiece);
+  }
+
+  /**
    * Determine whether <player>'s piece (id = selectedPieceId) can move to <targetPosition>.
    *
-   * - Enemy panels → always movable (attack target; capacity is irrelevant).
+   * - Enemy panels → movable if the piece can attack and, when defenders are
+   *   present, can defeat every one of them (see canDefeatAllDefenders).
+   *   Capacity is irrelevant for enemy panels.
    * - Friendly panels → movable only if projected post-merge stack count <= maxPieces.
    */
   static canMoveTo(
@@ -85,6 +101,12 @@ export class MovementRulesService {
     if (!piece) return false;
     if (this.hasEnemyPresence(targetPosition, player)) {
       if (!piece.canAttack) return false;
+
+      const defenders = PiecesRepository.getPiecesByPosition(targetPosition).filter(
+        (p) => p.player !== player && p.player !== Player.UNKNOWN,
+      );
+      if (defenders.length > 0 && !this.canDefeatAllDefenders(piece, defenders)) return false;
+
       return true;
     }
 

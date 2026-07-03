@@ -150,7 +150,7 @@ describe("PanelsService", () => {
           id: 1,
           panelPosition: pos(0, 0),
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       const cleared = PanelsService.clearSelected();
@@ -202,7 +202,7 @@ describe("PanelsService", () => {
           id: 1,
           panelPosition: pos(0, 0),
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       PanelsService.refreshPanelStates();
@@ -222,7 +222,7 @@ describe("PanelsService", () => {
           id: 1,
           panelPosition: pos(0, 0),
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       PanelsService.refreshPanelStates();
@@ -239,7 +239,7 @@ describe("PanelsService", () => {
           id: 1,
           panelPosition: pos(-3, 0),
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       PanelsService.refreshPanelStates();

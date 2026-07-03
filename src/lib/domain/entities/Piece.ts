@@ -19,19 +19,26 @@ export class Piece {
   maxHp: number;
 
   /**
-   * Effective attack power against pieces.
-   * Formula: `config.attackPowerAgainstPiece + (stackCount - 1)`
+   * Base attack power against pieces (raw pieceType.config value).
+   * Merge does not raise this — CombatService multiplies it by stackCount
+   * (hit count) and subtracts the target's defense to compute damage.
    */
   get attackPowerAgainstPiece(): number {
-    return this.pieceType.config.attackPowerAgainstPiece + (this.stackCount - 1);
+    return this.pieceType.config.attackPowerAgainstPiece;
   }
 
   /**
    * Effective attack power against walls.
-   * Formula: `config.attackPowerAgainstWall + (stackCount - 1)`
+   * Walls have no defense stat, so merge scales this directly.
+   * Formula: `config.attackPowerAgainstWall * stackCount`
    */
   get attackPowerAgainstWall(): number {
-    return this.pieceType.config.attackPowerAgainstWall + (this.stackCount - 1);
+    return this.pieceType.config.attackPowerAgainstWall * this.stackCount;
+  }
+
+  /** Defense stat, forwarded from pieceType.config. Unaffected by merge/stackCount. */
+  get defense(): number {
+    return this.pieceType.config.defense;
   }
 
   /**

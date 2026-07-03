@@ -59,8 +59,8 @@
   "occupied_panels_label": "占領パネル",
   "unit_count_label": "ユニット数",
   "dead_unit_count_label": "死亡数",
-  "piece_knight": "ナイト",
+  "piece_infantry": "歩兵",
   "piece_rook": "ルーク",
-  "piece_bishop": "ビショップ",
+  "piece_noble": "貴族",
   "result_winner_message": "勝者: {winner}"
 }

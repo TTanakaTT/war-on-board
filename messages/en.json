@@ -59,8 +59,8 @@
   "occupied_panels_label": "Panels",
   "unit_count_label": "Units",
   "dead_unit_count_label": "Lost",
-  "piece_knight": "Knight",
+  "piece_infantry": "Infantry",
   "piece_rook": "Rook",
-  "piece_bishop": "Bishop",
+  "piece_noble": "Noble",
   "result_winner_message": "Winner: {winner}"
 }

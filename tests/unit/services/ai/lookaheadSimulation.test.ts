@@ -11,7 +11,7 @@ describe("simulateTargetOutcome", () => {
   });
 
   test("restores live game state, history, and match stats after lookahead evaluation", () => {
-    const generationResult = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+    const generationResult = GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
     expect(generationResult.ok).toBe(true);
 
     const currentGameState = GameApi.getGameState();

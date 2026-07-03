@@ -46,11 +46,11 @@
       return playerStats.deadUnitCounts.rook;
     }
 
-    if (pieceType === PieceType.BISHOP) {
-      return playerStats.deadUnitCounts.bishop;
+    if (pieceType === PieceType.NOBLE) {
+      return playerStats.deadUnitCounts.noble;
     }
 
-    return playerStats.deadUnitCounts.knight;
+    return playerStats.deadUnitCounts.infantry;
   }
 
   function buildPlayerInfo(player: Player): PlayerInfoCard {

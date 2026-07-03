@@ -153,7 +153,7 @@ export class PieceService {
         const overflowResult = CombatService.resolveOverflowCombat(
           attackers,
           defenders,
-          wallAttackResult.overflowPieceDamage,
+          wallAttackResult.overflowRatio,
         );
         deadIds = new Set([...deadIds, ...overflowResult.deadIds]);
       }
@@ -223,7 +223,7 @@ export class PieceService {
       const panel = PanelRepository.find(piece.panelPosition);
       if (!panel) return;
 
-      if (piece.pieceType === PieceType.BISHOP) {
+      if (piece.pieceType === PieceType.NOBLE) {
         PanelRepository.update(
           new Panel({
             ...panel,
@@ -242,6 +242,7 @@ export class PieceService {
         );
         MatchStatsRepository.addBuiltCastle(piece.player, nextCastle - panel.castle);
       } else {
+        // Infantry and all future combat unit types claim the panel they occupy.
         PanelRepository.update(
           new Panel({
             ...panel,

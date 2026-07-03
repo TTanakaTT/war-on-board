@@ -44,7 +44,7 @@ describe("PieceService", () => {
           id: 5,
           panelPosition: pos(0, 0),
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       PiecesRepository.add(
@@ -52,7 +52,7 @@ describe("PieceService", () => {
           id: 3,
           panelPosition: pos(0, 1),
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       expect(PieceService.generateNextId()).toBe(6);
@@ -66,7 +66,7 @@ describe("PieceService", () => {
         panelPosition: pos(-2, 0),
         targetPosition: pos(-1, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(piece);
       PieceService.move(pos(-1, 0), piece);
@@ -80,7 +80,7 @@ describe("PieceService", () => {
         id: 1,
         panelPosition: pos(-2, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(piece);
       PieceService.move(pos(-1, 0), piece);
@@ -110,7 +110,7 @@ describe("PieceService", () => {
         id: 1,
         panelPosition: pos(-2, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
         hp: 20,
         stackCount: 2,
         maxHp: 20,
@@ -131,7 +131,7 @@ describe("PieceService", () => {
         panelPosition: pos(-1, 0),
         initialPosition: pos(-2, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(piece);
       PieceService.resetInitialPositions(Player.SELF);
@@ -145,14 +145,14 @@ describe("PieceService", () => {
         panelPosition: pos(-1, 0),
         initialPosition: pos(-2, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       const oppPiece = makePiece({
         id: 2,
         panelPosition: pos(1, 0),
         initialPosition: pos(2, 0),
         player: Player.OPPONENT,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(selfPiece);
       PiecesRepository.add(oppPiece);
@@ -163,28 +163,28 @@ describe("PieceService", () => {
   });
 
   describe("applyPassiveGains", () => {
-    test("BISHOP increases panel resource by 1", () => {
-      const bishop = makePiece({
+    test("NOBLE increases panel resource by 1", () => {
+      const noble = makePiece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.BISHOP,
+        pieceType: PieceType.NOBLE,
       });
-      PiecesRepository.add(bishop);
+      PiecesRepository.add(noble);
       const panel = PanelRepository.find(pos(0, 0))!;
       PanelRepository.update(new Panel({ ...panel, player: Player.SELF, resource: 0 }));
       PieceService.applyPassiveGains(Player.SELF);
       expect(PanelRepository.find(pos(0, 0))!.resource).toBe(1);
     });
 
-    test("BISHOP resource gain is capped at PASSIVE_RESOURCE_CAP", () => {
-      const bishop = makePiece({
+    test("NOBLE resource gain is capped at PASSIVE_RESOURCE_CAP", () => {
+      const noble = makePiece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.BISHOP,
+        pieceType: PieceType.NOBLE,
       });
-      PiecesRepository.add(bishop);
+      PiecesRepository.add(noble);
       const panel = PanelRepository.find(pos(0, 0))!;
       PanelRepository.update(
         new Panel({ ...panel, player: Player.SELF, resource: PASSIVE_RESOURCE_CAP }),
@@ -238,14 +238,14 @@ describe("PieceService", () => {
       expect(PanelRepository.find(pos(-3, 0))!.castle).toBe(HOME_BASE_INIT_CASTLE);
     });
 
-    test("KNIGHT sets panel player to piece owner", () => {
-      const knight = makePiece({
+    test("INFANTRY sets panel player to piece owner", () => {
+      const infantry = makePiece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
-      PiecesRepository.add(knight);
+      PiecesRepository.add(infantry);
       const panel = PanelRepository.find(pos(0, 0))!;
       expect(panel.player).toBe(Player.UNKNOWN);
       PieceService.applyPassiveGains(Player.SELF);
@@ -258,7 +258,7 @@ describe("PieceService", () => {
         id: 1,
         panelPosition: pos(99, 99),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(piece);
       expect(() => PieceService.applyPassiveGains(Player.SELF)).not.toThrow();
@@ -271,7 +271,7 @@ describe("PieceService", () => {
         id: 1,
         panelPosition: pos(-2, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(piece);
       const outcomes = PieceService.finalizePlayerMoves(Player.SELF);
@@ -284,7 +284,7 @@ describe("PieceService", () => {
         panelPosition: pos(-2, 0),
         targetPosition: pos(-1, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(piece);
       const outcomes = PieceService.finalizePlayerMoves(Player.SELF);
@@ -300,13 +300,13 @@ describe("PieceService", () => {
         panelPosition: pos(-1, 0),
         targetPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       const defender = makePiece({
         id: 2,
         panelPosition: pos(0, 0),
         player: Player.OPPONENT,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(attacker);
       PiecesRepository.add(defender);
@@ -324,7 +324,7 @@ describe("PieceService", () => {
         panelPosition: pos(-1, 0),
         targetPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(attacker);
       const outcomes = PieceService.finalizePlayerMoves(Player.SELF);
@@ -339,20 +339,20 @@ describe("PieceService", () => {
         panelPosition: pos(-1, 0),
         targetPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       const a2 = makePiece({
         id: 2,
         panelPosition: pos(0, 1),
         targetPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       const defender = makePiece({
         id: 3,
         panelPosition: pos(0, 0),
         player: Player.OPPONENT,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(a1);
       PiecesRepository.add(a2);
@@ -364,12 +364,12 @@ describe("PieceService", () => {
   });
 
   describe("mergePiecesAtPosition", () => {
-    test("two mergeable Knights at same position merge into one with summed HP, maxHp, stackCount", () => {
+    test("two mergeable Infantry at same position merge into one with summed HP, maxHp, stackCount", () => {
       const k1 = new Piece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
         hp: 8,
         maxHp: 10,
         stackCount: 1,
@@ -378,7 +378,7 @@ describe("PieceService", () => {
         id: 2,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
         hp: 6,
         maxHp: 10,
         stackCount: 1,
@@ -396,18 +396,18 @@ describe("PieceService", () => {
       expect(remaining[0].stackCount).toBe(2);
     });
 
-    test("merged Knight has increased attack power equal to AP + stackCount - 1", () => {
+    test("merged Infantry keeps raw attack power but scales wall attack power by stackCount", () => {
       const k1 = new Piece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       const k2 = new Piece({
         id: 2,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(k1);
       PiecesRepository.add(k2);
@@ -416,20 +416,20 @@ describe("PieceService", () => {
 
       const merged = PiecesRepository.getPiecesByPosition(pos(0, 0))[0];
       expect(merged.stackCount).toBe(2);
-      // AP: config(5) + stackCount(2) - 1 = 6
-      expect(merged.attackPowerAgainstPiece).toBe(6);
-      // Wall AP: config(2) + stackCount(2) - 1 = 3
-      expect(merged.attackPowerAgainstWall).toBe(3);
+      // AP stays at the raw config value — merge multiplies hit count, not attack power.
+      expect(merged.attackPowerAgainstPiece).toBe(5);
+      // Wall AP: config(1) * stackCount(2) = 2
+      expect(merged.attackPowerAgainstWall).toBe(2);
     });
 
-    test("three Knights at same position merge into one with combined values", () => {
+    test("three Infantry at same position merge into one with combined values", () => {
       [1, 2, 3].forEach((id) =>
         PiecesRepository.add(
           new Piece({
             id,
             panelPosition: pos(0, 0),
             player: Player.SELF,
-            pieceType: PieceType.KNIGHT,
+            pieceType: PieceType.INFANTRY,
             hp: 10,
             maxHp: 10,
             stackCount: 1,
@@ -444,21 +444,21 @@ describe("PieceService", () => {
       expect(remaining[0].stackCount).toBe(3);
       expect(remaining[0].hp).toBe(30);
       expect(remaining[0].maxHp).toBe(30);
-      expect(remaining[0].attackPowerAgainstPiece).toBe(7); // 5 + 3 - 1
+      expect(remaining[0].attackPowerAgainstPiece).toBe(5); // raw config value, unaffected by stackCount
     });
 
-    test("non-mergeable Bishops at same position are NOT merged", () => {
+    test("non-mergeable Nobles at same position are NOT merged", () => {
       const b1 = new Piece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.BISHOP,
+        pieceType: PieceType.NOBLE,
       });
       const b2 = new Piece({
         id: 2,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.BISHOP,
+        pieceType: PieceType.NOBLE,
       });
       PiecesRepository.add(b1);
       PiecesRepository.add(b2);
@@ -489,33 +489,33 @@ describe("PieceService", () => {
       expect(PiecesRepository.getPiecesByPosition(pos(0, 0))).toHaveLength(2);
     });
 
-    test("Knights of different players at same position are NOT merged", () => {
-      const selfKnight = new Piece({
+    test("Infantry of different players at same position are NOT merged", () => {
+      const selfInfantry = new Piece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
-      const oppKnight = new Piece({
+      const oppInfantry = new Piece({
         id: 2,
         panelPosition: pos(0, 0),
         player: Player.OPPONENT,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
-      PiecesRepository.add(selfKnight);
-      PiecesRepository.add(oppKnight);
+      PiecesRepository.add(selfInfantry);
+      PiecesRepository.add(oppInfantry);
 
       PieceService.mergePiecesAtPosition(pos(0, 0));
 
       expect(PiecesRepository.getPiecesByPosition(pos(0, 0))).toHaveLength(2);
     });
 
-    test("single Knight at position is unchanged", () => {
+    test("single Infantry at position is unchanged", () => {
       const k = new Piece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
         hp: 7,
       });
       PiecesRepository.add(k);
@@ -533,19 +533,19 @@ describe("PieceService", () => {
         id: 10,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       const k2 = new Piece({
         id: 3,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       const k3 = new Piece({
         id: 7,
         panelPosition: pos(0, 0),
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       });
       PiecesRepository.add(k1);
       PiecesRepository.add(k2);
@@ -560,14 +560,14 @@ describe("PieceService", () => {
   });
 
   describe("mergeAllPiecesForPlayer", () => {
-    test("merges Knights at multiple positions for the given player", () => {
+    test("merges Infantry at multiple positions for the given player", () => {
       [1, 2].forEach((id) =>
         PiecesRepository.add(
           new Piece({
             id,
             panelPosition: pos(0, 0),
             player: Player.SELF,
-            pieceType: PieceType.KNIGHT,
+            pieceType: PieceType.INFANTRY,
           }),
         ),
       );
@@ -577,7 +577,7 @@ describe("PieceService", () => {
             id,
             panelPosition: pos(0, 1),
             player: Player.SELF,
-            pieceType: PieceType.KNIGHT,
+            pieceType: PieceType.INFANTRY,
           }),
         ),
       );
@@ -595,7 +595,7 @@ describe("PieceService", () => {
             id,
             panelPosition: pos(0, 0),
             player: Player.OPPONENT,
-            pieceType: PieceType.KNIGHT,
+            pieceType: PieceType.INFANTRY,
           }),
         ),
       );

@@ -4,7 +4,7 @@ import type { PieceType } from "$lib/domain/enums/PieceType";
 export type MoveSelectionStrategy = "strategic" | "lookahead";
 export type GenerationModeSelectionStrategy = "frontline" | "adaptive-defense";
 export type TargetScoringStrategy = "standard" | "home-side-growth";
-export type PieceSelectionStrategy = "standard" | "knight-balanced-support";
+export type PieceSelectionStrategy = "standard" | "infantry-balanced-support";
 
 export interface AiStrengthProfile {
   moveSelection: MoveSelectionStrategy;
@@ -19,6 +19,7 @@ export interface AiStrengthProfile {
 export interface PieceCombatStats {
   attackPowerAgainstPiece: number;
   attackPowerAgainstWall: number;
+  defense: number;
   canAttack: boolean;
   mergeable: boolean;
 }
@@ -31,7 +32,7 @@ export interface ScoredTarget {
 }
 
 export interface PieceTypeCounts {
-  knight: number;
+  infantry: number;
   rook: number;
-  bishop: number;
+  noble: number;
 }

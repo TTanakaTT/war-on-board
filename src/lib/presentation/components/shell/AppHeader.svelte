@@ -62,7 +62,7 @@
 
     return generationMode === "rear" ? "arrow_back" : "arrow_forward";
   });
-  const generateMenuPieceTypes = [PieceType.KNIGHT, PieceType.ROOK, PieceType.BISHOP] as const;
+  const generateMenuPieceTypes = [PieceType.INFANTRY, PieceType.ROOK, PieceType.NOBLE] as const;
   let controlsViewport = $state<HTMLDivElement | undefined>(undefined);
   let measurementStrip = $state<HTMLDivElement | undefined>(undefined);
   let isHeaderCompact = $state(false);

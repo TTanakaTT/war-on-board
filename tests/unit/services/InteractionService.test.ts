@@ -19,7 +19,7 @@ function setupSelfPiece(position: PanelPosition, id = 1): Piece {
     panelPosition: position,
     initialPosition: position,
     player: Player.SELF,
-    pieceType: PieceType.KNIGHT,
+    pieceType: PieceType.INFANTRY,
   });
   PiecesRepository.add(piece);
   return piece;
