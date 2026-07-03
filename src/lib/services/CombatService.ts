@@ -10,6 +10,10 @@ import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepositor
  * Supports multi-unit simultaneous combat:
  *   - Damage = (attack - target's HP-weighted average defense) * attacker's
  *     stackCount, floored at 0, summed per source group
+ *   - A defender only counterattacks if its own attackRange reaches the
+ *     actual distance to its attacker (e.g. a melee-only defender can't
+ *     strike back at a ranged attacker standing further away than it can
+ *     reach) — see resolveCombat's `distance` parameter
  *   - Total incoming damage is split across the opposing group by current HP ratio
  *   - Attack and counterattack are applied simultaneously
  *   - Fractional HP is allowed after proportional damage
@@ -117,16 +121,28 @@ export class CombatService {
    * The resulting totals are distributed across each recipient group
    * proportionally to current HP, applied simultaneously.
    *
+   * `distance` is the panel distance between the attacking and defending
+   * groups (defaults to 1 — today's melee combat always happens with the
+   * attacker adjacent to, not yet inside, the target panel). Only defenders
+   * whose own `attackRange` reaches that distance contribute to the
+   * counterattack; defenders still take full damage regardless of range.
+   *
    * @returns Set of piece IDs that died in this combat round
    */
-  static resolveCombat(attackers: Piece[], defenders: Piece[]): { deadIds: Set<number> } {
+  static resolveCombat(
+    attackers: Piece[],
+    defenders: Piece[],
+    distance: number = 1,
+  ): { deadIds: Set<number> } {
     const deadIds = new Set<number>();
     if (attackers.length === 0 || defenders.length === 0) return { deadIds };
+
+    const counterEligibleDefenders = defenders.filter((d) => d.attackRange >= distance);
 
     const defenderDefense = this.aggregatedDefense(defenders);
     const attackerDefense = this.aggregatedDefense(attackers);
     const totalDamageToDefender = this.groupDamage(attackers, defenderDefense);
-    const totalDamageToAttacker = this.groupDamage(defenders, attackerDefense);
+    const totalDamageToAttacker = this.groupDamage(counterEligibleDefenders, attackerDefense);
 
     return this.resolveDistributedExchange(
       attackers,

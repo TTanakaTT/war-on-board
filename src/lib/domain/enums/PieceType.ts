@@ -20,6 +20,13 @@ interface PieceConfig {
    */
   readonly movement: number;
   /**
+   * Panel distance at which this piece can deal and receive combat damage.
+   * A defender only counterattacks if its own attackRange reaches the actual
+   * distance to its attacker — see CombatService.resolveCombat. Not scaled
+   * by merge/stackCount.
+   */
+  readonly attackRange: number;
+  /**
    * Whether units of this type can merge when multiple occupy the same panel.
    * Merging sums HP, maxHp, stackCount. Merge multiplies attack *count*, not
    * attack power — see Piece.attackPowerAgainstPiece/attackPowerAgainstWall.
@@ -36,6 +43,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     attackPowerAgainstWall: 1,
     defense: 1,
     movement: 1,
+    attackRange: 1,
     mergeable: true,
   },
   [PIECETYPE.ROOK]: {
@@ -46,6 +54,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     attackPowerAgainstWall: 2,
     defense: 1,
     movement: 1,
+    attackRange: 1,
     mergeable: false,
   },
   [PIECETYPE.NOBLE]: {
@@ -56,6 +65,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     attackPowerAgainstWall: 0,
     defense: 0,
     movement: 1,
+    attackRange: 0,
     mergeable: false,
   },
 } as const;

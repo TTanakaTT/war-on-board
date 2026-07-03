@@ -47,6 +47,11 @@ export class Piece {
     return this.pieceType.config.defense;
   }
 
+  /** Attack range stat, forwarded from pieceType.config. Unaffected by merge/stackCount. */
+  get attackRange(): number {
+    return this.pieceType.config.attackRange;
+  }
+
   /**
    * Whether this piece can attack (i.e. move to enemy panels).
    * A piece with 0 attack power against both pieces and walls cannot attack.

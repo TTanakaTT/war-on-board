@@ -210,6 +210,16 @@ describe("Piece", () => {
       });
       expect(piece.defense).toBe(PieceType.ROOK.config.defense);
     });
+
+    test("attackRange forwards the config value regardless of stackCount", () => {
+      const piece = new Piece({
+        panelPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.NOBLE,
+        stackCount: 5,
+      });
+      expect(piece.attackRange).toBe(PieceType.NOBLE.config.attackRange);
+    });
   });
 
   describe("movementPoints", () => {

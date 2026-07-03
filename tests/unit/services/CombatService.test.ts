@@ -139,6 +139,54 @@ describe("CombatService", () => {
       expect(PiecesRepository.getAll().find((p) => p.id === 4)!.hp).toBeCloseTo(9.5);
     });
 
+    test("distance=1 (default) matches passing it explicitly — no behavior change for melee combat", () => {
+      const attacker = makePiece({ id: 1, pieceType: PieceType.INFANTRY, hp: 10 });
+      const defender = makePiece({ id: 2, pieceType: PieceType.ROOK, hp: 10 });
+      PiecesRepository.add(attacker);
+      PiecesRepository.add(defender);
+
+      CombatService.resolveCombat([attacker], [defender], 1);
+      expect(PiecesRepository.getAll().find((p) => p.id === 2)!.hp).toBe(6);
+      expect(PiecesRepository.getAll().find((p) => p.id === 1)!.hp).toBe(9);
+    });
+
+    test("a defender whose attackRange is below distance does not counterattack, but still takes full damage", () => {
+      // Rook(attackRange=1) attacked at distance=2 by an Infantry: Rook can't reach back.
+      const attacker = makePiece({ id: 1, pieceType: PieceType.INFANTRY, hp: 10 });
+      const defender = makePiece({ id: 2, pieceType: PieceType.ROOK, hp: 10 });
+      PiecesRepository.add(attacker);
+      PiecesRepository.add(defender);
+
+      CombatService.resolveCombat([attacker], [defender], 2);
+      // Defender still takes the normal (5-1)*1=4 damage regardless of range.
+      expect(PiecesRepository.getAll().find((p) => p.id === 2)!.hp).toBe(6);
+      // Attacker takes no counter damage since defender.attackRange(1) < distance(2).
+      expect(PiecesRepository.getAll().find((p) => p.id === 1)!.hp).toBe(10);
+    });
+
+    test("mixed defenders: only the ones whose attackRange reaches the distance contribute to the counterattack", () => {
+      // Attacker at distance=2. Defender A has attackRange=1 (can't reach), defender B has attackRange=2 (can).
+      const attacker = makePiece({ id: 1, pieceType: PieceType.INFANTRY, hp: 10 });
+      const shortRangeDefender = makePiece({ id: 2, pieceType: PieceType.ROOK, hp: 10 }); // attackRange=1
+      const longRangeDefender = new Piece({
+        id: 3,
+        panelPosition: pos(0, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.ROOK,
+        hp: 10,
+      });
+      Object.defineProperty(longRangeDefender, "attackRange", { value: 2 });
+      PiecesRepository.add(attacker);
+      PiecesRepository.add(shortRangeDefender);
+      PiecesRepository.add(longRangeDefender);
+
+      CombatService.resolveCombat([attacker], [shortRangeDefender, longRangeDefender], 2);
+
+      // Only longRangeDefender's (2-1)*1=1 damage counts toward the counterattack, distributed by HP
+      // across the sole attacker: attacker.hp = 10 - 1 = 9.
+      expect(PiecesRepository.getAll().find((p) => p.id === 1)!.hp).toBeCloseTo(9);
+    });
+
     test("returns empty deadIds when attackers array is empty", () => {
       const defender = makePiece({ id: 1 });
       PiecesRepository.add(defender);
