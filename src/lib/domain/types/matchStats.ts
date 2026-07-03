@@ -2,6 +2,10 @@ export interface PieceTypeMatchStats {
   infantry: number;
   rook: number;
   noble: number;
+  archer: number;
+  cavalry: number;
+  heavy: number;
+  siege: number;
 }
 
 export interface PlayerMatchStats {

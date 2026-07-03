@@ -343,8 +343,17 @@ describe("GameApi.initializeGame", () => {
       expect(matchStats.opponent.totalProducedResources).toBe(PLAYER_INIT_RESOURCE);
       expect(matchStats.self.totalBuiltCastle).toBe(HOME_BASE_INIT_CASTLE);
       expect(matchStats.opponent.totalBuiltCastle).toBe(HOME_BASE_INIT_CASTLE);
-      expect(matchStats.self.deadUnitCounts).toEqual({ infantry: 0, rook: 0, noble: 0 });
-      expect(matchStats.opponent.deadUnitCounts).toEqual({ infantry: 0, rook: 0, noble: 0 });
+      const zeroedDeadUnitCounts = {
+        infantry: 0,
+        rook: 0,
+        noble: 0,
+        archer: 0,
+        cavalry: 0,
+        heavy: 0,
+        siege: 0,
+      };
+      expect(matchStats.self.deadUnitCounts).toEqual(zeroedDeadUnitCounts);
+      expect(matchStats.opponent.deadUnitCounts).toEqual(zeroedDeadUnitCounts);
     });
   });
 });
@@ -990,6 +999,30 @@ describe("GameApi.generatePiece", () => {
       expect(pieces[0].hp).toBe(PieceType.ROOK.config.maxHp);
       expect(pieces[0].pieceType).toBe(PieceType.ROOK);
     });
+
+    test.each([PieceType.ARCHER, PieceType.CAVALRY, PieceType.HEAVY, PieceType.SIEGE])(
+      "generates a %s with the correct cost deduction and stats",
+      (pieceType) => {
+        GameApi.initializeGame({ layer: 4 });
+        const turn = TurnRepository.get();
+        TurnRepository.set({
+          ...turn,
+          resources: { ...turn.resources, [String(Player.SELF)]: 100 },
+        });
+        const resourcesBefore = TurnRepository.get().resources[String(Player.SELF)];
+
+        const result = GameApi.generatePiece(Player.SELF, pieceType);
+        expectActionSuccessWithSnapshot(result);
+
+        const resourcesAfter = TurnRepository.get().resources[String(Player.SELF)];
+        expect(resourcesAfter).toBe(resourcesBefore - pieceType.config.cost);
+
+        const pieces = PiecesRepository.getAll();
+        expect(pieces).toHaveLength(1);
+        expect(pieces[0].pieceType).toBe(pieceType);
+        expect(pieces[0].hp).toBe(pieceType.config.maxHp);
+      },
+    );
 
     test("in rear mode, generation prefers home base panel over other eligible panels", () => {
       GameApi.initializeGame({ layer: 4 });

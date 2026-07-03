@@ -86,6 +86,10 @@ function countPieceTypes(gameState: GameStateSnapshot, player: Player): PieceTyp
         infantry: 0,
         rook: 0,
         noble: 0,
+        archer: 0,
+        cavalry: 0,
+        heavy: 0,
+        siege: 0,
       },
     );
 }

@@ -6,6 +6,10 @@ const SNAPSHOT_PIECE_TYPES: Record<PieceSnapshot["pieceType"], PieceType> = {
   infantry: PieceType.INFANTRY,
   rook: PieceType.ROOK,
   noble: PieceType.NOBLE,
+  archer: PieceType.ARCHER,
+  cavalry: PieceType.CAVALRY,
+  heavy: PieceType.HEAVY,
+  siege: PieceType.SIEGE,
 };
 
 export function getPieceCombatStats(piece: PieceSnapshot): PieceCombatStats {

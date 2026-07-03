@@ -4,6 +4,10 @@ enum PIECETYPE {
   INFANTRY = "infantry",
   ROOK = "rook",
   NOBLE = "noble",
+  ARCHER = "archer",
+  CAVALRY = "cavalry",
+  HEAVY = "heavy",
+  SIEGE = "siege",
 }
 
 interface PieceConfig {
@@ -36,7 +40,7 @@ interface PieceConfig {
 
 const CONFIGS: Record<PIECETYPE, PieceConfig> = {
   [PIECETYPE.INFANTRY]: {
-    iconName: "chess_knight",
+    iconName: "chess_pawn",
     cost: 8,
     maxHp: 10,
     attackPowerAgainstPiece: 5,
@@ -68,6 +72,50 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     attackRange: 0,
     mergeable: false,
   },
+  [PIECETYPE.ARCHER]: {
+    iconName: "archer",
+    cost: 10,
+    maxHp: 8,
+    attackPowerAgainstPiece: 4,
+    attackPowerAgainstWall: 0,
+    defense: 0,
+    movement: 1,
+    attackRange: 2,
+    mergeable: true,
+  },
+  [PIECETYPE.CAVALRY]: {
+    iconName: "chess_knight",
+    cost: 16,
+    maxHp: 12,
+    attackPowerAgainstPiece: 8,
+    attackPowerAgainstWall: 1,
+    defense: 1,
+    movement: 2,
+    attackRange: 1,
+    mergeable: true,
+  },
+  [PIECETYPE.HEAVY]: {
+    iconName: "shield",
+    cost: 16,
+    maxHp: 20,
+    attackPowerAgainstPiece: 6,
+    attackPowerAgainstWall: 1,
+    defense: 2,
+    movement: 0.5,
+    attackRange: 1,
+    mergeable: true,
+  },
+  [PIECETYPE.SIEGE]: {
+    iconName: "siege",
+    cost: 30,
+    maxHp: 30,
+    attackPowerAgainstPiece: 0,
+    attackPowerAgainstWall: 5,
+    defense: 3,
+    movement: 1,
+    attackRange: 1,
+    mergeable: true,
+  },
 } as const;
 
 @EnumClass(PIECETYPE)
@@ -75,6 +123,10 @@ export class PieceType {
   static INFANTRY: PieceType;
   static ROOK: PieceType;
   static NOBLE: PieceType;
+  static ARCHER: PieceType;
+  static CAVALRY: PieceType;
+  static HEAVY: PieceType;
+  static SIEGE: PieceType;
 
   private readonly _value: PIECETYPE;
   constructor(value: PIECETYPE) {

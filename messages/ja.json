@@ -62,5 +62,9 @@
   "piece_infantry": "歩兵",
   "piece_rook": "ルーク",
   "piece_noble": "貴族",
+  "piece_archer": "弓兵",
+  "piece_cavalry": "騎兵",
+  "piece_heavy": "重装",
+  "piece_siege": "攻囲兵器",
   "result_winner_message": "勝者: {winner}"
 }

@@ -2,7 +2,15 @@ import { AiStrength } from "$lib/domain/enums/AiStrength";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import type { AiStrengthProfile } from "$lib/services/ai/types";
 
-const DEFAULT_PREFERRED_PIECE_ORDER = [PieceType.ROOK, PieceType.INFANTRY, PieceType.NOBLE];
+const DEFAULT_PREFERRED_PIECE_ORDER = [
+  PieceType.ROOK,
+  PieceType.INFANTRY,
+  PieceType.NOBLE,
+  PieceType.ARCHER,
+  PieceType.CAVALRY,
+  PieceType.HEAVY,
+  PieceType.SIEGE,
+];
 
 const AI_STRENGTH_PROFILES: Record<AiStrength, AiStrengthProfile> = {
   [AiStrength.STRENGTH_1]: {

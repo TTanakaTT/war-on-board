@@ -11,7 +11,14 @@ export type ControllablePlayerSnapshot = Exclude<PlayerSnapshot, "unknown">;
 
 export type PanelStateSnapshot = "unoccupied" | "occupied";
 
-export type PieceTypeSnapshot = "infantry" | "rook" | "noble";
+export type PieceTypeSnapshot =
+  | "infantry"
+  | "rook"
+  | "noble"
+  | "archer"
+  | "cavalry"
+  | "heavy"
+  | "siege";
 
 export interface PanelPositionSnapshot {
   horizontalLayer: number;

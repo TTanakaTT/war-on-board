@@ -1,5 +1,5 @@
 import { matchStatsState } from "$lib/data/state/MatchStatsState.svelte";
-import { PieceType } from "$lib/domain/enums/PieceType";
+import type { PieceType } from "$lib/domain/enums/PieceType";
 import { Player } from "$lib/domain/enums/Player";
 import type {
   MatchStats,
@@ -93,16 +93,9 @@ export class MatchStatsRepository {
     return "self";
   }
 
+  /** Every PieceType's string value matches its MatchStatsPieceKey field name directly. */
   private static toPieceKey(pieceType: PieceType): MatchStatsPieceKey {
-    if (pieceType === PieceType.ROOK) {
-      return "rook";
-    }
-
-    if (pieceType === PieceType.NOBLE) {
-      return "noble";
-    }
-
-    return "infantry";
+    return String(pieceType) as MatchStatsPieceKey;
   }
 
   private static clonePlayerStats(playerStats: PlayerMatchStats): PlayerMatchStats {
@@ -118,6 +111,10 @@ export class MatchStatsRepository {
       infantry: pieceTypeStats.infantry,
       rook: pieceTypeStats.rook,
       noble: pieceTypeStats.noble,
+      archer: pieceTypeStats.archer,
+      cavalry: pieceTypeStats.cavalry,
+      heavy: pieceTypeStats.heavy,
+      siege: pieceTypeStats.siege,
     };
   }
 }

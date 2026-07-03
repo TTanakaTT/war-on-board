@@ -182,7 +182,7 @@ describe("MovementRulesService", () => {
       const attacker = addPiece(1, pos(0, 0), Player.SELF, { pieceType: PieceType.ROOK }); // atk=2
       // No shipped unit type currently has defense > 2, so exercise the gate directly at the
       // MovementRulesService level with a hand-built defender. This is a canary for Phase E,
-      // when Heavy (defense=2) and Siege Engine (defense=3) land.
+      // when Heavy (defense=2) and Siege (defense=3) land.
       const highDefenseDefender = new Piece({
         id: 50,
         panelPosition: pos(1, 0),

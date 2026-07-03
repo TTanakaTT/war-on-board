@@ -52,20 +52,23 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  *
  * ## Game overview
  *
- * Hex-map turn-based strategy game with three unit types (Infantry / Noble / Rook)
- * forming a rock-paper-scissors macro balance:
+ * Hex-map turn-based strategy game. The three original unit types (Infantry / Noble / Rook)
+ * form a rock-paper-scissors macro balance:
  *   - Attack (Infantry) > Economy (Noble): Infantry captures panels, nullifying investment.
  *   - Economy (Noble) > Defence (Rook): accumulated resources fund an army to breach walls.
  *   - Defence (Rook) > Attack (Infantry): auto-repairing walls stall Infantry advances cheaply.
+ * Four additional combat unit types (Archer, Cavalry, Heavy, Siege) extend the roster with
+ * ranged, fast, high-defense, and wall-specialist roles respectively — see `PieceType.config`.
  *
  * Victory condition: capture the opponent's home base panel.
  *
  * ## Unit types
  *
  * Each type is defined in `PieceType.config` (cost, maxHp, attackPowerAgainstPiece,
- * attackPowerAgainstWall, defense). Passive effects are applied at the start of each
- * player's turn by `endTurn`:
- *   - **Infantry**: claims ownership of the panel it occupies.
+ * attackPowerAgainstWall, defense, movement, attackRange). Passive effects are applied at
+ * the start of each player's turn by `endTurn`:
+ *   - **Infantry** (and all other combat unit types — Archer/Cavalry/Heavy/Siege): claims
+ *     ownership of the panel it occupies.
  *   - **Noble**: increases the panel's resource by 1 (capped by PASSIVE_RESOURCE_CAP).
  *   - **Rook**: increases the panel's castle by 1 (capped by PASSIVE_CASTLE_CAP;
  *     never reduces existing values above the cap, e.g. home base castle = 10).
@@ -694,6 +697,14 @@ export class GameApi {
         return PieceTypeClass.INFANTRY;
       case "rook":
         return PieceTypeClass.ROOK;
+      case "archer":
+        return PieceTypeClass.ARCHER;
+      case "cavalry":
+        return PieceTypeClass.CAVALRY;
+      case "heavy":
+        return PieceTypeClass.HEAVY;
+      case "siege":
+        return PieceTypeClass.SIEGE;
       default:
         return PieceTypeClass.NOBLE;
     }
@@ -886,7 +897,15 @@ export class GameApi {
   }
 
   private static isKnownPieceType(pieceType: string): pieceType is PieceTypeSnapshot {
-    return pieceType === "infantry" || pieceType === "rook" || pieceType === "noble";
+    return (
+      pieceType === "infantry" ||
+      pieceType === "rook" ||
+      pieceType === "noble" ||
+      pieceType === "archer" ||
+      pieceType === "cavalry" ||
+      pieceType === "heavy" ||
+      pieceType === "siege"
+    );
   }
 
   private static isKnownPanelState(panelState: string): panelState is PanelStateSnapshot {

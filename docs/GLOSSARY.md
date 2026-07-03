@@ -32,7 +32,7 @@ This glossary standardizes the English terms used in documentation and public co
 | 21. Archer        | Ranged combat piece type. Archers can attack non-Archer pieces within their attack range without moving and without retaliation.                   |
 | 22. Cavalry       | High-movement combat piece type.                                                                                                                   |
 | 23. Heavy         | High-HP, high-defense combat piece type whose move or attack resolves over two turns instead of one.                                               |
-| 24. Siege Engine  | Wall-focused combat piece type with high attack power against castle and no attack power against pieces.                                           |
+| 24. Siege         | Wall-focused combat piece type with high attack power against castle and no attack power against pieces.                                           |
 | 25. Defense       | A piece stat that reduces incoming attack power before damage is applied. A defender's merge count does not affect this value.                     |
 | 26. Movement      | A piece stat determining how many panels a piece advances toward its target position per turn.                                                     |
 | 27. Attack Range  | A piece stat determining the panel distance at which a piece can attack without moving into the target panel.                                      |
