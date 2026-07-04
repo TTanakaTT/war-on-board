@@ -208,8 +208,12 @@ export class GameApi {
   /**
    * Assign a move target for a piece.
    *
-   * The piece must belong to the acting player and the target must be adjacent
-   * to the piece's initial position (start-of-turn position).
+   * The piece must belong to the acting player. The target no longer needs to be
+   * adjacent — any panel on the board may be selected. If it's farther away than
+   * the piece can reach in one turn, `endTurn` walks it there over multiple turns,
+   * covering as many panels per turn as its movement stat allows (see
+   * PieceService.finalizePlayerMoves/advanceTravel), stopping early if it meets an
+   * obstacle en route (an enemy panel, or a friendly panel already at capacity).
    *
    * @param player - The player performing the action.
    * @param pieceId - ID of the piece to move.
@@ -219,15 +223,20 @@ export class GameApi {
    * - Game not over (`winner === null`).
    * - It is `player`'s turn.
    * - Piece exists and belongs to `player`.
-   * - Target is adjacent to the piece's `initialPosition`.
-   * - Target satisfies movement rules (enemy panel = always allowed;
-   *   friendly panel = projected count + 1 <= maxPiecesPerPanel).
+   * - Piece's banked `movementPoints` are at least `MOVEMENT_HOP_COST`.
+   * - Target is a real panel on the board.
+   * - Target satisfies movement rules (enemy panel = allowed if the piece can
+   *   defeat every defender there; friendly panel = projected count + 1 <=
+   *   maxPiecesPerPanel). Only the final destination is validated up front —
+   *   obstacles encountered en route are handled turn by turn as they're reached.
    *
    * **Effects:**
    * - Sets `piece.targetPosition` to `target`.
+   * - For a piece whose `movement` is below `MOVEMENT_HOP_COST`, commits
+   *   `movementPoints` down to its raw rate (see `PieceType.config.movement`).
    *
    * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
-   * PIECE_NOT_OWNED, TARGET_NOT_REACHABLE.
+   * PIECE_NOT_OWNED, INSUFFICIENT_MOVEMENT_POINTS, TARGET_NOT_REACHABLE.
    */
   static assignMove(
     player: Player,
@@ -250,8 +259,11 @@ export class GameApi {
       return { ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS };
     }
 
-    // Target must be adjacent to initialPosition or equal to it (stay)
-    if (!piece.initialPosition.isAdjacent(target) && !piece.initialPosition.equals(target)) {
+    // Target must be a real panel on the board. It no longer needs to be adjacent —
+    // a distant target is walked toward over multiple turns (see
+    // PieceService.finalizePlayerMoves/advanceTravel), consistent with movement
+    // points determining how many panels are covered per turn.
+    if (!PanelRepository.find(target)) {
       return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
     }
 

@@ -8,12 +8,16 @@ import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PanelState } from "$lib/domain/enums/PanelState";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { CombatService } from "$lib/services/CombatService";
+import { PanelsService } from "$lib/services/PanelService";
+import { MovementRulesService } from "$lib/services/MovementRulesService";
 import {
   PASSIVE_RESOURCE_CAP,
   PASSIVE_CASTLE_CAP,
   MOVEMENT_HOP_COST,
+  DEFAULT_MAX_PIECES_PER_PANEL,
 } from "$lib/domain/constants/GameConstants";
 import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
+import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 
 export class PieceService {
   /**
@@ -127,6 +131,41 @@ export class PieceService {
           ),
         }),
       );
+    });
+  }
+
+  /**
+   * Advance a piece toward its (possibly distant) targetPosition by up to its
+   * currently available movement hops. Always stops one panel short of the
+   * target — the final hop (entry or attack) is handled by resolveTargetPanel/
+   * move(), never here, so a hop is never double-charged. Stops earlier if
+   * movement points run out or an intermediate panel is a transit obstacle
+   * (see MovementRulesService.isTransitObstacle). targetPosition is left
+   * untouched; only panelPosition/initialPosition/movementPoints change.
+   */
+  private static advanceTravel(piece: Piece, maxPieces: number): Piece {
+    const destination = piece.targetPosition!;
+    const path = PanelsService.findShortestPath(piece.panelPosition, destination);
+    if (!path || path.length < 2) return piece;
+
+    const stopThreshold = path.length - 2; // index of the panel adjacent to destination
+    let hopsBudget = Math.floor(piece.movementPoints / MOVEMENT_HOP_COST);
+    let stopIndex = 0;
+
+    for (let i = 1; i <= stopThreshold && hopsBudget > 0; i++) {
+      if (MovementRulesService.isTransitObstacle(path[i], piece.player, maxPieces)) break;
+      stopIndex = i;
+      hopsBudget -= 1;
+    }
+
+    if (stopIndex === 0) return piece;
+
+    const stopPosition = path[stopIndex];
+    return new Piece({
+      ...piece,
+      panelPosition: stopPosition,
+      initialPosition: stopPosition,
+      movementPoints: piece.movementPoints - stopIndex * MOVEMENT_HOP_COST,
     });
   }
 
@@ -295,8 +334,15 @@ export class PieceService {
   /**
    * Finalize all pending moves for a player.
    *
-   * Groups attackers by target panel, then resolves each group
-   * with simultaneous multi-unit combat.
+   * A piece whose targetPosition is farther than one hop away first advances via
+   * advanceTravel (up to its available movement hops, stopping one panel short of
+   * the target — see advanceTravel). If it lands in range (adjacent to or on the
+   * target) with movement points still remaining, it proceeds to engage this same
+   * turn; otherwise its target and remaining points are left untouched for a later
+   * turn's finalizePlayerMoves to continue.
+   *
+   * Pieces that do reach engagement range are grouped by target panel and resolved
+   * with simultaneous multi-unit combat, exactly as for an already-adjacent piece.
    *
    * A piece whose banked movementPoints haven't yet reached MOVEMENT_HOP_COST is skipped
    * entirely — its pending target and points are left untouched, to be resolved on a later
@@ -306,14 +352,35 @@ export class PieceService {
    * @returns Combat outcomes for groups where combat occurred.
    */
   static finalizePlayerMoves(player: Player): CombatOutcome[] {
+    const turn = TurnRepository.get();
+    const maxPieces = turn.maxPiecesPerPanel[String(player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
+
     const pieces = PiecesRepository.getPiecesByPlayer(player);
     const piecesWithMoves = pieces.filter(
       (p) => p.targetPosition && p.movementPoints >= MOVEMENT_HOP_COST,
     );
 
+    const readyForEngagement: Piece[] = [];
+    for (const piece of piecesWithMoves) {
+      const target = piece.targetPosition!;
+      const alreadyInRange =
+        piece.panelPosition.equals(target) || piece.panelPosition.isAdjacent(target);
+
+      const current = alreadyInRange ? piece : this.advanceTravel(piece, maxPieces);
+      if (!alreadyInRange) {
+        PiecesRepository.update(current);
+      }
+
+      const inRangeNow =
+        current.panelPosition.equals(target) || current.panelPosition.isAdjacent(target);
+      if (inRangeNow && current.movementPoints >= MOVEMENT_HOP_COST) {
+        readyForEngagement.push(current);
+      }
+    }
+
     // Group by target panel position
     const groups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
-    for (const piece of piecesWithMoves) {
+    for (const piece of readyForEngagement) {
       const tp = piece.targetPosition!;
       const key = `${tp.horizontalLayer},${tp.verticalLayer}`;
       const group = groups.get(key);

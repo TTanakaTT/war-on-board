@@ -68,6 +68,31 @@ describe("MovementRulesService", () => {
     });
   });
 
+  describe("isTransitObstacle", () => {
+    test("returns true when an enemy piece occupies the position", () => {
+      addPiece(100, pos(1, 0), Player.OPPONENT);
+      expect(MovementRulesService.isTransitObstacle(pos(1, 0), Player.SELF)).toBe(true);
+    });
+
+    test("returns true when an enemy-owned castle exists (no enemy pieces)", () => {
+      setPanel(pos(1, 0), Player.OPPONENT, 5);
+      expect(MovementRulesService.isTransitObstacle(pos(1, 0), Player.SELF)).toBe(true);
+    });
+
+    test("returns true when a friendly panel is already at capacity", () => {
+      addPiece(100, pos(1, 0), Player.SELF, { pieceType: PieceType.ROOK });
+      addPiece(101, pos(1, 0), Player.SELF, { pieceType: PieceType.NOBLE });
+      // projected count at (1,0) = 2 >= DEFAULT_MAX_PIECES_PER_PANEL(2)
+      expect(MovementRulesService.isTransitObstacle(pos(1, 0), Player.SELF)).toBe(true);
+    });
+
+    test("returns false for an empty or under-capacity friendly panel", () => {
+      addPiece(100, pos(1, 0), Player.SELF, { pieceType: PieceType.ROOK });
+      expect(MovementRulesService.isTransitObstacle(pos(1, 0), Player.SELF)).toBe(false);
+      expect(MovementRulesService.isTransitObstacle(pos(2, 0), Player.SELF)).toBe(false);
+    });
+  });
+
   describe("projectedFriendlyStackCount", () => {
     test("counts multiple incoming mergeable pieces of the same type as one projected stack", () => {
       addPiece(100, pos(0, 0), Player.SELF, {

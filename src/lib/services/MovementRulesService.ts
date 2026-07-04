@@ -134,6 +134,22 @@ export class MovementRulesService {
   }
 
   /**
+   * Whether <position> blocks travel through it toward a farther target, from
+   * <player>'s perspective: either enemy presence (piece or wall — engaging it
+   * mid-transit isn't a plain pass-through) or a friendly panel already at/over
+   * capacity. Only meaningful for intermediate hops — the final destination of a
+   * move/attack is validated separately (see canMoveTo/canDefeatAllDefenders).
+   */
+  static isTransitObstacle(
+    position: PanelPosition,
+    player: Player,
+    maxPieces: number = DEFAULT_MAX_PIECES_PER_PANEL,
+  ): boolean {
+    if (this.hasEnemyPresence(position, player)) return true;
+    return this.projectedFriendlyStackCount(position, player) >= maxPieces;
+  }
+
+  /**
    * Check whether cancelling a piece's pending move is allowed.
    *
    * Blocked if:

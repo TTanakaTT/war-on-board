@@ -462,15 +462,27 @@ describe("GameApi.assignMove", () => {
       expect(result).toEqual({ ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS });
     });
 
-    test("when target is not adjacent to piece's initialPosition, returns TARGET_NOT_REACHABLE", () => {
+    test("when target is a valid but non-adjacent panel, assignment now succeeds (distant target, walked to over multiple turns)", () => {
       GameApi.initializeGame({ layer: 4 });
       setupSelfPieceAt(0, 0);
 
-      // (0,0) -> (2,0) is not adjacent
+      // (0,0) -> (2,0) is not adjacent, but is a real panel on the board.
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      const result = GameApi.assignMove(Player.SELF, 1, target);
+      expectActionSuccessWithSnapshot(result);
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(updated!.targetPosition?.equals(target)).toBe(true);
+    });
+
+    test("when target is not a real panel on the board, returns TARGET_NOT_REACHABLE", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfPieceAt(0, 0);
+
       const result = GameApi.assignMove(
         Player.SELF,
         1,
-        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+        new PanelPosition({ horizontalLayer: 99, verticalLayer: 99 }),
       );
       expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
     });
@@ -1207,6 +1219,41 @@ describe("GameApi.endTurn", () => {
       GameApi.endTurn(Player.OPPONENT);
       const nextTurnPiece = PiecesRepository.getAll().find((p) => p.id === 1)!;
       expect(nextTurnPiece.movementPoints).toBe(1);
+    });
+
+    test("a distant target (3 hops away) is reached after 3 of the player's own turns", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: -3, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      const assignResult = GameApi.assignMove(Player.SELF, 1, target);
+      expectActionSuccessWithSnapshot(assignResult);
+
+      GameApi.endTurn(Player.SELF);
+      GameApi.endTurn(Player.OPPONENT);
+      let piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(piece.panelPosition.equals(target)).toBe(false);
+      expect(piece.targetPosition?.equals(target)).toBe(true);
+
+      GameApi.endTurn(Player.SELF);
+      GameApi.endTurn(Player.OPPONENT);
+      piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(piece.panelPosition.equals(target)).toBe(false);
+      expect(piece.targetPosition?.equals(target)).toBe(true);
+
+      GameApi.endTurn(Player.SELF);
+      piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(piece.panelPosition.equals(target)).toBe(true);
+      expect(piece.targetPosition).toBeUndefined();
     });
   });
 
@@ -2672,17 +2719,17 @@ describe("unit merging", () => {
   test("endTurn: merged Infantry attack power stays at config AP; wall AP scales by stackCount", () => {
     GameApi.initializeGame({ layer: 4 });
     const moveTarget = new PanelPosition({ horizontalLayer: -1, verticalLayer: 0 });
-    // Two SELF Infantry both move to moveTarget (empty friendly-ish panel), then merge
+    // Two SELF Infantry, each starting adjacent to moveTarget, both move there and merge
     [1, 2].forEach((id) =>
       PiecesRepository.add(
         new Piece({
           id,
           panelPosition: new PanelPosition({
-            horizontalLayer: -2,
+            horizontalLayer: id === 1 ? -2 : -1,
             verticalLayer: id === 1 ? 0 : 1,
           }),
           initialPosition: new PanelPosition({
-            horizontalLayer: -2,
+            horizontalLayer: id === 1 ? -2 : -1,
             verticalLayer: id === 1 ? 0 : 1,
           }),
           targetPosition: moveTarget,
@@ -2751,16 +2798,17 @@ describe("unit merging", () => {
   test("endTurn: Rooks at same panel after movement do NOT merge (non-mergeable)", () => {
     GameApi.initializeGame({ layer: 4 });
     const moveTarget = new PanelPosition({ horizontalLayer: -1, verticalLayer: 0 });
+    // Two SELF Rooks, each starting adjacent to moveTarget, both move there in the same turn
     [1, 2].forEach((id) =>
       PiecesRepository.add(
         new Piece({
           id,
           panelPosition: new PanelPosition({
-            horizontalLayer: -2,
+            horizontalLayer: id === 1 ? -2 : -1,
             verticalLayer: id === 1 ? 0 : 1,
           }),
           initialPosition: new PanelPosition({
-            horizontalLayer: -2,
+            horizontalLayer: id === 1 ? -2 : -1,
             verticalLayer: id === 1 ? 0 : 1,
           }),
           targetPosition: moveTarget,

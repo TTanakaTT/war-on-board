@@ -503,6 +503,113 @@ describe("PieceService", () => {
       // Both attackers target same panel, so only 1 outcome
       expect(outcomes.length).toBe(1);
     });
+
+    test("a movement=1 piece travels one panel per turn toward a distant empty target, keeping targetPosition until arrival", () => {
+      const piece = makePiece({
+        id: 1,
+        panelPosition: pos(-3, 0),
+        targetPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 1,
+      });
+      PiecesRepository.add(piece);
+
+      // Turn 1: advances one hop, not yet in range (3 hops away originally).
+      PieceService.finalizePlayerMoves(Player.SELF);
+      let current = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(current.panelPosition.equals(pos(-2, 0))).toBe(true);
+      expect(current.targetPosition?.equals(pos(0, 0))).toBe(true);
+      expect(current.movementPoints).toBe(0);
+
+      // Turn 2: accrues back to 1, advances one more hop — now adjacent, but with no
+      // movement points left to also engage/enter this same turn.
+      PieceService.accrueMovementForPlayer(Player.SELF);
+      PieceService.finalizePlayerMoves(Player.SELF);
+      current = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(current.panelPosition.equals(pos(-1, 0))).toBe(true);
+      expect(current.targetPosition?.equals(pos(0, 0))).toBe(true);
+      expect(current.movementPoints).toBe(0);
+
+      // Turn 3: accrues to 1 again; already adjacent, so it enters directly this turn.
+      PieceService.accrueMovementForPlayer(Player.SELF);
+      PieceService.finalizePlayerMoves(Player.SELF);
+      current = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(current.panelPosition.equals(pos(0, 0))).toBe(true);
+      expect(current.targetPosition).toBeUndefined();
+    });
+
+    test("a movement=2 piece reaches a distant defended panel in two turns, engaging that same second turn since a movement point remains", () => {
+      const attacker = makePiece({
+        id: 1,
+        panelPosition: pos(-3, 0),
+        targetPosition: pos(1, 0),
+        player: Player.SELF,
+        pieceType: PieceType.CAVALRY,
+        movementPoints: 2,
+      });
+      const defender = makePiece({
+        id: 2,
+        panelPosition: pos(1, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.ROOK,
+        hp: 100,
+      });
+      PiecesRepository.add(attacker);
+      PiecesRepository.add(defender);
+
+      // Turn 1: covers 2 hops (movement=2), landing 2 hops short of the target — not in range yet.
+      PieceService.finalizePlayerMoves(Player.SELF);
+      let current = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(current.panelPosition.equals(pos(-1, 0))).toBe(true);
+      expect(current.targetPosition?.equals(pos(1, 0))).toBe(true);
+
+      // Turn 2: accrues back to 2. Transit stops one panel short of the target (1 hop,
+      // spending 1 point), leaving 1 point — enough to engage the defender this same turn.
+      PieceService.accrueMovementForPlayer(Player.SELF);
+      const outcomes = PieceService.finalizePlayerMoves(Player.SELF);
+      expect(outcomes.length).toBe(1);
+      current = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(current.panelPosition.equals(pos(0, 0))).toBe(true);
+      // Defender (hp=100) survives, so the attacker doesn't enter — the attempted attack
+      // still consumes its last movement point and clears the (now-resolved) target.
+      expect(current.targetPosition).toBeUndefined();
+      expect(current.movementPoints).toBe(0);
+    });
+
+    test("stops at a friendly panel already at capacity and keeps targetPosition pending", () => {
+      const traveler = makePiece({
+        id: 1,
+        panelPosition: pos(-3, 0),
+        targetPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 1,
+      });
+      // (-2,0) is the first hop toward the target and is already at capacity.
+      const blocker1 = makePiece({
+        id: 2,
+        panelPosition: pos(-2, 0),
+        player: Player.SELF,
+        pieceType: PieceType.ROOK,
+      });
+      const blocker2 = makePiece({
+        id: 3,
+        panelPosition: pos(-2, 0),
+        player: Player.SELF,
+        pieceType: PieceType.NOBLE,
+      });
+      PiecesRepository.add(traveler);
+      PiecesRepository.add(blocker1);
+      PiecesRepository.add(blocker2);
+
+      PieceService.finalizePlayerMoves(Player.SELF);
+
+      const current = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(current.panelPosition.equals(pos(-3, 0))).toBe(true);
+      expect(current.targetPosition?.equals(pos(0, 0))).toBe(true);
+      expect(current.movementPoints).toBe(1);
+    });
   });
 
   describe("mergePiecesAtPosition", () => {

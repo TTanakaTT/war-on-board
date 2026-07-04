@@ -137,6 +137,34 @@ describe("PanelsService", () => {
     });
   });
 
+  describe("findShortestPath", () => {
+    beforeEach(() => {
+      GameApi.initializeGame({ layer: 4 });
+    });
+
+    test("returns [origin] when origin equals destination", () => {
+      const path = PanelsService.findShortestPath(pos(0, 0), pos(0, 0));
+      expect(path).toEqual([pos(0, 0)]);
+    });
+
+    test("returns a 2-panel path for adjacent origin and destination", () => {
+      const path = PanelsService.findShortestPath(pos(-3, 0), pos(-2, 0));
+      expect(path).toEqual([pos(-3, 0), pos(-2, 0)]);
+    });
+
+    test("returns the minimal-length path across multiple hops, each step adjacent to the last", () => {
+      const path = PanelsService.findShortestPath(pos(-3, 0), pos(0, 0));
+      expect(path).not.toBeNull();
+      expect(path![0].equals(pos(-3, 0))).toBe(true);
+      expect(path![path!.length - 1].equals(pos(0, 0))).toBe(true);
+      // Home base (-3,0) to (0,0) along vl=0 is 3 hops away — the shortest path has 4 panels.
+      expect(path).toHaveLength(4);
+      for (let i = 1; i < path!.length; i++) {
+        expect(path![i].isAdjacent(path![i - 1])).toBe(true);
+      }
+    });
+  });
+
   describe("clearSelected", () => {
     beforeEach(() => {
       GameApi.initializeGame({ layer: 4 });
