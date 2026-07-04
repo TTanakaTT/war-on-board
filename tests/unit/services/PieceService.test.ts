@@ -577,7 +577,7 @@ describe("PieceService", () => {
       expect(current.movementPoints).toBe(0);
     });
 
-    test("stops at a friendly panel already at capacity and keeps targetPosition pending", () => {
+    test("cannot merge into a friendly panel already at capacity: stays put and cancels the pending order", () => {
       const traveler = makePiece({
         id: 1,
         panelPosition: pos(-3, 0),
@@ -586,7 +586,8 @@ describe("PieceService", () => {
         pieceType: PieceType.INFANTRY,
         movementPoints: 1,
       });
-      // (-2,0) is the first hop toward the target and is already at capacity.
+      // (-2,0) is the first hop toward the target and is already at capacity with two
+      // different non-mergeable types — the traveler (a third, different type) can't fit.
       const blocker1 = makePiece({
         id: 2,
         panelPosition: pos(-2, 0),
@@ -607,8 +608,186 @@ describe("PieceService", () => {
 
       const current = PiecesRepository.getAll().find((p) => p.id === 1)!;
       expect(current.panelPosition.equals(pos(-3, 0))).toBe(true);
-      expect(current.targetPosition?.equals(pos(0, 0))).toBe(true);
-      expect(current.movementPoints).toBe(1);
+      expect(current.targetPosition).toBeUndefined();
+      expect(current.movementPoints).toBe(0);
+    });
+
+    test("merges into a friendly panel at capacity when its own type is already there, then cancels the pending order", () => {
+      const traveler = makePiece({
+        id: 1,
+        panelPosition: pos(-3, 0),
+        targetPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 1,
+      });
+      // (-2,0) is at capacity, but one of the two occupants is the same mergeable
+      // type as the traveler, so joining doesn't increase the projected slot count.
+      const existingInfantry = makePiece({
+        id: 2,
+        panelPosition: pos(-2, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+      });
+      const existingRook = makePiece({
+        id: 3,
+        panelPosition: pos(-2, 0),
+        player: Player.SELF,
+        pieceType: PieceType.ROOK,
+      });
+      PiecesRepository.add(traveler);
+      PiecesRepository.add(existingInfantry);
+      PiecesRepository.add(existingRook);
+
+      PieceService.finalizePlayerMoves(Player.SELF);
+
+      const current = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(current.panelPosition.equals(pos(-2, 0))).toBe(true);
+      expect(current.targetPosition).toBeUndefined();
+      expect(current.movementPoints).toBe(0);
+    });
+
+    test("attacks an enemy encountered mid-transit and enters when it wins, cancelling the pending order", () => {
+      const traveler = makePiece({
+        id: 1,
+        panelPosition: pos(-3, 0),
+        targetPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 1,
+      });
+      // (-2,0) is the first hop toward the target and hosts a weak enemy that dies to
+      // Infantry's (5-1)*1=4 damage.
+      const defender = makePiece({
+        id: 2,
+        panelPosition: pos(-2, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.ROOK,
+        hp: 4,
+      });
+      PiecesRepository.add(traveler);
+      PiecesRepository.add(defender);
+
+      const outcomes = PieceService.finalizePlayerMoves(Player.SELF);
+
+      expect(outcomes.length).toBe(1);
+      expect(outcomes[0].entered).toBe(true);
+      const current = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(current.panelPosition.equals(pos(-2, 0))).toBe(true);
+      expect(current.targetPosition).toBeUndefined();
+    });
+
+    test("attacks an enemy encountered mid-transit but stays put when it fails to enter, cancelling the pending order", () => {
+      const traveler = makePiece({
+        id: 1,
+        panelPosition: pos(-3, 0),
+        targetPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 1,
+      });
+      // A tough enemy (hp=100) survives, so the traveler doesn't enter.
+      const defender = makePiece({
+        id: 2,
+        panelPosition: pos(-2, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.ROOK,
+        hp: 100,
+      });
+      PiecesRepository.add(traveler);
+      PiecesRepository.add(defender);
+
+      const outcomes = PieceService.finalizePlayerMoves(Player.SELF);
+
+      expect(outcomes.length).toBe(1);
+      expect(outcomes[0].entered).toBe(false);
+      const current = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(current.panelPosition.equals(pos(-3, 0))).toBe(true);
+      expect(current.targetPosition).toBeUndefined();
+      expect(current.movementPoints).toBe(0);
+    });
+  });
+
+  describe("previewTravelStop", () => {
+    test("returns the piece's own position when it has no targetPosition", () => {
+      const piece = makePiece({
+        panelPosition: pos(1, 1),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+      });
+
+      expect(PieceService.previewTravelStop(piece).equals(pos(1, 1))).toBe(true);
+    });
+
+    test("returns the target directly when it is adjacent (reached this turn)", () => {
+      const piece = makePiece({
+        panelPosition: pos(-3, 0),
+        targetPosition: pos(-2, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+      });
+
+      expect(PieceService.previewTravelStop(piece).equals(pos(-2, 0))).toBe(true);
+    });
+
+    test("returns a this-turn stop position short of a distant target, matching finalizePlayerMoves's actual outcome", () => {
+      const piece = makePiece({
+        id: 1,
+        panelPosition: pos(-3, 0),
+        targetPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 1,
+      });
+      PiecesRepository.add(piece);
+
+      const preview = PieceService.previewTravelStop(piece);
+      expect(preview.equals(pos(-2, 0))).toBe(true);
+
+      PieceService.finalizePlayerMoves(Player.SELF);
+      const actual = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(actual.panelPosition.equals(preview)).toBe(true);
+    });
+
+    test("advances further with a larger movement budget", () => {
+      const piece = makePiece({
+        panelPosition: pos(-3, 0),
+        targetPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.CAVALRY,
+        movementPoints: 2,
+      });
+
+      expect(PieceService.previewTravelStop(piece).equals(pos(-1, 0))).toBe(true);
+    });
+
+    test("shows the obstacle position itself as this turn's action target, mirroring finalizePlayerMoves", () => {
+      const traveler = makePiece({
+        panelPosition: pos(-3, 0),
+        targetPosition: pos(0, 0),
+        player: Player.SELF,
+        pieceType: PieceType.INFANTRY,
+        movementPoints: 1,
+      });
+      // (-2,0) is the first hop toward the target and is already at capacity.
+      PiecesRepository.add(
+        makePiece({
+          id: 2,
+          panelPosition: pos(-2, 0),
+          player: Player.SELF,
+          pieceType: PieceType.ROOK,
+        }),
+      );
+      PiecesRepository.add(
+        makePiece({
+          id: 3,
+          panelPosition: pos(-2, 0),
+          player: Player.SELF,
+          pieceType: PieceType.NOBLE,
+        }),
+      );
+
+      expect(PieceService.previewTravelStop(traveler).equals(pos(-2, 0))).toBe(true);
     });
   });
 

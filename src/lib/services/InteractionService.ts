@@ -97,13 +97,11 @@ export class InteractionService {
   /**
    * Recompute panel highlight states after a selection/move action.
    *
-   * State transitions applied to ALL panels:
-   *   - Source panel        → SELECTED
-   *   - Reachable & allowed → MOVABLE  (green-ish, clickable)
-   *   - Reachable & blocked → left unchanged (not MOVABLE)
-   *   - All others          → IMMOVABLE (dimmed, non-interactive)
-   *
-   * "Allowed" is determined by MovementRulesService.canMoveTo().
+   * When a piece is selected (see highlightMovableFromOccupied), every panel
+   * on the board is a candidate move target — distance no longer disqualifies
+   * a panel (see PieceService.finalizePlayerMoves/advanceTravel). Panels
+   * allowed by MovementRulesService.canMoveTo() become MOVABLE (clickable);
+   * panels it disallows are left in their current state, unchanged.
    */
   static stateChange(panelPosition: PanelPosition) {
     const originalPanel = PanelsService.find(panelPosition);
@@ -129,13 +127,19 @@ export class InteractionService {
   // ── Private helpers ──────────────────────────────────────────────
 
   /**
-   * Highlight reachable panels when a piece on an OCCUPIED panel is selected.
+   * Highlight movable panels when a piece on an OCCUPIED panel is selected.
+   *
+   * Any panel on the board may be selected as a move target — a target
+   * beyond one hop away is walked toward over multiple turns (see
+   * PieceService.finalizePlayerMoves/advanceTravel), so distance no longer
+   * disqualifies a panel. Panels that fail canMoveTo are left in their
+   * current state rather than dimmed, since they may still become reachable
+   * later (e.g. once an occupying stack clears).
    */
   private static highlightMovableFromOccupied(panelPosition: PanelPosition, originalPanel: Panel) {
     const selectedPieces = PiecesRepository.getPiecesByPosition(panelPosition);
     const selectedPieceId = SelectedPanelRepository.getPieceId();
     const selectedPiece = selectedPieces.find((p) => p.id === selectedPieceId) ?? selectedPieces[0];
-    const referencePosition = selectedPiece?.initialPosition ?? panelPosition;
 
     // Mark source as SELECTED
     PanelRepository.update(
@@ -145,17 +149,12 @@ export class InteractionService {
       }),
     );
 
-    // Compute reachable panels (adjacent to initial position + initial position itself)
-    const adjacentPanels = PanelsService.findAdjacentPanels(referencePosition);
-    const initialPanel = PanelsService.find(referencePosition);
-    const reachablePanels = initialPanel ? [initialPanel, ...adjacentPanels] : adjacentPanels;
-
     const turn = TurnRepository.get();
     const maxPieces =
       turn.maxPiecesPerPanel[String(selectedPiece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
 
-    // Mark each reachable panel as MOVABLE (if movement rules allow)
-    reachablePanels
+    // Mark each candidate panel as MOVABLE (if movement rules allow)
+    PanelRepository.getAll()
       .filter((p: Panel) => !p.panelPosition.equals(panelPosition))
       .forEach((targetPanel: Panel) => {
         if (
@@ -174,12 +173,6 @@ export class InteractionService {
           );
         }
       });
-
-    // Dim all non-reachable panels
-    this.dimUnreachablePanels(
-      panelPosition,
-      reachablePanels.map((p) => p.panelPosition),
-    );
   }
 
   /**

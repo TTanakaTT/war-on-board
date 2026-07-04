@@ -9,6 +9,7 @@ import { PanelState } from "$lib/domain/enums/PanelState";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { Player } from "$lib/domain/enums/Player";
 import { InteractionService } from "$lib/services/InteractionService";
+import { PanelsService } from "$lib/services/PanelService";
 
 const pos = (horizontalLayer: number, verticalLayer: number) =>
   new PanelPosition({ horizontalLayer, verticalLayer });
@@ -82,6 +83,42 @@ describe("InteractionService", () => {
 
       expect(getPiece(1).targetPosition?.equals(nextTarget)).toBe(true);
       expect(PanelRepository.find(pos(0, 0))?.panelState).toBe(PanelState.OCCUPIED);
+    });
+  });
+
+  describe("highlightMovableFromOccupied — distant targets", () => {
+    test("marks a distant (non-adjacent) empty panel as MOVABLE", () => {
+      setupSelfPiece(pos(-3, 0));
+      PanelsService.refreshPanelStates();
+      const distantTarget = pos(0, 0);
+
+      InteractionService.pieceChange(getPiece(1));
+
+      expect(PanelRepository.find(distantTarget)?.panelState).toBe(PanelState.MOVABLE);
+    });
+
+    test("leaves a distant panel unchanged when canMoveTo disallows it (piece cannot attack at all)", () => {
+      setupSelfPiece(pos(-3, 0));
+      const noble = getPiece(1);
+      PiecesRepository.update(new Piece({ ...noble, pieceType: PieceType.NOBLE }));
+
+      const distantEnemyPosition = pos(0, 0);
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: distantEnemyPosition,
+          initialPosition: distantEnemyPosition,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+      PanelsService.refreshPanelStates();
+
+      InteractionService.pieceChange(getPiece(1));
+
+      const panelState = PanelRepository.find(distantEnemyPosition)?.panelState;
+      expect(panelState).not.toBe(PanelState.MOVABLE);
+      expect(panelState).not.toBe(PanelState.IMMOVABLE);
     });
   });
 });
