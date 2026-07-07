@@ -114,6 +114,15 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  *   - Castle value is 0.
  * Otherwise attackers stay at their origin with `targetPosition` cleared.
  *
+ * ### Ranged attacks (see `assignRangedAttack`)
+ * A piece whose `attackRange` reaches farther than adjacent may fire at a target beyond
+ * melee range without moving there (see `PieceService.resolveRangedAttacks`, run inside
+ * `endTurn` alongside move resolution). Damage uses the same simultaneous multi-unit
+ * formula above, but the defending group only counterattacks if its own `attackRange`
+ * reaches the actual distance — so a melee-only defender can't strike back at an
+ * attacker standing farther away than it can reach. The attacker never enters the
+ * target panel regardless of outcome.
+ *
  * ## Turn flow (executed by `endTurn`)
  *
  *   1. Finalize current player's moves (combat resolution for all pending moves).
@@ -329,6 +338,94 @@ export class GameApi {
   }
 
   /**
+   * Assign a ranged attack for a piece whose attackRange reaches farther than
+   * adjacent (today, only Archer). Unlike assignMove, the piece never moves —
+   * it stays put and fires from its current panel once `endTurn` resolves it
+   * (see PieceService.resolveRangedAttacks).
+   *
+   * @param player - The player performing the action.
+   * @param pieceId - ID of the attacking piece.
+   * @param target - The target panel position.
+   *
+   * **Preconditions:**
+   * - Game not over.
+   * - It is `player`'s turn.
+   * - Piece exists, belongs to `player`, and has banked `movementPoints` >= `MOVEMENT_HOP_COST`.
+   * - Target is farther than adjacent but within the piece's `attackRange`, hosts
+   *   enemy pieces, and every defender is defeatable (see
+   *   `MovementRulesService.canRangedAttack`).
+   *
+   * **Effects:**
+   * - Sets `piece.rangedAttackTargetPosition` to `target`.
+   *
+   * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
+   * PIECE_NOT_OWNED, INSUFFICIENT_MOVEMENT_POINTS, TARGET_NOT_REACHABLE.
+   */
+  static assignRangedAttack(
+    player: Player,
+    pieceId: number,
+    target: PanelPosition,
+  ): Result<GameActionResult> {
+    const turn = TurnRepository.get();
+    if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
+    if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
+
+    const piece = PiecesRepository.getAll().find((p) => p.id === pieceId);
+    if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
+    if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
+
+    if (piece.movementPoints < MOVEMENT_HOP_COST) {
+      return { ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS };
+    }
+
+    if (!MovementRulesService.canRangedAttack(pieceId, target)) {
+      return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
+    }
+
+    PiecesRepository.update(new Piece({ ...piece, rangedAttackTargetPosition: target }));
+    return { ok: true, value: { gameState: this.getGameState() } };
+  }
+
+  /**
+   * Cancel a piece's pending ranged attack.
+   *
+   * Unlike cancelMove, no capacity check is needed — the piece never left its
+   * panel for a ranged attack.
+   *
+   * @param player - The player performing the action.
+   * @param pieceId - ID of the piece whose ranged attack to cancel.
+   *
+   * **Preconditions:**
+   * - Game not over.
+   * - It is `player`'s turn.
+   * - Piece exists, belongs to `player`, and has a pending `rangedAttackTargetPosition`.
+   * - Piece's `movement` is not below `MOVEMENT_HOP_COST` (a committed slow piece's
+   *   action can't be redirected or cancelled until it resolves, same as cancelMove).
+   *
+   * **Effects:**
+   * - Clears `piece.rangedAttackTargetPosition` to `undefined`.
+   *
+   * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
+   * PIECE_NOT_OWNED, CANNOT_CANCEL.
+   */
+  static cancelRangedAttack(player: Player, pieceId: number): Result<GameActionResult> {
+    const turn = TurnRepository.get();
+    if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
+    if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
+
+    const piece = PiecesRepository.getAll().find((p) => p.id === pieceId);
+    if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
+    if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
+    if (!piece.rangedAttackTargetPosition) return { ok: false, error: ActionError.CANNOT_CANCEL };
+    if (piece.pieceType.config.movement < MOVEMENT_HOP_COST) {
+      return { ok: false, error: ActionError.CANNOT_CANCEL };
+    }
+
+    PiecesRepository.update(new Piece({ ...piece, rangedAttackTargetPosition: undefined }));
+    return { ok: true, value: { gameState: this.getGameState() } };
+  }
+
+  /**
    * Generate (spawn) a new piece for the given player.
    *
    * Consumes resources equal to the piece type's cost and places the piece
@@ -423,7 +520,10 @@ export class GameApi {
     if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
 
     // 1. Finalize current player's moves (combat resolution)
-    const combatOutcomes = PieceService.finalizePlayerMoves(player);
+    const combatOutcomes = [
+      ...PieceService.finalizePlayerMoves(player),
+      ...PieceService.resolveRangedAttacks(player),
+    ];
 
     // 1b. Merge same-type mergeable units that ended up on the same panel
     PieceService.mergeAllPiecesForPlayer(player);

@@ -6,6 +6,12 @@ export class Piece {
   panelPosition: PanelPosition;
   initialPosition: PanelPosition;
   targetPosition?: PanelPosition;
+  /**
+   * Pending ranged-attack target (see GameApi.assignRangedAttack). Distinct
+   * from targetPosition since a ranged attack never moves the piece — it
+   * resolves in place via PieceService.resolveRangedAttacks.
+   */
+  rangedAttackTargetPosition?: PanelPosition;
   player: Player;
   pieceType: PieceType;
   /** HP may become fractional after wall-overflow damage. */
@@ -65,6 +71,7 @@ export class Piece {
     panelPosition,
     initialPosition,
     targetPosition,
+    rangedAttackTargetPosition,
     player,
     pieceType,
     hp,
@@ -76,6 +83,7 @@ export class Piece {
     initialPosition?: PanelPosition;
     panelPosition: PanelPosition;
     targetPosition?: PanelPosition;
+    rangedAttackTargetPosition?: PanelPosition;
     player: Player;
     pieceType: PieceType;
     hp?: number;
@@ -87,6 +95,7 @@ export class Piece {
     this.panelPosition = panelPosition;
     this.initialPosition = initialPosition || panelPosition;
     this.targetPosition = targetPosition;
+    this.rangedAttackTargetPosition = rangedAttackTargetPosition;
     this.player = player;
     this.pieceType = pieceType;
     this.stackCount = stackCount ?? 1;

@@ -4,6 +4,8 @@
   import { InteractionService } from "$lib/services/InteractionService";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
   import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
+  import { RangedAttackModeRepository } from "$lib/data/repositories/RangedAttackModeRepository";
+  import { MovementRulesService } from "$lib/services/MovementRulesService";
 
   import { PanelState } from "$lib/domain/enums/PanelState";
   import { Player } from "$lib/domain/enums/Player";
@@ -57,6 +59,16 @@
       selectedPiece &&
       !panelPosition.equals(selectedPiece.panelPosition) &&
       !panelPosition.isAdjacent(selectedPiece.panelPosition),
+    ),
+  );
+  // While ranged-attack mode is active, a panel this reachable-by-fire (see
+  // MovementRulesService.canRangedAttack) is highlighted distinctly from a
+  // plain movable panel, since clicking it fires instead of walking there.
+  let isRangedAttackTarget = $derived(
+    Boolean(
+      selectedPiece &&
+      RangedAttackModeRepository.isActive() &&
+      MovementRulesService.canRangedAttack(selectedPiece.id, panelPosition),
     ),
   );
 
@@ -131,9 +143,11 @@
         };
       case PanelState.SELECTED:
       case PanelState.MOVABLE: {
-        const movableFill = isDistantMovable
-          ? "fill-panel-movable-distant dark:fill-panel-movable-distant-dark"
-          : "fill-panel-movable dark:fill-panel-movable-dark";
+        const movableFill = isRangedAttackTarget
+          ? "fill-panel-ranged-target dark:fill-panel-ranged-target-dark"
+          : isDistantMovable
+            ? "fill-panel-movable-distant dark:fill-panel-movable-distant-dark"
+            : "fill-panel-movable dark:fill-panel-movable-dark";
         return {
           isInteractive: true,
           containerClass: `${baseContainerClass} cursor-pointer`,

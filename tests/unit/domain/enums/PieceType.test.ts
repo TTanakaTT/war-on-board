@@ -128,11 +128,11 @@ describe("PieceType", () => {
       expect(cfg.iconName).toBe("shield");
     });
 
-    test("SIEGE config: cost=30, maxHp=30, attackPiece=0, attackWall=5, defense=3, movement=1, attackRange=1, iconName=siege", () => {
+    test("SIEGE config: cost=30, maxHp=30, attackPiece=1, attackWall=5, defense=3, movement=1, attackRange=1, iconName=siege", () => {
       const cfg = PieceType.SIEGE.config;
       expect(cfg.cost).toBe(30);
       expect(cfg.maxHp).toBe(30);
-      expect(cfg.attackPowerAgainstPiece).toBe(0);
+      expect(cfg.attackPowerAgainstPiece).toBe(1);
       expect(cfg.attackPowerAgainstWall).toBe(5);
       expect(cfg.defense).toBe(3);
       expect(cfg.movement).toBe(1);

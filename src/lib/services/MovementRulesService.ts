@@ -3,6 +3,7 @@ import type { Piece } from "$lib/domain/entities/Piece";
 import { Player } from "$lib/domain/enums/Player";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
+import { PanelsService } from "$lib/services/PanelService";
 import {
   DEFAULT_MAX_PIECES_PER_PANEL,
   MOVEMENT_HOP_COST,
@@ -147,6 +148,44 @@ export class MovementRulesService {
   ): boolean {
     if (this.hasEnemyPresence(position, player)) return true;
     return this.projectedFriendlyStackCount(position, player) >= maxPieces;
+  }
+
+  /**
+   * Whether <attackerId> may fire a ranged attack (GameApi.assignRangedAttack)
+   * at <targetPosition> without moving there. Requires the panel distance to
+   * be farther than adjacent (distance 1 is always handled by canMoveTo's
+   * ordinary attack path) but no farther than the attacker's own attackRange,
+   * enemy pieces present at the target (and no enemy castle wall there —
+   * PieceService.resolveRangedAttacks never deals wall damage, so a walled
+   * panel is never a valid ranged-attack target), and every defending piece
+   * defeatable (see canDefeatAllDefenders). Reused both by
+   * GameApi.assignRangedAttack's validation and by the board UI to highlight
+   * valid targets.
+   */
+  static canRangedAttack(attackerId: number, targetPosition: PanelPosition): boolean {
+    const piece = PiecesRepository.getAll().find((candidate) => candidate.id === attackerId);
+    if (!piece) return false;
+
+    const path = PanelsService.findShortestPath(piece.panelPosition, targetPosition);
+    const distance = path ? path.length - 1 : Infinity;
+    if (distance <= 1 || distance > piece.attackRange) return false;
+
+    const targetPanel = PanelRepository.find(targetPosition);
+    if (
+      targetPanel &&
+      targetPanel.player !== piece.player &&
+      targetPanel.player !== Player.UNKNOWN &&
+      targetPanel.castle > 0
+    ) {
+      return false;
+    }
+
+    const defenders = PiecesRepository.getPiecesByPosition(targetPosition).filter(
+      (p) => p.player !== piece.player && p.player !== Player.UNKNOWN,
+    );
+    if (defenders.length === 0) return false;
+
+    return this.canDefeatAllDefenders(piece, defenders);
   }
 
   /**

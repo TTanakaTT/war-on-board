@@ -10,6 +10,7 @@ import { PieceType } from "$lib/domain/enums/PieceType";
 import { Player } from "$lib/domain/enums/Player";
 import { InteractionService } from "$lib/services/InteractionService";
 import { PanelsService } from "$lib/services/PanelService";
+import { RangedAttackModeRepository } from "$lib/data/repositories/RangedAttackModeRepository";
 
 const pos = (horizontalLayer: number, verticalLayer: number) =>
   new PanelPosition({ horizontalLayer, verticalLayer });
@@ -21,6 +22,18 @@ function setupSelfPiece(position: PanelPosition, id = 1): Piece {
     initialPosition: position,
     player: Player.SELF,
     pieceType: PieceType.INFANTRY,
+  });
+  PiecesRepository.add(piece);
+  return piece;
+}
+
+function setupSelfArcher(position: PanelPosition, id = 1): Piece {
+  const piece = new Piece({
+    id,
+    panelPosition: position,
+    initialPosition: position,
+    player: Player.SELF,
+    pieceType: PieceType.ARCHER,
   });
   PiecesRepository.add(piece);
   return piece;
@@ -119,6 +132,50 @@ describe("InteractionService", () => {
       const panelState = PanelRepository.find(distantEnemyPosition)?.panelState;
       expect(panelState).not.toBe(PanelState.MOVABLE);
       expect(panelState).not.toBe(PanelState.IMMOVABLE);
+    });
+  });
+
+  describe("ranged attack mode", () => {
+    test("toggleRangedAttackMode does nothing when no piece is selected", () => {
+      InteractionService.toggleRangedAttackMode();
+      expect(RangedAttackModeRepository.isActive()).toBe(false);
+    });
+
+    test("panelChange fires assignRangedAttack when attack mode is active, then exits the mode", () => {
+      setupSelfArcher(pos(0, 0));
+      const target = pos(2, 0);
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      InteractionService.pieceChange(getPiece(1));
+      InteractionService.toggleRangedAttackMode();
+      expect(RangedAttackModeRepository.isActive()).toBe(true);
+
+      InteractionService.panelChange(target);
+
+      expect(RangedAttackModeRepository.isActive()).toBe(false);
+      expect(getPiece(1).rangedAttackTargetPosition?.equals(target)).toBe(true);
+      // The archer never moves when assigning a ranged attack.
+      expect(getPiece(1).panelPosition.equals(pos(0, 0))).toBe(true);
+    });
+
+    test("selecting a different piece exits ranged attack mode", () => {
+      setupSelfArcher(pos(0, 0));
+      setupSelfPiece(pos(0, 1), 2);
+
+      InteractionService.pieceChange(getPiece(1));
+      InteractionService.toggleRangedAttackMode();
+      expect(RangedAttackModeRepository.isActive()).toBe(true);
+
+      InteractionService.pieceChange(getPiece(2));
+      expect(RangedAttackModeRepository.isActive()).toBe(false);
     });
   });
 });

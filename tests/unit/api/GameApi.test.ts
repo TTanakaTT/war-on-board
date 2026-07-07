@@ -903,6 +903,345 @@ describe("GameApi.cancelMove", () => {
   });
 });
 
+describe("GameApi.assignRangedAttack", () => {
+  function setupSelfArcherAt(hl: number, vl: number, id = 1): Piece {
+    const pos = new PanelPosition({ horizontalLayer: hl, verticalLayer: vl });
+    const piece = new Piece({
+      id,
+      panelPosition: pos,
+      initialPosition: pos,
+      player: Player.SELF,
+      pieceType: PieceType.ARCHER,
+    });
+    PiecesRepository.add(piece);
+    return piece;
+  }
+
+  describe("precondition errors", () => {
+    test("when winner is already set, returns GAME_ALREADY_OVER", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+      const turn = TurnRepository.get();
+      TurnRepository.set({ ...turn, winner: Player.OPPONENT });
+
+      const result = GameApi.assignRangedAttack(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.GAME_ALREADY_OVER });
+    });
+
+    test("when it is OPPONENT's turn but SELF calls assignRangedAttack, returns NOT_YOUR_TURN", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+      const turn = TurnRepository.get();
+      TurnRepository.set({ ...turn, player: Player.OPPONENT });
+
+      const result = GameApi.assignRangedAttack(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.NOT_YOUR_TURN });
+    });
+
+    test("when pieceId does not exist, returns PIECE_NOT_FOUND", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const result = GameApi.assignRangedAttack(
+        Player.SELF,
+        999,
+        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_FOUND });
+    });
+
+    test("when piece belongs to OPPONENT while SELF calls assignRangedAttack, returns PIECE_NOT_OWNED", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          player: Player.OPPONENT,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_OWNED });
+    });
+
+    test("when piece's movementPoints are below MOVEMENT_HOP_COST, returns INSUFFICIENT_MOVEMENT_POINTS", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+          movementPoints: 0.5,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS });
+    });
+
+    test("when target is only adjacent (distance 1), returns TARGET_NOT_REACHABLE", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+      const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
+    });
+
+    test("when target at distance 2 has no enemy present, returns TARGET_NOT_REACHABLE", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+
+      const result = GameApi.assignRangedAttack(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
+    });
+
+    test("when the piece's attackRange is only 1 (e.g. Infantry), returns TARGET_NOT_REACHABLE even with an enemy at distance 2", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          player: Player.SELF,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.NOBLE,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
+    });
+
+    test("when target at distance 2 has a defeatable defender but also an enemy castle wall, returns TARGET_NOT_REACHABLE", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      const targetPanel = PanelRepository.find(target)!;
+      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 5 }));
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
+    });
+  });
+
+  describe("successful assignment", () => {
+    test("when target is at distance 2 with a defeatable enemy, sets rangedAttackTargetPosition and returns ok", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expectActionSuccessWithSnapshot(result);
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(updated!.rangedAttackTargetPosition?.equals(target)).toBe(true);
+      // The archer itself never moves when assigning a ranged attack.
+      expect(
+        updated!.panelPosition.equals(new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 })),
+      ).toBe(true);
+    });
+  });
+});
+
+describe("GameApi.cancelRangedAttack", () => {
+  describe("precondition errors", () => {
+    test("when winner is already set, returns GAME_ALREADY_OVER", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+      const turn = TurnRepository.get();
+      TurnRepository.set({ ...turn, winner: Player.OPPONENT });
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expect(result).toEqual({ ok: false, error: ActionError.GAME_ALREADY_OVER });
+    });
+
+    test("when it is OPPONENT's turn but SELF calls cancelRangedAttack, returns NOT_YOUR_TURN", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+      const turn = TurnRepository.get();
+      TurnRepository.set({ ...turn, player: Player.OPPONENT });
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expect(result).toEqual({ ok: false, error: ActionError.NOT_YOUR_TURN });
+    });
+
+    test("when pieceId does not exist, returns PIECE_NOT_FOUND", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 999);
+      expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_FOUND });
+    });
+
+    test("when piece belongs to OPPONENT, returns PIECE_NOT_OWNED", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_OWNED });
+    });
+
+    test("when piece has no pending rangedAttackTargetPosition, returns CANNOT_CANCEL", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expect(result).toEqual({ ok: false, error: ActionError.CANNOT_CANCEL });
+    });
+
+    test("when the piece's movement is below MOVEMENT_HOP_COST, returns CANNOT_CANCEL", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      // Synthetic movement<1 piece type sharing Archer's other stats.
+      const slowArcherType = {
+        config: { ...PieceType.ARCHER.config, movement: 0.5 },
+      } as unknown as PieceType;
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.SELF,
+          pieceType: slowArcherType,
+        }),
+      );
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expect(result).toEqual({ ok: false, error: ActionError.CANNOT_CANCEL });
+    });
+  });
+
+  describe("successful cancellation", () => {
+    test("when piece has rangedAttackTargetPosition set, clears it to undefined and returns ok", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expectActionSuccessWithSnapshot(result);
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(updated!.rangedAttackTargetPosition).toBeUndefined();
+    });
+  });
+});
+
 describe("GameApi.generatePiece", () => {
   describe("precondition errors", () => {
     test("when winner is already set, returns GAME_ALREADY_OVER", () => {
@@ -1668,6 +2007,49 @@ describe("GameApi.endTurn", () => {
       const defenderB = PiecesRepository.getAll().find((p) => p.id === 51);
       expect(defenderA!.hp).toBeCloseTo(9.5);
       expect(defenderB!.hp).toBeCloseTo(9.5);
+    });
+  });
+
+  describe("combat - ranged attack", () => {
+    test("endTurn resolves a pending ranged attack, damaging the target without moving the archer", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+          hp: 100,
+        }),
+      );
+
+      const assignResult = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expectActionSuccessWithSnapshot(assignResult);
+
+      const endResult = GameApi.endTurn(Player.SELF);
+      expect(endResult.ok).toBe(true);
+      if (endResult.ok) {
+        expect(endResult.value.combatOutcomes.length).toBe(1);
+      }
+
+      const archer = PiecesRepository.getAll().find((p) => p.id === 1);
+      const defender = PiecesRepository.getAll().find((p) => p.id === 2);
+      expect(archer!.panelPosition.equals(origin)).toBe(true);
+      expect(archer!.rangedAttackTargetPosition).toBeUndefined();
+      // Archer (atk 4) vs Infantry (def 1): damage = (4-1)*1 = 3
+      expect(defender!.hp).toBe(97);
     });
   });
 

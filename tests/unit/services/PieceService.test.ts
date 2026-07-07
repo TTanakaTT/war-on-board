@@ -708,6 +708,121 @@ describe("PieceService", () => {
     });
   });
 
+  describe("resolveRangedAttacks", () => {
+    test("deals damage to a defeatable enemy at distance 2, never moving, and clears the pending attack", () => {
+      const archer = makePiece({
+        id: 1,
+        panelPosition: pos(-1, 0),
+        rangedAttackTargetPosition: pos(1, 0),
+        player: Player.SELF,
+        pieceType: PieceType.ARCHER,
+        movementPoints: 1,
+      });
+      const defender = makePiece({
+        id: 2,
+        panelPosition: pos(1, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.INFANTRY,
+        hp: 100,
+      });
+      PiecesRepository.add(archer);
+      PiecesRepository.add(defender);
+
+      const outcomes = PieceService.resolveRangedAttacks(Player.SELF);
+
+      expect(outcomes.length).toBe(1);
+      expect(outcomes[0].entered).toBe(false);
+      expect(outcomes[0].wallDamageDealt).toBe(0);
+
+      // Archer (atk 4) vs Infantry (def 1): damage = (4-1)*1 = 3
+      const updatedDefender = PiecesRepository.getAll().find((p) => p.id === 2)!;
+      expect(updatedDefender.hp).toBe(97);
+
+      const updatedArcher = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(updatedArcher.panelPosition.equals(pos(-1, 0))).toBe(true);
+      expect(updatedArcher.rangedAttackTargetPosition).toBeUndefined();
+      expect(updatedArcher.movementPoints).toBe(0);
+    });
+
+    test("groups multiple archers targeting the same panel into one simultaneous combat", () => {
+      const archer1 = makePiece({
+        id: 1,
+        panelPosition: pos(-1, 0),
+        rangedAttackTargetPosition: pos(1, 0),
+        player: Player.SELF,
+        pieceType: PieceType.ARCHER,
+        movementPoints: 1,
+      });
+      const archer2 = makePiece({
+        id: 2,
+        panelPosition: pos(-1, 1),
+        rangedAttackTargetPosition: pos(1, 0),
+        player: Player.SELF,
+        pieceType: PieceType.ARCHER,
+        movementPoints: 1,
+      });
+      const defender = makePiece({
+        id: 3,
+        panelPosition: pos(1, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.INFANTRY,
+        hp: 100,
+      });
+      PiecesRepository.add(archer1);
+      PiecesRepository.add(archer2);
+      PiecesRepository.add(defender);
+
+      const outcomes = PieceService.resolveRangedAttacks(Player.SELF);
+
+      expect(outcomes.length).toBe(1);
+    });
+
+    test("does nothing when the target is already empty", () => {
+      const archer = makePiece({
+        id: 1,
+        panelPosition: pos(-1, 0),
+        rangedAttackTargetPosition: pos(1, 0),
+        player: Player.SELF,
+        pieceType: PieceType.ARCHER,
+        movementPoints: 1,
+      });
+      PiecesRepository.add(archer);
+
+      const outcomes = PieceService.resolveRangedAttacks(Player.SELF);
+
+      expect(outcomes).toEqual([]);
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(updated.rangedAttackTargetPosition).toBeUndefined();
+      expect(updated.movementPoints).toBe(0);
+    });
+
+    test("skips a piece whose movementPoints haven't reached MOVEMENT_HOP_COST, leaving it pending", () => {
+      const archer = makePiece({
+        id: 1,
+        panelPosition: pos(-1, 0),
+        rangedAttackTargetPosition: pos(1, 0),
+        player: Player.SELF,
+        pieceType: PieceType.ARCHER,
+        movementPoints: 0.5,
+      });
+      const defender = makePiece({
+        id: 2,
+        panelPosition: pos(1, 0),
+        player: Player.OPPONENT,
+        pieceType: PieceType.INFANTRY,
+      });
+      PiecesRepository.add(archer);
+      PiecesRepository.add(defender);
+
+      const outcomes = PieceService.resolveRangedAttacks(Player.SELF);
+
+      expect(outcomes).toEqual([]);
+      const unchanged = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(unchanged.rangedAttackTargetPosition?.equals(pos(1, 0))).toBe(true);
+      expect(unchanged.movementPoints).toBe(0.5);
+    });
+  });
+
   describe("previewTravelStop", () => {
     test("returns the piece's own position when it has no targetPosition", () => {
       const piece = makePiece({

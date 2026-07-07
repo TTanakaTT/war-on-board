@@ -7,6 +7,7 @@ import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
+import { RangedAttackModeRepository } from "$lib/data/repositories/RangedAttackModeRepository";
 import { MovementRulesService } from "$lib/services/MovementRulesService";
 import { DEFAULT_MAX_PIECES_PER_PANEL } from "$lib/domain/constants/GameConstants";
 import { GameApiClient } from "$lib/api/GameApiClient";
@@ -25,17 +26,43 @@ import { MatchService } from "$lib/services/MatchService";
 export class InteractionService {
   static clearSelection(): void {
     SelectedPanelRepository.set(undefined);
+    RangedAttackModeRepository.set(false);
+  }
+
+  /**
+   * Toggle ranged-attack targeting mode for the currently selected piece.
+   * No-op if no piece is selected. While active, the next panelChange()
+   * click fires GameApiClient.assignRangedAttack instead of the normal
+   * SELECTED/MOVABLE handling.
+   */
+  static toggleRangedAttackMode(): void {
+    if (SelectedPanelRepository.getPieceId() === undefined) return;
+    RangedAttackModeRepository.set(!RangedAttackModeRepository.isActive());
   }
 
   /**
    * Handle a panel background click.
    *
+   * - Ranged-attack mode active → fire at the clicked panel, then exit the mode
+   *   regardless of outcome (see GameApi.assignRangedAttack for validation).
    * - SELECTED panel → cancel pending move (if allowed by cap).
    * - MOVABLE panel → assign as move target.
    * - Other → ignored (piece clicks drive selection, not panel background).
    */
   static panelChange(panelPosition: PanelPosition) {
     if (!this.isHumanInteractionAllowed()) return;
+
+    if (RangedAttackModeRepository.isActive()) {
+      const selectedPieceId = SelectedPanelRepository.getPieceId();
+      if (selectedPieceId !== undefined) {
+        const selectedPiece = PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
+        const turn = TurnRepository.get();
+        GameApiClient.assignRangedAttack(turn.player, selectedPieceId, panelPosition);
+        RangedAttackModeRepository.set(false);
+        if (selectedPiece) this.stateChange(selectedPiece.panelPosition);
+      }
+      return;
+    }
 
     const panelState = PanelsService.findPanelState(panelPosition);
 
@@ -81,6 +108,7 @@ export class InteractionService {
     const turn = TurnRepository.get();
     if (piece.player !== turn.player) return;
 
+    RangedAttackModeRepository.set(false);
     SelectedPanelRepository.set(
       new Panel({
         panelPosition: piece.panelPosition,

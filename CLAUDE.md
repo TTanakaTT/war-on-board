@@ -52,7 +52,7 @@ Clean Architecture に基づく構成。依存方向は外側 → 内側の一�
 - `<style>` タグ禁止。Tailwind ユーティリティのみ使用。
 - 重要度指定（`!important`/Tailwind の `!`）は原則禁止。
 - 色は `@theme` の `--color-*` 変数を定義して `text-*` 等で参照（直書き禁止）。
-- アイコンは `material-symbols` を使用。。例外: 駒トークン（`PieceToken.svelte`）は該当する材質シンボルが存在しない場合のみ、カスタム SVG アイコンを使用してよい。背景は [`docs/adr/0001-piece-token-custom-svg-icons.md`](docs/adr/0001-piece-token-custom-svg-icons.md) を参照。
+- アイコンは `material-symbols` を使用。例外: 該当する材質シンボルが存在しない駒種（弓兵・攻城兵器等、`CustomIcons.ts` 参照）は、盤面駒トークンに限らず、生産ボタンや駒数表示など駒種アイコンを表示する箇所すべてでカスタム SVG アイコンを使用してよい。見た目の一貫性を優先し、同じ駒種は常に同じアイコンで表示する。
 
 ### データ/CSV の扱い
 

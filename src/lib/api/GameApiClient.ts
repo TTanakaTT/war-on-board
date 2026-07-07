@@ -6,6 +6,8 @@ type GameApiCommandName =
   | "initializeGame"
   | "assignMove"
   | "cancelMove"
+  | "assignRangedAttack"
+  | "cancelRangedAttack"
   | "generatePiece"
   | "setGenerationMode"
   | "endTurn";
@@ -143,6 +145,25 @@ export function createGameApiClient(options: CreateGameApiClientOptions = {}) {
     ) {
       return runCommand("cancelMove", [player, pieceId], () =>
         delegate.cancelMove(player, pieceId),
+      );
+    },
+
+    assignRangedAttack(
+      player: Parameters<GameApiCommandDelegate["assignRangedAttack"]>[0],
+      pieceId: Parameters<GameApiCommandDelegate["assignRangedAttack"]>[1],
+      target: Parameters<GameApiCommandDelegate["assignRangedAttack"]>[2],
+    ) {
+      return runCommand("assignRangedAttack", [player, pieceId, target], () =>
+        delegate.assignRangedAttack(player, pieceId, target),
+      );
+    },
+
+    cancelRangedAttack(
+      player: Parameters<GameApiCommandDelegate["cancelRangedAttack"]>[0],
+      pieceId: Parameters<GameApiCommandDelegate["cancelRangedAttack"]>[1],
+    ) {
+      return runCommand("cancelRangedAttack", [player, pieceId], () =>
+        delegate.cancelRangedAttack(player, pieceId),
       );
     },
 

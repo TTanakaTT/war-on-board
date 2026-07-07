@@ -62,7 +62,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     mergeable: false,
   },
   [PIECETYPE.NOBLE]: {
-    iconName: "chess_bishop",
+    iconName: "chess_bishop_2",
     cost: 10,
     maxHp: 5,
     attackPowerAgainstPiece: 0,
@@ -109,7 +109,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     iconName: "siege",
     cost: 30,
     maxHp: 30,
-    attackPowerAgainstPiece: 0,
+    attackPowerAgainstPiece: 1,
     attackPowerAgainstWall: 5,
     defense: 3,
     movement: 1,

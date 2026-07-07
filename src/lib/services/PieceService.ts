@@ -491,4 +491,69 @@ export class PieceService {
 
     return outcomes;
   }
+
+  /**
+   * Resolve all pending ranged attacks for a player (see GameApi.assignRangedAttack).
+   *
+   * Unlike finalizePlayerMoves, a ranged attacker never moves — it stays at its
+   * current panel and fires at rangedAttackTargetPosition. Attackers targeting the
+   * same panel are grouped and resolved as simultaneous combat via
+   * CombatService.resolveCombat, passing the actual panel distance so defenders
+   * whose own attackRange can't reach that far don't counterattack. Every attacker's
+   * rangedAttackTargetPosition is cleared and a MOVEMENT_HOP_COST spent regardless of
+   * outcome — firing is the action, whether or not the target is destroyed.
+   *
+   * @returns Combat outcomes for groups where combat occurred.
+   */
+  static resolveRangedAttacks(player: Player): CombatOutcome[] {
+    const pieces = PiecesRepository.getPiecesByPlayer(player).filter(
+      (p) => p.rangedAttackTargetPosition && p.movementPoints >= MOVEMENT_HOP_COST,
+    );
+
+    const groups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
+    for (const piece of pieces) {
+      const tp = piece.rangedAttackTargetPosition!;
+      const key = `${tp.horizontalLayer},${tp.verticalLayer}`;
+      const group = groups.get(key);
+      if (group) {
+        group.attackers.push(piece);
+      } else {
+        groups.set(key, { attackers: [piece], target: tp });
+      }
+    }
+
+    const outcomes: CombatOutcome[] = [];
+    for (const { attackers, target } of groups.values()) {
+      for (const attacker of attackers) {
+        PiecesRepository.update(
+          new Piece({
+            ...attacker,
+            rangedAttackTargetPosition: undefined,
+            movementPoints: attacker.movementPoints - MOVEMENT_HOP_COST,
+          }),
+        );
+      }
+
+      const defenders = PiecesRepository.getPiecesByPosition(target).filter(
+        (p) => p.player !== player && p.player !== Player.UNKNOWN,
+      );
+      if (defenders.length === 0) continue;
+
+      const path = PanelsService.findShortestPath(attackers[0].panelPosition, target);
+      const distance = path ? path.length - 1 : attackers[0].attackRange;
+      const { deadIds } = CombatService.resolveCombat(attackers, defenders, distance);
+
+      outcomes.push({
+        targetPosition: {
+          horizontalLayer: target.horizontalLayer,
+          verticalLayer: target.verticalLayer,
+        },
+        destroyedPieceIds: [...deadIds],
+        entered: false,
+        wallDamageDealt: 0,
+      });
+    }
+
+    return outcomes;
+  }
 }

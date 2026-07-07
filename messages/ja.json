@@ -66,5 +66,7 @@
   "piece_cavalry": "騎兵",
   "piece_heavy": "重装",
   "piece_siege": "攻囲兵器",
-  "result_winner_message": "勝者: {winner}"
+  "result_winner_message": "勝者: {winner}",
+  "ranged_attack_start": "遠距離攻撃",
+  "ranged_attack_cancel": "攻撃をキャンセル"
 }

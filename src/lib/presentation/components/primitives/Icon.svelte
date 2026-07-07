@@ -26,8 +26,8 @@
 
   let font = $derived(`font-variation-settings: 'FILL' ${fill ? 1 : 0}, 'wght' ${weight};`);
   let styleAttr = $derived(`font-size:${size}px;`);
-  // See docs/adr/0001-piece-token-custom-svg-icons.md — a narrow exception for piece
-  // tokens whose icon has no material-symbols equivalent (e.g. archer, Siege).
+  // Piece types with no material-symbols equivalent (e.g. archer, siege) use a
+  // custom SVG asset instead, consistently across every UI context — see CustomIcons.ts.
   let customIconShapes = $derived(CUSTOM_PIECE_ICONS[icon]);
 </script>
 
@@ -62,7 +62,7 @@
 
 {#if transitionFn}
   <span
-    class="flex items-center justify-center {additionalClass}"
+    class="flex shrink-0 items-center justify-center {additionalClass}"
     transition:transitionFn|global={transitionParams}
   >
     {#if customIconShapes}
@@ -82,7 +82,7 @@
   </span>
 {:else if customIconShapes}
   <svg
-    class="inline-block {additionalClass}"
+    class="inline-block shrink-0 {additionalClass}"
     viewBox="0 0 24 24"
     width={size}
     height={size}
@@ -93,7 +93,10 @@
     {@render customIcon(customIconShapes)}
   </svg>
 {:else}
-  <span class="material-symbols-outlined inline-block {additionalClass}" style="{font} {styleAttr}">
+  <span
+    class="material-symbols-outlined inline-block shrink-0 {additionalClass}"
+    style="{font} {styleAttr}"
+  >
     {icon}
   </span>
 {/if}

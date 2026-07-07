@@ -302,4 +302,40 @@ describe("MovementRulesService", () => {
       expect(MovementRulesService.canCancelMove(pos(0, 0), Player.SELF, piece.id)).toBe(false);
     });
   });
+
+  describe("canRangedAttack", () => {
+    test("returns false when the target is only adjacent (distance 1)", () => {
+      const attacker = addPiece(100, pos(0, 0), Player.SELF, { pieceType: PieceType.ARCHER });
+      addPiece(200, pos(1, 0), Player.OPPONENT);
+      expect(MovementRulesService.canRangedAttack(attacker.id, pos(1, 0))).toBe(false);
+    });
+
+    test("returns true at distance 2 with a defeatable enemy present", () => {
+      const attacker = addPiece(100, pos(0, 0), Player.SELF, { pieceType: PieceType.ARCHER });
+      addPiece(200, pos(2, 0), Player.OPPONENT);
+      expect(MovementRulesService.canRangedAttack(attacker.id, pos(2, 0))).toBe(true);
+    });
+
+    test("returns false at distance 2 when no enemy is present", () => {
+      const attacker = addPiece(100, pos(0, 0), Player.SELF, { pieceType: PieceType.ARCHER });
+      expect(MovementRulesService.canRangedAttack(attacker.id, pos(2, 0))).toBe(false);
+    });
+
+    test("returns false for a piece whose attackRange is only 1, even at distance 2", () => {
+      const attacker = addPiece(100, pos(0, 0), Player.SELF, { pieceType: PieceType.INFANTRY });
+      addPiece(200, pos(2, 0), Player.OPPONENT);
+      expect(MovementRulesService.canRangedAttack(attacker.id, pos(2, 0))).toBe(false);
+    });
+
+    test("returns false when the attacker piece does not exist", () => {
+      expect(MovementRulesService.canRangedAttack(999, pos(2, 0))).toBe(false);
+    });
+
+    test("returns false when the target panel has an enemy castle wall, even with a defeatable defender present", () => {
+      const attacker = addPiece(100, pos(0, 0), Player.SELF, { pieceType: PieceType.ARCHER });
+      addPiece(200, pos(2, 0), Player.OPPONENT);
+      setPanel(pos(2, 0), Player.OPPONENT, 5);
+      expect(MovementRulesService.canRangedAttack(attacker.id, pos(2, 0))).toBe(false);
+    });
+  });
 });
