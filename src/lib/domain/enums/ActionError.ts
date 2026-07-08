@@ -12,7 +12,11 @@ export enum ActionError {
   /** The target panel is not reachable (not adjacent, or capacity exceeded). */
   TARGET_NOT_REACHABLE = "TARGET_NOT_REACHABLE",
 
-  /** The piece's banked movementPoints are below MOVEMENT_HOP_COST, so it cannot act yet. */
+  /**
+   * The piece already has a pending targetPosition/rangedAttackTargetPosition and its
+   * banked movementPoints are below MOVEMENT_HOP_COST, so the pending action cannot yet
+   * be redirected. Never returned for an idle piece — a fresh order is always assignable.
+   */
   INSUFFICIENT_MOVEMENT_POINTS = "INSUFFICIENT_MOVEMENT_POINTS",
 
   /** The player does not have enough resources to perform this action. */

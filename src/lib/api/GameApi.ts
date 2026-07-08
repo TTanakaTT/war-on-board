@@ -232,7 +232,11 @@ export class GameApi {
    * - Game not over (`winner === null`).
    * - It is `player`'s turn.
    * - Piece exists and belongs to `player`.
-   * - Piece's banked `movementPoints` are at least `MOVEMENT_HOP_COST`.
+   * - If the piece already has a pending `targetPosition` (mid-transit toward an
+   *   earlier order), redirecting it requires banked `movementPoints` to have
+   *   climbed back to `MOVEMENT_HOP_COST`. An idle piece (no pending target) can
+   *   always be assigned a fresh order regardless of its banked movementPoints —
+   *   a slow piece just takes longer to actually get there (see Effects).
    * - Target is a real panel on the board.
    * - Target satisfies movement rules (enemy panel = allowed if the piece can
    *   defeat every defender there; friendly panel = projected count + 1 <=
@@ -260,11 +264,13 @@ export class GameApi {
     if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
     if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
 
-    // A piece whose banked movementPoints haven't reached MOVEMENT_HOP_COST cannot act at
-    // all yet (e.g. a movement<1 piece still winding up toward its next action). Since a
-    // slow piece's points drop below this threshold the moment it commits to a target (see
-    // below), this also blocks any attempt to redirect an already-committed pending action.
-    if (piece.movementPoints < MOVEMENT_HOP_COST) {
+    // Redirecting an already-committed pending action is blocked until banked
+    // movementPoints climb back to MOVEMENT_HOP_COST (e.g. a movement<1 piece
+    // still winding up toward its next hop — see the commit below). An idle piece
+    // (no pending targetPosition yet) has nothing to redirect, so it may always be
+    // given a fresh order this turn regardless of its banked movementPoints —
+    // there must never be a turn where a piece simply cannot be ordered at all.
+    if (piece.targetPosition && piece.movementPoints < MOVEMENT_HOP_COST) {
       return { ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS };
     }
 
@@ -350,7 +356,10 @@ export class GameApi {
    * **Preconditions:**
    * - Game not over.
    * - It is `player`'s turn.
-   * - Piece exists, belongs to `player`, and has banked `movementPoints` >= `MOVEMENT_HOP_COST`.
+   * - Piece exists and belongs to `player`. If it already has a pending
+   *   `rangedAttackTargetPosition`, redirecting it requires banked
+   *   `movementPoints` >= `MOVEMENT_HOP_COST` (see assignMove for why an idle
+   *   piece is never blocked by this).
    * - Target is farther than adjacent but within the piece's `attackRange`, hosts
    *   enemy pieces, and every defender is defeatable (see
    *   `MovementRulesService.canRangedAttack`).
@@ -374,7 +383,7 @@ export class GameApi {
     if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
     if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
 
-    if (piece.movementPoints < MOVEMENT_HOP_COST) {
+    if (piece.rangedAttackTargetPosition && piece.movementPoints < MOVEMENT_HOP_COST) {
       return { ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS };
     }
 

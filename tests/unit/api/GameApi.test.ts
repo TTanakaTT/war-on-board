@@ -439,10 +439,12 @@ describe("GameApi.assignMove", () => {
       expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_OWNED });
     });
 
-    test("when piece's movementPoints are below MOVEMENT_HOP_COST, returns INSUFFICIENT_MOVEMENT_POINTS", () => {
+    test("when an idle piece (no pending targetPosition) has movementPoints below MOVEMENT_HOP_COST, assignment still succeeds", () => {
       GameApi.initializeGame({ layer: 4 });
       const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
-      // Synthetic movement<1 piece (future Heavy-like unit) mid-windup.
+      // Synthetic movement<1 piece (Heavy-like unit) that hasn't fully accrued yet.
+      // An idle piece must always be assignable — there must never be a turn where
+      // a piece simply cannot be given an order (see GameApi.assignMove docs).
       PiecesRepository.add(
         new Piece({
           id: 1,
@@ -458,6 +460,32 @@ describe("GameApi.assignMove", () => {
         Player.SELF,
         1,
         new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 }),
+      );
+      expectActionSuccessWithSnapshot(result);
+    });
+
+    test("when a piece already has a pending targetPosition and movementPoints below MOVEMENT_HOP_COST, redirecting returns INSUFFICIENT_MOVEMENT_POINTS", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      // Synthetic movement<1 piece (Heavy-like unit) already mid-transit toward an
+      // earlier order — redirecting it is locked until movementPoints climbs back
+      // to MOVEMENT_HOP_COST.
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          targetPosition: new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 }),
+          player: Player.SELF,
+          pieceType: PieceType.INFANTRY,
+          movementPoints: 0.5,
+        }),
+      );
+
+      const result = GameApi.assignMove(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 }),
       );
       expect(result).toEqual({ ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS });
     });
@@ -978,9 +1006,10 @@ describe("GameApi.assignRangedAttack", () => {
       expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_OWNED });
     });
 
-    test("when piece's movementPoints are below MOVEMENT_HOP_COST, returns INSUFFICIENT_MOVEMENT_POINTS", () => {
+    test("when an idle piece (no pending rangedAttackTargetPosition) has movementPoints below MOVEMENT_HOP_COST, assignment still succeeds", () => {
       GameApi.initializeGame({ layer: 4 });
       const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
       PiecesRepository.add(
         new Piece({
           id: 1,
@@ -991,12 +1020,47 @@ describe("GameApi.assignRangedAttack", () => {
           movementPoints: 0.5,
         }),
       );
-
-      const result = GameApi.assignRangedAttack(
-        Player.SELF,
-        1,
-        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
       );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expectActionSuccessWithSnapshot(result);
+    });
+
+    test("when a piece already has a pending rangedAttackTargetPosition and movementPoints below MOVEMENT_HOP_COST, redirecting returns INSUFFICIENT_MOVEMENT_POINTS", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      const otherTarget = new PanelPosition({ horizontalLayer: 0, verticalLayer: 2 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+          movementPoints: 0.5,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: otherTarget,
+          initialPosition: otherTarget,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, otherTarget);
       expect(result).toEqual({ ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS });
     });
 
@@ -2330,6 +2394,44 @@ describe("GameApi.endTurn", () => {
       expect(result.value.winner).toBeNull();
       expect(result.value.nextPlayer).toBe(Player.OPPONENT);
     });
+  });
+});
+
+describe("HEAVY unit movement cadence (regression)", () => {
+  test("a HEAVY piece can be assigned a new move on every one of its own turns, including immediately after finishing an earlier move", () => {
+    GameApi.initializeGame({ layer: 4 });
+    const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+    const first = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+    const second = new PanelPosition({ horizontalLayer: 0, verticalLayer: 2 });
+    PiecesRepository.add(
+      new Piece({
+        id: 1,
+        panelPosition: origin,
+        initialPosition: origin,
+        player: Player.SELF,
+        pieceType: PieceType.HEAVY,
+      }),
+    );
+
+    // Turn 1 (SELF): freshly produced, movementPoints is only the raw 0.5 rate — must
+    // still be assignable immediately (no turn may ever refuse to accept an order).
+    expect(GameApi.assignMove(Player.SELF, 1, first).ok).toBe(true);
+    GameApi.endTurn(Player.SELF);
+    GameApi.endTurn(Player.OPPONENT);
+
+    // Turn 2 (SELF): movementPoints has accrued to 1.0 and the piece resolves its hop,
+    // arriving at `first` with movementPoints spent down to 0.
+    GameApi.endTurn(Player.SELF);
+    GameApi.endTurn(Player.OPPONENT);
+    const arrived = PiecesRepository.getAll().find((p) => p.id === 1)!;
+    expect(arrived.panelPosition.equals(first)).toBe(true);
+    expect(arrived.targetPosition).toBeUndefined();
+    expect(arrived.movementPoints).toBeLessThan(1);
+
+    // Turn 3 (SELF): idle again with movementPoints still below MOVEMENT_HOP_COST
+    // (only 0.5 has accrued back) — must still be assignable right away.
+    const result = GameApi.assignMove(Player.SELF, 1, second);
+    expect(result.ok).toBe(true);
   });
 });
 
