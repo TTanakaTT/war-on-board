@@ -118,8 +118,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
   },
 } as const;
 
-@EnumClass(PIECETYPE)
-export class PieceType {
+class PieceType {
   static INFANTRY: PieceType;
   static ROOK: PieceType;
   static NOBLE: PieceType;
@@ -137,3 +136,7 @@ export class PieceType {
     return CONFIGS[this._value];
   }
 }
+
+EnumClass(PIECETYPE)(PieceType);
+
+export { PieceType };
