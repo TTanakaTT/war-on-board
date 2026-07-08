@@ -5,6 +5,15 @@ export type MoveSelectionStrategy = "strategic" | "lookahead";
 export type GenerationModeSelectionStrategy = "frontline" | "adaptive-defense";
 export type TargetScoringStrategy = "standard" | "home-side-growth";
 export type PieceSelectionStrategy = "standard" | "infantry-balanced-support";
+/**
+ * How cautiously scoreAttackTarget weighs its own win/loss estimate before
+ * committing to combat. "standard" trusts the estimate; "aggressive" (weak AI
+ * levels with no lookahead safety net to double-check a risky-looking attack)
+ * heavily discounts it so the AI still commits to fights an estimate alone
+ * would call unfavorable, rather than stalling out forever against an
+ * opponent that can out-scale a lone attacker's naive margin.
+ */
+export type CombatAssertivenessStrategy = "standard" | "aggressive";
 
 export interface AiStrengthProfile {
   moveSelection: MoveSelectionStrategy;
@@ -14,6 +23,7 @@ export interface AiStrengthProfile {
   preferredPieceOrder: PieceType[];
   targetScoring: TargetScoringStrategy;
   pieceSelection: PieceSelectionStrategy;
+  combatAssertiveness: CombatAssertivenessStrategy;
 }
 
 export interface PieceCombatStats {

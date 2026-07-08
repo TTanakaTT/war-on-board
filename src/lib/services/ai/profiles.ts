@@ -21,6 +21,7 @@ const AI_STRENGTH_PROFILES: Record<AiStrength, AiStrengthProfile> = {
     preferredPieceOrder: DEFAULT_PREFERRED_PIECE_ORDER,
     targetScoring: "standard",
     pieceSelection: "standard",
+    combatAssertiveness: "aggressive",
   },
   [AiStrength.STRENGTH_2]: {
     moveSelection: "lookahead",
@@ -30,6 +31,7 @@ const AI_STRENGTH_PROFILES: Record<AiStrength, AiStrengthProfile> = {
     preferredPieceOrder: DEFAULT_PREFERRED_PIECE_ORDER,
     targetScoring: "standard",
     pieceSelection: "standard",
+    combatAssertiveness: "aggressive",
   },
   [AiStrength.STRENGTH_3]: {
     moveSelection: "lookahead",
@@ -39,6 +41,7 @@ const AI_STRENGTH_PROFILES: Record<AiStrength, AiStrengthProfile> = {
     preferredPieceOrder: DEFAULT_PREFERRED_PIECE_ORDER,
     targetScoring: "home-side-growth",
     pieceSelection: "infantry-balanced-support",
+    combatAssertiveness: "standard",
   },
 };
 

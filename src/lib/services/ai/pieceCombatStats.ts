@@ -14,9 +14,11 @@ const SNAPSHOT_PIECE_TYPES: Record<PieceSnapshot["pieceType"], PieceType> = {
 
 export function getPieceCombatStats(piece: PieceSnapshot): PieceCombatStats {
   const pieceConfig = SNAPSHOT_PIECE_TYPES[piece.pieceType].config;
-  // Merge no longer raises attack power — it multiplies hit count (stackCount),
-  // matching Piece.attackPowerAgainstPiece/attackPowerAgainstWall.
-  const attackPowerAgainstPiece = pieceConfig.attackPowerAgainstPiece;
+  // Unlike Piece.attackPowerAgainstPiece (deliberately left per-unit, since
+  // MovementRulesService.canDefeatAllDefenders needs the raw value), these AI
+  // estimates need the stack's total output to match what CombatService actually
+  // deals — see GameApi's "each attacker contributes ... * stackCount" combat rule.
+  const attackPowerAgainstPiece = pieceConfig.attackPowerAgainstPiece * piece.stackCount;
   const attackPowerAgainstWall = pieceConfig.attackPowerAgainstWall * piece.stackCount;
 
   return {

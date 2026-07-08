@@ -19,6 +19,7 @@ const standardProfile: AiStrengthProfile = {
   preferredPieceOrder: [PieceType.ROOK, PieceType.INFANTRY, PieceType.NOBLE],
   targetScoring: "standard",
   pieceSelection: "standard",
+  combatAssertiveness: "standard",
 };
 
 const homeSideGrowthProfile: AiStrengthProfile = {
@@ -113,7 +114,7 @@ describe("getPieceCombatStats", () => {
       };
 
       expect(getPieceCombatStats(pieceSnapshot)).toEqual({
-        attackPowerAgainstPiece: domainPiece.attackPowerAgainstPiece,
+        attackPowerAgainstPiece: domainPiece.attackPowerAgainstPiece * stackCount,
         attackPowerAgainstWall: domainPiece.attackPowerAgainstWall,
         defense: domainPiece.defense,
         canAttack: domainPiece.canAttack,
