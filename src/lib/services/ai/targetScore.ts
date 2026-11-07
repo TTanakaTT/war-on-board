@@ -47,7 +47,7 @@ export function scoreTarget(
   }
 
   if (enemyPieces.length > 0 || hasEnemyCastle) {
-    return scoreAttackTarget(piece, panel, enemyPieces, enemyHomeBase);
+    return scoreAttackTarget(piece, panel, enemyPieces, enemyHomeBase, profile);
   }
 
   const baseScore = scoreNonCombatTarget(piece, panel, friendlyPieces, target);
@@ -94,7 +94,7 @@ function scoreHomeSideGrowthAdjustment(
   target: PanelPosition,
   candidateTargets: PanelPosition[],
 ): number {
-  if (piece.pieceType !== "rook" && piece.pieceType !== "bishop") {
+  if (piece.pieceType !== "rook" && piece.pieceType !== "noble") {
     return 0;
   }
 
@@ -197,11 +197,54 @@ function scoreAdvanceTowardEnemyHome(
   return (originEnemyDistance - targetEnemyDistance) * 40;
 }
 
+/**
+ * Penalty applied per remaining castle point when a piece can't demolish the wall
+ * outright this turn. "aggressive" profiles (weak AI levels without a concentrated
+ * merge stack) use a much smaller penalty so chipping away at a wall over several
+ * turns still scores above idling, instead of only ever rewarding a one-shot breach.
+ */
+const REMAINING_CASTLE_PENALTY: Record<AiStrengthProfile["combatAssertiveness"], number> = {
+  standard: 8,
+  aggressive: 1,
+};
+
+/**
+ * Weight applied to how far a piece's estimated damage output falls short of
+ * the defenders' total HP (attackMargin / overflow-phase margin). "aggressive"
+ * profiles heavily discount this, since the estimate only ever judges a single
+ * piece/stack in isolation — it can't know that other nearby friendly pieces
+ * would also join the fight this turn and tip a "losing" estimate into a win.
+ * Lv1 has no lookahead simulation to double-check a risky-looking estimate, so
+ * it must commit to fights the naive margin alone would call unfavorable.
+ */
+const HOSTILE_MARGIN_WEIGHT: Record<AiStrengthProfile["combatAssertiveness"], number> = {
+  standard: 8,
+  aggressive: 1,
+};
+const OVERFLOW_MARGIN_WEIGHT: Record<AiStrengthProfile["combatAssertiveness"], number> = {
+  standard: 6,
+  aggressive: 1,
+};
+
+/** Flat penalty for a fight the naive margin predicts as mutual destruction. */
+const MUTUAL_DESTRUCTION_PENALTY: Record<AiStrengthProfile["combatAssertiveness"], number> = {
+  standard: 140,
+  aggressive: 0,
+};
+const OVERFLOW_MUTUAL_DESTRUCTION_PENALTY: Record<
+  AiStrengthProfile["combatAssertiveness"],
+  number
+> = {
+  standard: 120,
+  aggressive: 0,
+};
+
 function scoreAttackTarget(
   piece: PieceSnapshot,
   panel: PanelSnapshot,
   enemyPieces: PieceSnapshot[],
   enemyHomeBase: boolean,
+  profile: AiStrengthProfile,
 ): number {
   const pieceStats = getPieceCombatStats(piece);
   if (!pieceStats.canAttack) {
@@ -227,19 +270,28 @@ function scoreAttackTarget(
       pieceStats.attackPowerAgainstWall;
     const overflowPieceDamage = pieceStats.attackPowerAgainstPiece * overflowRatio;
 
-    score += 18 - remainingCastle * 8 + overflowPieceDamage * 4;
+    score +=
+      18 -
+      remainingCastle * REMAINING_CASTLE_PENALTY[profile.combatAssertiveness] +
+      overflowPieceDamage * 4;
 
     if (remainingCastle === 0 && enemyPieces.length === 0) {
       return enemyHomeBase ? 1000 : score + 80;
     }
 
-    if (enemyPieces.length > 0) {
-      score += (overflowPieceDamage - totalEnemyHp) * 6;
+    // PieceService only resolves piece-vs-piece combat (including defender
+    // counterattack) once wall damage actually overflows the castle — see
+    // PieceService's `wallAttackResult.overflowPieceDamage > 0` gate. Below
+    // that threshold, chipping the wall is completely risk-free, so the
+    // defenders' HP/attack must not factor into the score at all.
+    if (enemyPieces.length > 0 && overflowPieceDamage > 0) {
+      score +=
+        (overflowPieceDamage - totalEnemyHp) * OVERFLOW_MARGIN_WEIGHT[profile.combatAssertiveness];
       if (overflowPieceDamage >= totalEnemyHp) {
         score += 40;
       }
       if (totalEnemyAttack >= piece.hp && overflowPieceDamage < totalEnemyHp) {
-        score -= 120;
+        score -= OVERFLOW_MUTUAL_DESTRUCTION_PENALTY[profile.combatAssertiveness];
       }
     }
 
@@ -249,14 +301,14 @@ function scoreAttackTarget(
   const attackMargin = pieceStats.attackPowerAgainstPiece - totalEnemyHp;
   const survivalMargin = piece.hp - totalEnemyAttack;
 
-  score += attackMargin * 8 + survivalMargin * 3;
+  score += attackMargin * HOSTILE_MARGIN_WEIGHT[profile.combatAssertiveness] + survivalMargin * 3;
 
   if (attackMargin >= 0) {
     score += enemyHomeBase ? 1000 : 70;
   }
 
   if (survivalMargin <= 0 && attackMargin < 0) {
-    score -= 140;
+    score -= MUTUAL_DESTRUCTION_PENALTY[profile.combatAssertiveness];
   }
 
   return score;

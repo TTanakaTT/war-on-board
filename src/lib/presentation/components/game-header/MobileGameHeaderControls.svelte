@@ -39,7 +39,7 @@
     generationModeLabel: string;
     generationModeIcon: string;
     isGenerateMenuOpen: boolean;
-    generateMenuPieceTypes: readonly [PieceType, PieceType, PieceType];
+    generateMenuPieceTypes: readonly PieceType[];
     isHumanTurn: boolean;
     isAutomationRunning: boolean;
     winner: Player | null;

@@ -40,6 +40,7 @@ import { GenerationService } from "$lib/services/GenerationService";
 import {
   PLAYER_INIT_RESOURCE,
   DEFAULT_MAX_PIECES_PER_PANEL,
+  MOVEMENT_HOP_COST,
 } from "$lib/domain/constants/GameConstants";
 import { ActionError } from "$lib/domain/enums/ActionError";
 
@@ -51,46 +52,59 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  *
  * ## Game overview
  *
- * Hex-map turn-based strategy game with three unit types (Knight / Bishop / Rook)
- * forming a rock-paper-scissors macro balance:
- *   - Attack (Knight) > Economy (Bishop): Knight captures panels, nullifying investment.
- *   - Economy (Bishop) > Defence (Rook): accumulated resources fund an army to breach walls.
- *   - Defence (Rook) > Attack (Knight): auto-repairing walls stall Knight advances cheaply.
+ * Hex-map turn-based strategy game. The three original unit types (Infantry / Noble / Rook)
+ * form a rock-paper-scissors macro balance:
+ *   - Attack (Infantry) > Economy (Noble): Infantry captures panels, nullifying investment.
+ *   - Economy (Noble) > Defence (Rook): accumulated resources fund an army to breach walls.
+ *   - Defence (Rook) > Attack (Infantry): auto-repairing walls stall Infantry advances cheaply.
+ * Four additional combat unit types (Archer, Cavalry, Heavy, Siege) extend the roster with
+ * ranged, fast, high-defense, and wall-specialist roles respectively — see `PieceType.config`.
  *
  * Victory condition: capture the opponent's home base panel.
  *
  * ## Unit types
  *
  * Each type is defined in `PieceType.config` (cost, maxHp, attackPowerAgainstPiece,
- * attackPowerAgainstWall). Passive effects are applied at the start of each player's turn
- * by `endTurn`:
- *   - **Knight**: claims ownership of the panel it occupies.
- *   - **Bishop**: increases the panel's resource by 1 (capped by PASSIVE_RESOURCE_CAP).
+ * attackPowerAgainstWall, defense, movement, attackRange). Passive effects are applied at
+ * the start of each player's turn by `endTurn`:
+ *   - **Infantry** (and all other combat unit types — Archer/Cavalry/Heavy/Siege): claims
+ *     ownership of the panel it occupies.
+ *   - **Noble**: increases the panel's resource by 1 (capped by PASSIVE_RESOURCE_CAP).
  *   - **Rook**: increases the panel's castle by 1 (capped by PASSIVE_CASTLE_CAP;
  *     never reduces existing values above the cap, e.g. home base castle = 10).
  *
  * ## Combat rules (resolved inside `endTurn`)
+ *
+ * ### Attack legality
+ * An attacker may only target an enemy-occupied panel if every defender's `defense`
+ * is <= the attacker's own raw `attackPowerAgainstPiece` (not merge-adjusted). If even
+ * one defender's defense exceeds it, the attacker cannot select that panel at all —
+ * a hard block on move/attack selection, distinct from dealing 0 damage. Wall-only
+ * panels (no defending pieces) are never gated by this rule.
  *
  * ### Castle-first rule
  * If the target panel has an enemy castle (castle > 0), all attackers first deal their
  * `attackPowerAgainstWall` to the castle.
  *
  * If the total wall damage exceeds the remaining castle value, the overflow ratio
- * `(totalWallDamage - castleBefore) / totalWallDamage` is applied to the attackers'
- * total `attackPowerAgainstPiece`, and that scaled damage is dealt to enemy units on
- * the target panel in the same action.
+ * `(totalWallDamage - castleBefore) / totalWallDamage` scales the attackers' defense-adjusted
+ * piece damage (see below), and that scaled damage is dealt to enemy units on the target
+ * panel in the same action.
  *
- * Overflow wall damage is distributed across all enemy units in proportion to their
- * current HP and may leave fractional HP values. During that same overflow resolution,
- * defenders counterattack with their full `attackPowerAgainstPiece`; defender damage is
- * not scaled down by the wall overflow ratio and still occurs even if a defender is also removed.
+ * Overflow damage is distributed across all enemy units in proportion to their current HP
+ * and may leave fractional HP values. During that same overflow resolution, defenders
+ * counterattack with their full defense-adjusted `attackPowerAgainstPiece`; defender damage
+ * is not scaled down by the wall overflow ratio and still occurs even if a defender is also removed.
  *
  * ### Multi-unit simultaneous combat
  * When castle = 0 before the attack and enemy pieces are present:
- *   1. **Damage accumulation** — all attackers' `attackPowerAgainstPiece` is summed, and all defenders'
- *      `attackPowerAgainstPiece` is summed.
- *   2. **Proportional distribution** — each side's incoming damage is split across that side's current units
- *      in proportion to their current HP.
+ *   1. **Damage accumulation** — the defending group's defense is aggregated by HP-weighted
+ *      average, then each attacker contributes `max(0, attackPowerAgainstPiece - aggregatedDefense)
+ *      * stackCount` (merge multiplies attack *count*, not attack power); contributions are
+ *      summed into a single total. The same computation runs symmetrically for the counterattack.
+ *   2. **Proportional distribution** — each side's incoming total is split across that side's current
+ *      units in proportion to their current HP. A defender's own merge count never affects the
+ *      damage it takes.
  *   3. **Simultaneous application** — damage is applied at the same time. Units with HP <= 0 are removed.
  *   4. **Fractional HP** — proportional damage may leave fractional HP values on surviving units.
  *
@@ -100,13 +114,22 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  *   - Castle value is 0.
  * Otherwise attackers stay at their origin with `targetPosition` cleared.
  *
+ * ### Ranged attacks (see `assignRangedAttack`)
+ * A piece whose `attackRange` reaches farther than adjacent may fire at a target beyond
+ * melee range without moving there (see `PieceService.resolveRangedAttacks`, run inside
+ * `endTurn` alongside move resolution). Damage uses the same simultaneous multi-unit
+ * formula above, but the defending group only counterattacks if its own `attackRange`
+ * reaches the actual distance — so a melee-only defender can't strike back at an
+ * attacker standing farther away than it can reach. The attacker never enters the
+ * target panel regardless of outcome.
+ *
  * ## Turn flow (executed by `endTurn`)
  *
  *   1. Finalize current player's moves (combat resolution for all pending moves).
  *   2. Refresh panel ownership based on piece positions.
  *   3. Check victory (home base capture).
  *   4. Switch to next player.
- *   5. Reset initial positions + apply passive gains for the next player.
+ *   5. Reset initial positions + apply passive gains + accrue movement for the next player.
  *   6. Add resources (sum of owned panels' resource values).
  *
  * ## Resource system
@@ -194,8 +217,12 @@ export class GameApi {
   /**
    * Assign a move target for a piece.
    *
-   * The piece must belong to the acting player and the target must be adjacent
-   * to the piece's initial position (start-of-turn position).
+   * The piece must belong to the acting player. The target no longer needs to be
+   * adjacent — any panel on the board may be selected. If it's farther away than
+   * the piece can reach in one turn, `endTurn` walks it there over multiple turns,
+   * covering as many panels per turn as its movement stat allows (see
+   * PieceService.finalizePlayerMoves/advanceTravel), stopping early if it meets an
+   * obstacle en route (an enemy panel, or a friendly panel already at capacity).
    *
    * @param player - The player performing the action.
    * @param pieceId - ID of the piece to move.
@@ -205,15 +232,24 @@ export class GameApi {
    * - Game not over (`winner === null`).
    * - It is `player`'s turn.
    * - Piece exists and belongs to `player`.
-   * - Target is adjacent to the piece's `initialPosition`.
-   * - Target satisfies movement rules (enemy panel = always allowed;
-   *   friendly panel = projected count + 1 <= maxPiecesPerPanel).
+   * - If the piece already has a pending `targetPosition` (mid-transit toward an
+   *   earlier order), redirecting it requires banked `movementPoints` to have
+   *   climbed back to `MOVEMENT_HOP_COST`. An idle piece (no pending target) can
+   *   always be assigned a fresh order regardless of its banked movementPoints —
+   *   a slow piece just takes longer to actually get there (see Effects).
+   * - Target is a real panel on the board.
+   * - Target satisfies movement rules (enemy panel = allowed if the piece can
+   *   defeat every defender there; friendly panel = projected count + 1 <=
+   *   maxPiecesPerPanel). Only the final destination is validated up front —
+   *   obstacles encountered en route are handled turn by turn as they're reached.
    *
    * **Effects:**
    * - Sets `piece.targetPosition` to `target`.
+   * - For a piece whose `movement` is below `MOVEMENT_HOP_COST`, commits
+   *   `movementPoints` down to its raw rate (see `PieceType.config.movement`).
    *
    * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
-   * PIECE_NOT_OWNED, TARGET_NOT_REACHABLE.
+   * PIECE_NOT_OWNED, INSUFFICIENT_MOVEMENT_POINTS, TARGET_NOT_REACHABLE.
    */
   static assignMove(
     player: Player,
@@ -228,8 +264,21 @@ export class GameApi {
     if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
     if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
 
-    // Target must be adjacent to initialPosition or equal to it (stay)
-    if (!piece.initialPosition.isAdjacent(target) && !piece.initialPosition.equals(target)) {
+    // Redirecting an already-committed pending action is blocked until banked
+    // movementPoints climb back to MOVEMENT_HOP_COST (e.g. a movement<1 piece
+    // still winding up toward its next hop — see the commit below). An idle piece
+    // (no pending targetPosition yet) has nothing to redirect, so it may always be
+    // given a fresh order this turn regardless of its banked movementPoints —
+    // there must never be a turn where a piece simply cannot be ordered at all.
+    if (piece.targetPosition && piece.movementPoints < MOVEMENT_HOP_COST) {
+      return { ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS };
+    }
+
+    // Target must be a real panel on the board. It no longer needs to be adjacent —
+    // a distant target is walked toward over multiple turns (see
+    // PieceService.finalizePlayerMoves/advanceTravel), consistent with movement
+    // points determining how many panels are covered per turn.
+    if (!PanelRepository.find(target)) {
       return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
     }
 
@@ -239,7 +288,18 @@ export class GameApi {
       return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
     }
 
-    PiecesRepository.update(new Piece({ ...piece, targetPosition: target }));
+    // A movement<1 piece commits its points down to the raw rate on assignment — this turn's
+    // accrual is considered "already spent" on declaring the action, and resolution only
+    // happens once accrual (see PieceService.computeAccruedMovementPoints) climbs back to
+    // MOVEMENT_HOP_COST over ceil(MOVEMENT_HOP_COST / movement) of the owner's turns.
+    const committedMovementPoints =
+      piece.pieceType.config.movement < MOVEMENT_HOP_COST
+        ? piece.pieceType.config.movement
+        : piece.movementPoints;
+
+    PiecesRepository.update(
+      new Piece({ ...piece, targetPosition: target, movementPoints: committedMovementPoints }),
+    );
     return { ok: true, value: { gameState: this.getGameState() } };
   }
 
@@ -280,6 +340,97 @@ export class GameApi {
     }
 
     PiecesRepository.update(new Piece({ ...piece, targetPosition: undefined }));
+    return { ok: true, value: { gameState: this.getGameState() } };
+  }
+
+  /**
+   * Assign a ranged attack for a piece whose attackRange reaches farther than
+   * adjacent (today, only Archer). Unlike assignMove, the piece never moves —
+   * it stays put and fires from its current panel once `endTurn` resolves it
+   * (see PieceService.resolveRangedAttacks).
+   *
+   * @param player - The player performing the action.
+   * @param pieceId - ID of the attacking piece.
+   * @param target - The target panel position.
+   *
+   * **Preconditions:**
+   * - Game not over.
+   * - It is `player`'s turn.
+   * - Piece exists and belongs to `player`. If it already has a pending
+   *   `rangedAttackTargetPosition`, redirecting it requires banked
+   *   `movementPoints` >= `MOVEMENT_HOP_COST` (see assignMove for why an idle
+   *   piece is never blocked by this).
+   * - Target is farther than adjacent but within the piece's `attackRange`, hosts
+   *   enemy pieces, and every defender is defeatable (see
+   *   `MovementRulesService.canRangedAttack`).
+   *
+   * **Effects:**
+   * - Sets `piece.rangedAttackTargetPosition` to `target`.
+   *
+   * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
+   * PIECE_NOT_OWNED, INSUFFICIENT_MOVEMENT_POINTS, TARGET_NOT_REACHABLE.
+   */
+  static assignRangedAttack(
+    player: Player,
+    pieceId: number,
+    target: PanelPosition,
+  ): Result<GameActionResult> {
+    const turn = TurnRepository.get();
+    if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
+    if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
+
+    const piece = PiecesRepository.getAll().find((p) => p.id === pieceId);
+    if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
+    if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
+
+    if (piece.rangedAttackTargetPosition && piece.movementPoints < MOVEMENT_HOP_COST) {
+      return { ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS };
+    }
+
+    if (!MovementRulesService.canRangedAttack(pieceId, target)) {
+      return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
+    }
+
+    PiecesRepository.update(new Piece({ ...piece, rangedAttackTargetPosition: target }));
+    return { ok: true, value: { gameState: this.getGameState() } };
+  }
+
+  /**
+   * Cancel a piece's pending ranged attack.
+   *
+   * Unlike cancelMove, no capacity check is needed — the piece never left its
+   * panel for a ranged attack.
+   *
+   * @param player - The player performing the action.
+   * @param pieceId - ID of the piece whose ranged attack to cancel.
+   *
+   * **Preconditions:**
+   * - Game not over.
+   * - It is `player`'s turn.
+   * - Piece exists, belongs to `player`, and has a pending `rangedAttackTargetPosition`.
+   * - Piece's `movement` is not below `MOVEMENT_HOP_COST` (a committed slow piece's
+   *   action can't be redirected or cancelled until it resolves, same as cancelMove).
+   *
+   * **Effects:**
+   * - Clears `piece.rangedAttackTargetPosition` to `undefined`.
+   *
+   * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
+   * PIECE_NOT_OWNED, CANNOT_CANCEL.
+   */
+  static cancelRangedAttack(player: Player, pieceId: number): Result<GameActionResult> {
+    const turn = TurnRepository.get();
+    if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
+    if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
+
+    const piece = PiecesRepository.getAll().find((p) => p.id === pieceId);
+    if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
+    if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
+    if (!piece.rangedAttackTargetPosition) return { ok: false, error: ActionError.CANNOT_CANCEL };
+    if (piece.pieceType.config.movement < MOVEMENT_HOP_COST) {
+      return { ok: false, error: ActionError.CANNOT_CANCEL };
+    }
+
+    PiecesRepository.update(new Piece({ ...piece, rangedAttackTargetPosition: undefined }));
     return { ok: true, value: { gameState: this.getGameState() } };
   }
 
@@ -358,7 +509,7 @@ export class GameApi {
    *   2. Refresh panel states.
    *   3. Check victory condition (home base captured → game ends).
    *   4. Switch player.
-   *   5. Reset initial positions + apply passive gains for the next player.
+   *   5. Reset initial positions + apply passive gains + accrue movement for the next player.
    *   6. Add resource income for the next player.
    *
    * See class-level JSDoc for combat rules, passive effects, and entry conditions.
@@ -378,7 +529,10 @@ export class GameApi {
     if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
 
     // 1. Finalize current player's moves (combat resolution)
-    const combatOutcomes = PieceService.finalizePlayerMoves(player);
+    const combatOutcomes = [
+      ...PieceService.finalizePlayerMoves(player),
+      ...PieceService.resolveRangedAttacks(player),
+    ];
 
     // 1b. Merge same-type mergeable units that ended up on the same panel
     PieceService.mergeAllPiecesForPlayer(player);
@@ -407,9 +561,10 @@ export class GameApi {
     const nextPlayer = player === PlayerClass.SELF ? PlayerClass.OPPONENT : PlayerClass.SELF;
     const nextNum = player === PlayerClass.OPPONENT ? turn.num + 1 : turn.num;
 
-    // 5. Reset initial positions + apply passive gains for next player
+    // 5. Reset initial positions + apply passive gains + accrue movement for next player
     PieceService.resetInitialPositions(nextPlayer);
     PieceService.applyPassiveGains(nextPlayer);
+    PieceService.accrueMovementForPlayer(nextPlayer);
 
     // 6. Update turn state
     TurnRepository.set({
@@ -659,12 +814,20 @@ export class GameApi {
 
   private static restorePieceType(pieceType: PieceTypeSnapshot): PieceType {
     switch (pieceType) {
-      case "knight":
-        return PieceTypeClass.KNIGHT;
+      case "infantry":
+        return PieceTypeClass.INFANTRY;
       case "rook":
         return PieceTypeClass.ROOK;
+      case "archer":
+        return PieceTypeClass.ARCHER;
+      case "cavalry":
+        return PieceTypeClass.CAVALRY;
+      case "heavy":
+        return PieceTypeClass.HEAVY;
+      case "siege":
+        return PieceTypeClass.SIEGE;
       default:
-        return PieceTypeClass.BISHOP;
+        return PieceTypeClass.NOBLE;
     }
   }
 
@@ -712,6 +875,7 @@ export class GameApi {
       hp: piece.hp,
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
+      movementPoints: piece.movementPoints,
     };
   }
 
@@ -726,6 +890,7 @@ export class GameApi {
       hp: piece.hp,
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
+      movementPoints: piece.movementPoints,
     });
   }
 
@@ -812,6 +977,7 @@ export class GameApi {
       if (!Number.isFinite(piece.hp) || piece.hp < 0) return false;
       if (!Number.isFinite(piece.maxHp) || piece.maxHp < 0) return false;
       if (!Number.isInteger(piece.stackCount) || piece.stackCount < 1) return false;
+      if (!Number.isFinite(piece.movementPoints) || piece.movementPoints < 0) return false;
       if (piece.hp > piece.maxHp) return false;
     }
 
@@ -852,7 +1018,15 @@ export class GameApi {
   }
 
   private static isKnownPieceType(pieceType: string): pieceType is PieceTypeSnapshot {
-    return pieceType === "knight" || pieceType === "rook" || pieceType === "bishop";
+    return (
+      pieceType === "infantry" ||
+      pieceType === "rook" ||
+      pieceType === "noble" ||
+      pieceType === "archer" ||
+      pieceType === "cavalry" ||
+      pieceType === "heavy" ||
+      pieceType === "siege"
+    );
   }
 
   private static isKnownPanelState(panelState: string): panelState is PanelStateSnapshot {

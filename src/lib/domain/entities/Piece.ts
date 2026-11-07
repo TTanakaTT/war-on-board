@@ -6,6 +6,12 @@ export class Piece {
   panelPosition: PanelPosition;
   initialPosition: PanelPosition;
   targetPosition?: PanelPosition;
+  /**
+   * Pending ranged-attack target (see GameApi.assignRangedAttack). Distinct
+   * from targetPosition since a ranged attack never moves the piece — it
+   * resolves in place via PieceService.resolveRangedAttacks.
+   */
+  rangedAttackTargetPosition?: PanelPosition;
   player: Player;
   pieceType: PieceType;
   /** HP may become fractional after wall-overflow damage. */
@@ -17,21 +23,39 @@ export class Piece {
    * Equals `pieceType.config.maxHp * stackCount` after merging.
    */
   maxHp: number;
+  /**
+   * Banked movement points. Accrues by `pieceType.config.movement` each turn
+   * (capped — see PieceService.computeAccruedMovementPoints) and is spent
+   * when the piece advances a panel. Not scaled by merge/stackCount.
+   */
+  movementPoints: number;
 
   /**
-   * Effective attack power against pieces.
-   * Formula: `config.attackPowerAgainstPiece + (stackCount - 1)`
+   * Base attack power against pieces (raw pieceType.config value).
+   * Merge does not raise this — CombatService multiplies it by stackCount
+   * (hit count) and subtracts the target's defense to compute damage.
    */
   get attackPowerAgainstPiece(): number {
-    return this.pieceType.config.attackPowerAgainstPiece + (this.stackCount - 1);
+    return this.pieceType.config.attackPowerAgainstPiece;
   }
 
   /**
    * Effective attack power against walls.
-   * Formula: `config.attackPowerAgainstWall + (stackCount - 1)`
+   * Walls have no defense stat, so merge scales this directly.
+   * Formula: `config.attackPowerAgainstWall * stackCount`
    */
   get attackPowerAgainstWall(): number {
-    return this.pieceType.config.attackPowerAgainstWall + (this.stackCount - 1);
+    return this.pieceType.config.attackPowerAgainstWall * this.stackCount;
+  }
+
+  /** Defense stat, forwarded from pieceType.config. Unaffected by merge/stackCount. */
+  get defense(): number {
+    return this.pieceType.config.defense;
+  }
+
+  /** Attack range stat, forwarded from pieceType.config. Unaffected by merge/stackCount. */
+  get attackRange(): number {
+    return this.pieceType.config.attackRange;
   }
 
   /**
@@ -47,31 +71,37 @@ export class Piece {
     panelPosition,
     initialPosition,
     targetPosition,
+    rangedAttackTargetPosition,
     player,
     pieceType,
     hp,
     stackCount,
     maxHp,
+    movementPoints,
   }: {
     id?: number;
     initialPosition?: PanelPosition;
     panelPosition: PanelPosition;
     targetPosition?: PanelPosition;
+    rangedAttackTargetPosition?: PanelPosition;
     player: Player;
     pieceType: PieceType;
     hp?: number;
     stackCount?: number;
     maxHp?: number;
+    movementPoints?: number;
   }) {
     this.id = id ?? 0;
     this.panelPosition = panelPosition;
     this.initialPosition = initialPosition || panelPosition;
     this.targetPosition = targetPosition;
+    this.rangedAttackTargetPosition = rangedAttackTargetPosition;
     this.player = player;
     this.pieceType = pieceType;
     this.stackCount = stackCount ?? 1;
     this.maxHp = maxHp ?? pieceType.config.maxHp * this.stackCount;
     this.hp = hp ?? this.maxHp;
+    this.movementPoints = movementPoints ?? pieceType.config.movement;
   }
 
   equals(other: Piece): boolean {

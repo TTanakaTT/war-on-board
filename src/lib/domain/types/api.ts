@@ -11,7 +11,8 @@ export type ControllablePlayerSnapshot = Exclude<PlayerSnapshot, "unknown">;
 
 export type PanelStateSnapshot = "unoccupied" | "occupied";
 
-export type PieceTypeSnapshot = "knight" | "rook" | "bishop";
+export type PieceTypeSnapshot =
+  "infantry" | "rook" | "noble" | "archer" | "cavalry" | "heavy" | "siege";
 
 export interface PanelPositionSnapshot {
   horizontalLayer: number;
@@ -36,6 +37,7 @@ export interface PieceSnapshot {
   hp: number;
   stackCount: number;
   maxHp: number;
+  movementPoints: number;
 }
 
 export interface HomeBaseSnapshot {

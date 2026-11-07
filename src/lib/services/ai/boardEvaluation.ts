@@ -48,7 +48,7 @@ export function scoreBoardState(gameState: GameStateSnapshot, player: Player): n
 }
 
 function scorePieceValue(piece: PieceSnapshot): number {
-  const typeValue = piece.pieceType === "rook" ? 18 : piece.pieceType === "knight" ? 16 : 12;
+  const typeValue = piece.pieceType === "rook" ? 18 : piece.pieceType === "infantry" ? 16 : 12;
 
   return typeValue + piece.hp * 2 + piece.stackCount * 3;
 }

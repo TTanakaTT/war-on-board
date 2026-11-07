@@ -4,13 +4,13 @@
   import { GameApiClient } from "$lib/api/GameApiClient";
   import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-  import { PieceType } from "$lib/domain/enums/PieceType";
   import { m } from "$lib/paraglide/messages";
   import DesktopGameHeaderControls from "$lib/presentation/components/game-header/DesktopGameHeaderControls.svelte";
   import MobileGameHeaderControls from "$lib/presentation/components/game-header/MobileGameHeaderControls.svelte";
   import IconButton from "$lib/presentation/components/primitives/IconButton.svelte";
   import { DESKTOP_NAVIGATION_BREAKPOINT_PX } from "$lib/presentation/constants/UiConstants";
   import { playerDisplayName } from "$lib/presentation/matchPresentation";
+  import { PIECE_TYPE_DISPLAY_ORDER } from "$lib/presentation/piecePresentation";
   import { GameDialogService } from "$lib/services/GameDialogService";
   import { MatchService } from "$lib/services/MatchService";
 
@@ -62,10 +62,11 @@
 
     return generationMode === "rear" ? "arrow_back" : "arrow_forward";
   });
-  const generateMenuPieceTypes = [PieceType.KNIGHT, PieceType.ROOK, PieceType.BISHOP] as const;
+  const generateMenuPieceTypes = PIECE_TYPE_DISPLAY_ORDER;
   let controlsViewport = $state<HTMLDivElement | undefined>(undefined);
-  let measurementStrip = $state<HTMLDivElement | undefined>(undefined);
-  let isHeaderCompact = $state(false);
+  let measurementStripFull = $state<HTMLDivElement | undefined>(undefined);
+  let measurementStripCompact = $state<HTMLDivElement | undefined>(undefined);
+  let headerDisplayMode = $state<"full" | "compact" | "dropdown">("full");
 
   let hoveredGenerationCost = $state<number | undefined>(undefined);
   let isGenerateMenuOpen = $state(false);
@@ -83,15 +84,21 @@
     GameDialogService.requestLeaveDialog();
   }
 
-  async function updateHeaderCompactMode(): Promise<void> {
+  async function updateHeaderDisplayMode(): Promise<void> {
     await tick();
 
-    if (!isGamePage || !controlsViewport || !measurementStrip) {
-      isHeaderCompact = false;
+    if (!isGamePage || !controlsViewport || !measurementStripFull || !measurementStripCompact) {
+      headerDisplayMode = "full";
       return;
     }
 
-    isHeaderCompact = measurementStrip.scrollWidth > controlsViewport.clientWidth;
+    if (measurementStripFull.scrollWidth <= controlsViewport.clientWidth) {
+      headerDisplayMode = "full";
+    } else if (measurementStripCompact.scrollWidth <= controlsViewport.clientWidth) {
+      headerDisplayMode = "compact";
+    } else {
+      headerDisplayMode = "dropdown";
+    }
   }
 
   function toggleGenerateMenu(): void {
@@ -105,20 +112,22 @@
   $effect(() => {
     void isGamePage;
     void controlsViewport;
-    void measurementStrip;
+    void measurementStripFull;
+    void measurementStripCompact;
 
-    if (!isGamePage || !controlsViewport || !measurementStrip) {
-      isHeaderCompact = false;
+    if (!isGamePage || !controlsViewport || !measurementStripFull || !measurementStripCompact) {
+      headerDisplayMode = "full";
       return;
     }
 
     const resizeObserver = new ResizeObserver(() => {
-      void updateHeaderCompactMode();
+      void updateHeaderDisplayMode();
     });
 
     resizeObserver.observe(controlsViewport);
-    resizeObserver.observe(measurementStrip);
-    void updateHeaderCompactMode();
+    resizeObserver.observe(measurementStripFull);
+    resizeObserver.observe(measurementStripCompact);
+    void updateHeaderDisplayMode();
 
     return () => {
       resizeObserver.disconnect();
@@ -134,7 +143,7 @@
     void hoveredGenerationCost;
     void drawerWidthUnits;
 
-    void updateHeaderCompactMode();
+    void updateHeaderDisplayMode();
   });
 
   $effect(() => {
@@ -158,7 +167,7 @@
     {#if isGamePage}
       <div class="flex-1">
         <div
-          bind:this={measurementStrip}
+          bind:this={measurementStripFull}
           class="pointer-events-none invisible absolute top-0 right-0"
           aria-hidden="true"
         >
@@ -167,6 +176,8 @@
           >
             <DesktopGameHeaderControls
               compact={false}
+              useGenerateDropdown={false}
+              {generateMenuPieceTypes}
               currentPlayer={turn.player}
               {selfLabel}
               {selfResources}
@@ -175,10 +186,44 @@
               {hoveredGenerationCost}
               {generationModeLabel}
               {generationModeIcon}
+              isGenerateMenuOpen={false}
               {isHumanTurn}
               {isAutomationRunning}
               winner={turn.winner}
               onToggleGenerationMode={toggleGenerationMode}
+              onToggleGenerateMenu={toggleGenerateMenu}
+              onPreviewChange={handleGenerationCostPreview}
+              onOpenLeaveDialog={openLeaveDialog}
+            />
+          </div>
+        </div>
+
+        <div
+          bind:this={measurementStripCompact}
+          class="pointer-events-none invisible absolute top-0 right-0"
+          aria-hidden="true"
+        >
+          <div
+            class="text-onsurface dark:text-onsurface-dark flex flex-nowrap items-center justify-end gap-2 whitespace-nowrap"
+          >
+            <DesktopGameHeaderControls
+              compact={true}
+              useGenerateDropdown={false}
+              {generateMenuPieceTypes}
+              currentPlayer={turn.player}
+              {selfLabel}
+              {selfResources}
+              {opponentLabel}
+              {opponentResources}
+              {hoveredGenerationCost}
+              {generationModeLabel}
+              {generationModeIcon}
+              isGenerateMenuOpen={false}
+              {isHumanTurn}
+              {isAutomationRunning}
+              winner={turn.winner}
+              onToggleGenerationMode={toggleGenerationMode}
+              onToggleGenerateMenu={toggleGenerateMenu}
               onPreviewChange={handleGenerationCostPreview}
               onOpenLeaveDialog={openLeaveDialog}
             />
@@ -190,7 +235,9 @@
           class="text-onsurface dark:text-onsurface-dark flex flex-nowrap items-center justify-end gap-2 overflow-x-hidden"
         >
           <DesktopGameHeaderControls
-            compact={isHeaderCompact}
+            compact={headerDisplayMode !== "full"}
+            useGenerateDropdown={headerDisplayMode === "dropdown"}
+            {generateMenuPieceTypes}
             currentPlayer={turn.player}
             {selfLabel}
             {selfResources}
@@ -199,10 +246,12 @@
             {hoveredGenerationCost}
             {generationModeLabel}
             {generationModeIcon}
+            {isGenerateMenuOpen}
             {isHumanTurn}
             {isAutomationRunning}
             winner={turn.winner}
             onToggleGenerationMode={toggleGenerationMode}
+            onToggleGenerateMenu={toggleGenerateMenu}
             onPreviewChange={handleGenerationCostPreview}
             onOpenLeaveDialog={openLeaveDialog}
           />

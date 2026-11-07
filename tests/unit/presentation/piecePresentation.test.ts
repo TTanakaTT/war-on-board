@@ -5,12 +5,24 @@ import { PIECE_TYPE_DISPLAY_ORDER, pieceTypeLabel } from "$lib/presentation/piec
 
 describe("piecePresentation", () => {
   test("returns localized labels for each piece type", () => {
-    expect(pieceTypeLabel(PieceType.KNIGHT)).toBe(m.piece_knight());
+    expect(pieceTypeLabel(PieceType.INFANTRY)).toBe(m.piece_infantry());
     expect(pieceTypeLabel(PieceType.ROOK)).toBe(m.piece_rook());
-    expect(pieceTypeLabel(PieceType.BISHOP)).toBe(m.piece_bishop());
+    expect(pieceTypeLabel(PieceType.NOBLE)).toBe(m.piece_noble());
+    expect(pieceTypeLabel(PieceType.ARCHER)).toBe(m.piece_archer());
+    expect(pieceTypeLabel(PieceType.CAVALRY)).toBe(m.piece_cavalry());
+    expect(pieceTypeLabel(PieceType.HEAVY)).toBe(m.piece_heavy());
+    expect(pieceTypeLabel(PieceType.SIEGE)).toBe(m.piece_siege());
   });
 
   test("keeps the display order stable for piece summaries", () => {
-    expect(PIECE_TYPE_DISPLAY_ORDER).toEqual([PieceType.KNIGHT, PieceType.ROOK, PieceType.BISHOP]);
+    expect(PIECE_TYPE_DISPLAY_ORDER).toEqual([
+      PieceType.INFANTRY,
+      PieceType.ROOK,
+      PieceType.NOBLE,
+      PieceType.ARCHER,
+      PieceType.CAVALRY,
+      PieceType.HEAVY,
+      PieceType.SIEGE,
+    ]);
   });
 });

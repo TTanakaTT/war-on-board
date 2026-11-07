@@ -41,8 +41,7 @@ function snapshotFromRepositories(): GameStateSnapshot {
           verticalLayer: panel.panelPosition.verticalLayer,
         },
         panelState: String(hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED) as
-          | "occupied"
-          | "unoccupied",
+          "occupied" | "unoccupied",
         player: String(panel.player) as "self" | "opponent" | "unknown",
         resource: panel.resource,
         castle: panel.castle,
@@ -65,10 +64,11 @@ function snapshotFromRepositories(): GameStateSnapshot {
           }
         : undefined,
       player: String(piece.player) as "self" | "opponent",
-      pieceType: String(piece.pieceType) as "knight" | "rook" | "bishop",
+      pieceType: String(piece.pieceType) as "infantry" | "rook" | "noble",
       hp: piece.hp,
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
+      movementPoints: piece.movementPoints,
     })),
     turn: {
       num: turn.num,
@@ -298,7 +298,7 @@ describe("GameApi.initializeGame", () => {
             verticalLayer: 0,
           }),
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       const turn = TurnRepository.get();
@@ -342,8 +342,17 @@ describe("GameApi.initializeGame", () => {
       expect(matchStats.opponent.totalProducedResources).toBe(PLAYER_INIT_RESOURCE);
       expect(matchStats.self.totalBuiltCastle).toBe(HOME_BASE_INIT_CASTLE);
       expect(matchStats.opponent.totalBuiltCastle).toBe(HOME_BASE_INIT_CASTLE);
-      expect(matchStats.self.deadUnitCounts).toEqual({ knight: 0, rook: 0, bishop: 0 });
-      expect(matchStats.opponent.deadUnitCounts).toEqual({ knight: 0, rook: 0, bishop: 0 });
+      const zeroedDeadUnitCounts = {
+        infantry: 0,
+        rook: 0,
+        noble: 0,
+        archer: 0,
+        cavalry: 0,
+        heavy: 0,
+        siege: 0,
+      };
+      expect(matchStats.self.deadUnitCounts).toEqual(zeroedDeadUnitCounts);
+      expect(matchStats.opponent.deadUnitCounts).toEqual(zeroedDeadUnitCounts);
     });
   });
 });
@@ -354,7 +363,7 @@ describe("GameApi.assignMove", () => {
     hl: number,
     vl: number,
     id = 1,
-    pieceType: PieceType = PieceType.KNIGHT,
+    pieceType: PieceType = PieceType.INFANTRY,
   ): Piece {
     const pos = new PanelPosition({ horizontalLayer: hl, verticalLayer: vl });
     const piece = new Piece({
@@ -417,7 +426,7 @@ describe("GameApi.assignMove", () => {
           panelPosition: pos,
           initialPosition: pos,
           player: Player.OPPONENT,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -429,15 +438,78 @@ describe("GameApi.assignMove", () => {
       expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_OWNED });
     });
 
-    test("when target is not adjacent to piece's initialPosition, returns TARGET_NOT_REACHABLE", () => {
+    test("when an idle piece (no pending targetPosition) has movementPoints below MOVEMENT_HOP_COST, assignment still succeeds", () => {
       GameApi.initializeGame({ layer: 4 });
-      setupSelfPieceAt(0, 0);
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      // Synthetic movement<1 piece (Heavy-like unit) that hasn't fully accrued yet.
+      // An idle piece must always be assignable — there must never be a turn where
+      // a piece simply cannot be given an order (see GameApi.assignMove docs).
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          player: Player.SELF,
+          pieceType: PieceType.INFANTRY,
+          movementPoints: 0.5,
+        }),
+      );
 
-      // (0,0) -> (2,0) is not adjacent
       const result = GameApi.assignMove(
         Player.SELF,
         1,
-        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+        new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 }),
+      );
+      expectActionSuccessWithSnapshot(result);
+    });
+
+    test("when a piece already has a pending targetPosition and movementPoints below MOVEMENT_HOP_COST, redirecting returns INSUFFICIENT_MOVEMENT_POINTS", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      // Synthetic movement<1 piece (Heavy-like unit) already mid-transit toward an
+      // earlier order — redirecting it is locked until movementPoints climbs back
+      // to MOVEMENT_HOP_COST.
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          targetPosition: new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 }),
+          player: Player.SELF,
+          pieceType: PieceType.INFANTRY,
+          movementPoints: 0.5,
+        }),
+      );
+
+      const result = GameApi.assignMove(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS });
+    });
+
+    test("when target is a valid but non-adjacent panel, assignment now succeeds (distant target, walked to over multiple turns)", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfPieceAt(0, 0);
+
+      // (0,0) -> (2,0) is not adjacent, but is a real panel on the board.
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      const result = GameApi.assignMove(Player.SELF, 1, target);
+      expectActionSuccessWithSnapshot(result);
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(updated!.targetPosition?.equals(target)).toBe(true);
+    });
+
+    test("when target is not a real panel on the board, returns TARGET_NOT_REACHABLE", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfPieceAt(0, 0);
+
+      const result = GameApi.assignMove(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 99, verticalLayer: 99 }),
       );
       expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
     });
@@ -460,7 +532,7 @@ describe("GameApi.assignMove", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.BISHOP,
+          pieceType: PieceType.NOBLE,
         }),
       );
       setupSelfPieceAt(0, 0, 1);
@@ -484,6 +556,41 @@ describe("GameApi.assignMove", () => {
       expect(updated!.targetPosition!.equals(target)).toBe(true);
     });
 
+    test("assigning a movement<1 piece commits its movementPoints down to the rate value", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      // Synthetic movement<1 piece type (future Heavy-like unit), fully accrued (ready) at
+      // the movement cap of 1. Built as its own object rather than mutating the shared
+      // PieceType.INFANTRY singleton, which other tests depend on.
+      const slowPieceType = {
+        config: { ...PieceType.INFANTRY.config, movement: 0.5 },
+      } as unknown as PieceType;
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: slowPieceType,
+          movementPoints: 1,
+        }),
+      );
+
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      GameApi.assignMove(Player.SELF, 1, target);
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(updated.movementPoints).toBe(0.5);
+
+      // A second assignment attempt is now blocked — the piece has committed its points.
+      const redirect = GameApi.assignMove(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 }),
+      );
+      expect(redirect).toEqual({ ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS });
+    });
+
     test("when target is a full friendly panel but a resident friendly piece can merge, assignment succeeds", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
@@ -493,7 +600,7 @@ describe("GameApi.assignMove", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       PiecesRepository.add(
@@ -505,7 +612,7 @@ describe("GameApi.assignMove", () => {
           pieceType: PieceType.ROOK,
         }),
       );
-      setupSelfPieceAt(0, 0, 1, PieceType.KNIGHT);
+      setupSelfPieceAt(0, 0, 1, PieceType.INFANTRY);
 
       const result = GameApi.assignMove(Player.SELF, 1, target);
       expectActionSuccessWithSnapshot(result);
@@ -526,8 +633,8 @@ describe("GameApi.assignMove", () => {
           pieceType: PieceType.ROOK,
         }),
       );
-      setupSelfPieceAt(0, 0, 1, PieceType.KNIGHT);
-      setupSelfPieceAt(1, 0, 2, PieceType.KNIGHT);
+      setupSelfPieceAt(0, 0, 1, PieceType.INFANTRY);
+      setupSelfPieceAt(1, 0, 2, PieceType.INFANTRY);
 
       expectActionSuccessWithSnapshot(GameApi.assignMove(Player.SELF, 1, target));
       expectActionSuccessWithSnapshot(GameApi.assignMove(Player.SELF, 2, target));
@@ -536,8 +643,8 @@ describe("GameApi.assignMove", () => {
     test("when target is empty, two incoming mergeable pieces and one other incoming piece can all be assigned within merged capacity", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
-      setupSelfPieceAt(0, 0, 1, PieceType.KNIGHT);
-      setupSelfPieceAt(1, 0, 2, PieceType.KNIGHT);
+      setupSelfPieceAt(0, 0, 1, PieceType.INFANTRY);
+      setupSelfPieceAt(1, 0, 2, PieceType.INFANTRY);
       setupSelfPieceAt(-1, 1, 3, PieceType.ROOK);
 
       expectActionSuccessWithSnapshot(GameApi.assignMove(Player.SELF, 3, target));
@@ -555,7 +662,7 @@ describe("GameApi.assignMove", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       PiecesRepository.add(
@@ -564,7 +671,7 @@ describe("GameApi.assignMove", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       // Place an enemy piece at the target
@@ -574,7 +681,7 @@ describe("GameApi.assignMove", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       setupSelfPieceAt(0, 0, 1);
@@ -594,7 +701,7 @@ describe("GameApi.assignMove", () => {
           panelPosition: pos,
           initialPosition: pos,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       const target = new PanelPosition({ horizontalLayer: 3, verticalLayer: 0 });
@@ -644,7 +751,7 @@ describe("GameApi.cancelMove", () => {
           initialPosition: pos,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       const turn = TurnRepository.get();
@@ -665,7 +772,7 @@ describe("GameApi.cancelMove", () => {
           initialPosition: pos,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       const turn = TurnRepository.get();
@@ -693,7 +800,7 @@ describe("GameApi.cancelMove", () => {
           initialPosition: pos,
           targetPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -710,7 +817,7 @@ describe("GameApi.cancelMove", () => {
           panelPosition: pos,
           initialPosition: pos,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -738,7 +845,7 @@ describe("GameApi.cancelMove", () => {
           panelPosition: origin,
           initialPosition: origin,
           player: Player.SELF,
-          pieceType: PieceType.BISHOP,
+          pieceType: PieceType.NOBLE,
         }),
       );
       // Piece 1 has been assigned to move away from origin
@@ -749,7 +856,7 @@ describe("GameApi.cancelMove", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -767,7 +874,7 @@ describe("GameApi.cancelMove", () => {
           panelPosition: origin,
           initialPosition: origin,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       PiecesRepository.add(
@@ -786,7 +893,7 @@ describe("GameApi.cancelMove", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -810,7 +917,7 @@ describe("GameApi.cancelMove", () => {
           initialPosition: pos,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -823,6 +930,381 @@ describe("GameApi.cancelMove", () => {
   });
 });
 
+describe("GameApi.assignRangedAttack", () => {
+  function setupSelfArcherAt(hl: number, vl: number, id = 1): Piece {
+    const pos = new PanelPosition({ horizontalLayer: hl, verticalLayer: vl });
+    const piece = new Piece({
+      id,
+      panelPosition: pos,
+      initialPosition: pos,
+      player: Player.SELF,
+      pieceType: PieceType.ARCHER,
+    });
+    PiecesRepository.add(piece);
+    return piece;
+  }
+
+  describe("precondition errors", () => {
+    test("when winner is already set, returns GAME_ALREADY_OVER", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+      const turn = TurnRepository.get();
+      TurnRepository.set({ ...turn, winner: Player.OPPONENT });
+
+      const result = GameApi.assignRangedAttack(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.GAME_ALREADY_OVER });
+    });
+
+    test("when it is OPPONENT's turn but SELF calls assignRangedAttack, returns NOT_YOUR_TURN", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+      const turn = TurnRepository.get();
+      TurnRepository.set({ ...turn, player: Player.OPPONENT });
+
+      const result = GameApi.assignRangedAttack(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.NOT_YOUR_TURN });
+    });
+
+    test("when pieceId does not exist, returns PIECE_NOT_FOUND", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const result = GameApi.assignRangedAttack(
+        Player.SELF,
+        999,
+        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_FOUND });
+    });
+
+    test("when piece belongs to OPPONENT while SELF calls assignRangedAttack, returns PIECE_NOT_OWNED", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          player: Player.OPPONENT,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_OWNED });
+    });
+
+    test("when an idle piece (no pending rangedAttackTargetPosition) has movementPoints below MOVEMENT_HOP_COST, assignment still succeeds", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+          movementPoints: 0.5,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expectActionSuccessWithSnapshot(result);
+    });
+
+    test("when a piece already has a pending rangedAttackTargetPosition and movementPoints below MOVEMENT_HOP_COST, redirecting returns INSUFFICIENT_MOVEMENT_POINTS", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      const otherTarget = new PanelPosition({ horizontalLayer: 0, verticalLayer: 2 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+          movementPoints: 0.5,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: otherTarget,
+          initialPosition: otherTarget,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, otherTarget);
+      expect(result).toEqual({ ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS });
+    });
+
+    test("when target is only adjacent (distance 1), returns TARGET_NOT_REACHABLE", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+      const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
+    });
+
+    test("when target at distance 2 has no enemy present, returns TARGET_NOT_REACHABLE", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+
+      const result = GameApi.assignRangedAttack(
+        Player.SELF,
+        1,
+        new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 }),
+      );
+      expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
+    });
+
+    test("when the piece's attackRange is only 1 (e.g. Infantry), returns TARGET_NOT_REACHABLE even with an enemy at distance 2", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          player: Player.SELF,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.NOBLE,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
+    });
+
+    test("when target at distance 2 has a defeatable defender but also an enemy castle wall, returns TARGET_NOT_REACHABLE", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      const targetPanel = PanelRepository.find(target)!;
+      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 5 }));
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expect(result).toEqual({ ok: false, error: ActionError.TARGET_NOT_REACHABLE });
+    });
+  });
+
+  describe("successful assignment", () => {
+    test("when target is at distance 2 with a defeatable enemy, sets rangedAttackTargetPosition and returns ok", () => {
+      GameApi.initializeGame({ layer: 4 });
+      setupSelfArcherAt(0, 0);
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      const result = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expectActionSuccessWithSnapshot(result);
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(updated!.rangedAttackTargetPosition?.equals(target)).toBe(true);
+      // The archer itself never moves when assigning a ranged attack.
+      expect(
+        updated!.panelPosition.equals(new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 })),
+      ).toBe(true);
+    });
+  });
+});
+
+describe("GameApi.cancelRangedAttack", () => {
+  describe("precondition errors", () => {
+    test("when winner is already set, returns GAME_ALREADY_OVER", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+      const turn = TurnRepository.get();
+      TurnRepository.set({ ...turn, winner: Player.OPPONENT });
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expect(result).toEqual({ ok: false, error: ActionError.GAME_ALREADY_OVER });
+    });
+
+    test("when it is OPPONENT's turn but SELF calls cancelRangedAttack, returns NOT_YOUR_TURN", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+      const turn = TurnRepository.get();
+      TurnRepository.set({ ...turn, player: Player.OPPONENT });
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expect(result).toEqual({ ok: false, error: ActionError.NOT_YOUR_TURN });
+    });
+
+    test("when pieceId does not exist, returns PIECE_NOT_FOUND", () => {
+      GameApi.initializeGame({ layer: 4 });
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 999);
+      expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_FOUND });
+    });
+
+    test("when piece belongs to OPPONENT, returns PIECE_NOT_OWNED", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expect(result).toEqual({ ok: false, error: ActionError.PIECE_NOT_OWNED });
+    });
+
+    test("when piece has no pending rangedAttackTargetPosition, returns CANNOT_CANCEL", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expect(result).toEqual({ ok: false, error: ActionError.CANNOT_CANCEL });
+    });
+
+    test("when the piece's movement is below MOVEMENT_HOP_COST, returns CANNOT_CANCEL", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      // Synthetic movement<1 piece type sharing Archer's other stats.
+      const slowArcherType = {
+        config: { ...PieceType.ARCHER.config, movement: 0.5 },
+      } as unknown as PieceType;
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.SELF,
+          pieceType: slowArcherType,
+        }),
+      );
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expect(result).toEqual({ ok: false, error: ActionError.CANNOT_CANCEL });
+    });
+  });
+
+  describe("successful cancellation", () => {
+    test("when piece has rangedAttackTargetPosition set, clears it to undefined and returns ok", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos,
+          initialPosition: pos,
+          rangedAttackTargetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+
+      const result = GameApi.cancelRangedAttack(Player.SELF, 1);
+      expectActionSuccessWithSnapshot(result);
+
+      const updated = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(updated!.rangedAttackTargetPosition).toBeUndefined();
+    });
+  });
+});
+
 describe("GameApi.generatePiece", () => {
   describe("precondition errors", () => {
     test("when winner is already set, returns GAME_ALREADY_OVER", () => {
@@ -830,7 +1312,7 @@ describe("GameApi.generatePiece", () => {
       const turn = TurnRepository.get();
       TurnRepository.set({ ...turn, winner: Player.OPPONENT });
 
-      const result = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const result = GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
       expect(result).toEqual({ ok: false, error: ActionError.GAME_ALREADY_OVER });
     });
 
@@ -839,18 +1321,18 @@ describe("GameApi.generatePiece", () => {
       const turn = TurnRepository.get();
       TurnRepository.set({ ...turn, player: Player.OPPONENT });
 
-      const result = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const result = GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
       expect(result).toEqual({ ok: false, error: ActionError.NOT_YOUR_TURN });
     });
 
     test("when player resources < pieceType.config.cost, returns INSUFFICIENT_RESOURCES", () => {
       GameApi.initializeGame({ layer: 4 });
-      // SELF starts with 10 resources; KNIGHT costs 8, ROOK costs 10
+      // SELF starts with 10 resources; INFANTRY costs 8, ROOK costs 10
       // Set resources to 0
       const turn = TurnRepository.get();
       TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 0 } });
 
-      const result = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const result = GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
       expect(result).toEqual({ ok: false, error: ActionError.INSUFFICIENT_RESOURCES });
     });
 
@@ -861,7 +1343,7 @@ describe("GameApi.generatePiece", () => {
       const hbPanel = PanelRepository.find(hbPos)!;
       PanelRepository.update(new Panel({ ...hbPanel, resource: 0 }));
 
-      const result = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const result = GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
       expect(result).toEqual({ ok: false, error: ActionError.NO_GENERATION_PANEL });
     });
 
@@ -897,9 +1379,9 @@ describe("GameApi.generatePiece", () => {
     test("when SELF has enough resources and home base is available, creates piece on home base and deducts cost from resources", () => {
       GameApi.initializeGame({ layer: 4 });
       const resourcesBefore = TurnRepository.get().resources[String(Player.SELF)];
-      const cost = PieceType.KNIGHT.config.cost;
+      const cost = PieceType.INFANTRY.config.cost;
 
-      const result = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const result = GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
       expectActionSuccessWithSnapshot(result);
 
       const resourcesAfter = TurnRepository.get().resources[String(Player.SELF)];
@@ -913,7 +1395,7 @@ describe("GameApi.generatePiece", () => {
     test("after generation, PanelState of the generation panel becomes OCCUPIED", () => {
       GameApi.initializeGame({ layer: 4 });
 
-      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
 
       const hbPos = new PanelPosition({ horizontalLayer: -3, verticalLayer: 0 });
       const panel = PanelRepository.find(hbPos)!;
@@ -932,6 +1414,30 @@ describe("GameApi.generatePiece", () => {
       expect(pieces[0].pieceType).toBe(PieceType.ROOK);
     });
 
+    test.each([PieceType.ARCHER, PieceType.CAVALRY, PieceType.HEAVY, PieceType.SIEGE])(
+      "generates a %s with the correct cost deduction and stats",
+      (pieceType) => {
+        GameApi.initializeGame({ layer: 4 });
+        const turn = TurnRepository.get();
+        TurnRepository.set({
+          ...turn,
+          resources: { ...turn.resources, [String(Player.SELF)]: 100 },
+        });
+        const resourcesBefore = TurnRepository.get().resources[String(Player.SELF)];
+
+        const result = GameApi.generatePiece(Player.SELF, pieceType);
+        expectActionSuccessWithSnapshot(result);
+
+        const resourcesAfter = TurnRepository.get().resources[String(Player.SELF)];
+        expect(resourcesAfter).toBe(resourcesBefore - pieceType.config.cost);
+
+        const pieces = PiecesRepository.getAll();
+        expect(pieces).toHaveLength(1);
+        expect(pieces[0].pieceType).toBe(pieceType);
+        expect(pieces[0].hp).toBe(pieceType.config.maxHp);
+      },
+    );
+
     test("in rear mode, generation prefers home base panel over other eligible panels", () => {
       GameApi.initializeGame({ layer: 4 });
       GameApi.setGenerationMode(Player.SELF, "rear");
@@ -947,7 +1453,7 @@ describe("GameApi.generatePiece", () => {
         }),
       );
 
-      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
 
       // Piece should be on home base (-3,0), not mid-field (-2,0)
       const hbPos = new PanelPosition({ horizontalLayer: -3, verticalLayer: 0 });
@@ -979,7 +1485,7 @@ describe("GameApi.generatePiece", () => {
         }),
       );
 
-      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
 
       const pieces = PiecesRepository.getAll();
       expect(pieces).toHaveLength(1);
@@ -1061,7 +1567,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1083,7 +1589,7 @@ describe("GameApi.endTurn", () => {
           panelPosition: origin,
           initialPosition: origin,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1091,6 +1597,65 @@ describe("GameApi.endTurn", () => {
 
       const piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
       expect(piece.panelPosition.equals(origin)).toBe(true);
+    });
+
+    test("moving spends 1 movementPoint; it is restored to the cap once this player's next turn starts", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          targetPosition: target,
+          player: Player.SELF,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      GameApi.endTurn(Player.SELF);
+      const movedPiece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(movedPiece.movementPoints).toBe(0);
+
+      GameApi.endTurn(Player.OPPONENT);
+      const nextTurnPiece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(nextTurnPiece.movementPoints).toBe(1);
+    });
+
+    test("a distant target (3 hops away) is reached after 3 of the player's own turns", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: -3, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      const assignResult = GameApi.assignMove(Player.SELF, 1, target);
+      expectActionSuccessWithSnapshot(assignResult);
+
+      GameApi.endTurn(Player.SELF);
+      GameApi.endTurn(Player.OPPONENT);
+      let piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(piece.panelPosition.equals(target)).toBe(false);
+      expect(piece.targetPosition?.equals(target)).toBe(true);
+
+      GameApi.endTurn(Player.SELF);
+      GameApi.endTurn(Player.OPPONENT);
+      piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(piece.panelPosition.equals(target)).toBe(false);
+      expect(piece.targetPosition?.equals(target)).toBe(true);
+
+      GameApi.endTurn(Player.SELF);
+      piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(piece.panelPosition.equals(target)).toBe(true);
+      expect(piece.targetPosition).toBeUndefined();
     });
   });
 
@@ -1107,16 +1672,16 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
       GameApi.endTurn(Player.SELF);
 
-      // Castle reduced by attackPowerAgainstWall (KNIGHT = 2)
+      // Castle reduced by attackPowerAgainstWall (INFANTRY = 1)
       const panel = PanelRepository.find(target)!;
       expect(panel.castle).toBe(
-        HOME_BASE_INIT_CASTLE - PieceType.KNIGHT.config.attackPowerAgainstWall,
+        HOME_BASE_INIT_CASTLE - PieceType.INFANTRY.config.attackPowerAgainstWall,
       );
 
       // Attacker stays at origin
@@ -1137,7 +1702,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin1,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       PiecesRepository.add(
@@ -1147,7 +1712,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin1,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1155,7 +1720,7 @@ describe("GameApi.endTurn", () => {
 
       const panel = PanelRepository.find(target)!;
       expect(panel.castle).toBe(
-        HOME_BASE_INIT_CASTLE - PieceType.KNIGHT.config.attackPowerAgainstWall * 2,
+        HOME_BASE_INIT_CASTLE - PieceType.INFANTRY.config.attackPowerAgainstWall * 2,
       );
     });
 
@@ -1163,14 +1728,15 @@ describe("GameApi.endTurn", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
       const targetPanel = PanelRepository.find(target)!;
-      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 1 }));
+      // castle=0.5 < attackPowerAgainstWall(1) so a single attacker still overflows into piece damage.
+      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 0.5 }));
       PiecesRepository.add(
         new Piece({
           id: 50,
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1182,19 +1748,19 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
       GameApi.endTurn(Player.SELF);
 
+      // overflowRatio = (1 - 0.5) / 1 = 0.5; damage to defender = (5-1)*1*0.5 = 2 → hp = 10-2 = 8
       const defender = PiecesRepository.getAll().find((p) => p.id === 50)!;
-      expect(defender.hp).toBeCloseTo(7.5);
+      expect(defender.hp).toBeCloseTo(8);
 
+      // Counterattack (unscaled): (5-1)*1 = 4 → hp = 10-4 = 6
       const piece = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(piece.hp).toBe(
-        PieceType.KNIGHT.config.maxHp - PieceType.KNIGHT.config.attackPowerAgainstPiece,
-      );
+      expect(piece.hp).toBe(6);
       expect(piece.panelPosition.equals(origin)).toBe(true);
       expect(piece.targetPosition).toBeUndefined();
     });
@@ -1203,14 +1769,14 @@ describe("GameApi.endTurn", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
       const targetPanel = PanelRepository.find(target)!;
-      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 1 }));
+      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 0.5 }));
       PiecesRepository.add(
         new Piece({
           id: 50,
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
           hp: 2,
         }),
       );
@@ -1223,7 +1789,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1232,10 +1798,9 @@ describe("GameApi.endTurn", () => {
       const defender = PiecesRepository.getAll().find((p) => p.id === 50);
       expect(defender).toBeUndefined();
 
+      // Counterattack (unscaled, defender's full hp doesn't reduce its attack power): (5-1)*1 = 4 → hp = 10-4 = 6
       const attacker = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(attacker.hp).toBe(
-        PieceType.KNIGHT.config.maxHp - PieceType.KNIGHT.config.attackPowerAgainstPiece,
-      );
+      expect(attacker.hp).toBe(6);
       expect(attacker.panelPosition.equals(target)).toBe(true);
       expect(attacker.targetPosition).toBeUndefined();
 
@@ -1248,14 +1813,14 @@ describe("GameApi.endTurn", () => {
       GameApi.initializeGame({ layer: 4 });
       const target = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
       const targetPanel = PanelRepository.find(target)!;
-      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 1 }));
+      PanelRepository.update(new Panel({ ...targetPanel, player: Player.OPPONENT, castle: 0.5 }));
       PiecesRepository.add(
         new Piece({
           id: 50,
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
           hp: 2,
         }),
       );
@@ -1268,7 +1833,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
           hp: 4,
         }),
       );
@@ -1295,7 +1860,7 @@ describe("GameApi.endTurn", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1307,24 +1872,20 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
       GameApi.endTurn(Player.SELF);
 
-      // KNIGHT vs KNIGHT: both deal 5 AP to each other. HP 10 - 5 = 5. Both survive.
+      // INFANTRY vs INFANTRY: both deal (5-1)*1=4 damage (attack - defense). HP 10 - 4 = 6. Both survive.
       // Since defender remains, attacker stays at origin.
       const attacker = PiecesRepository.getAll().find((p) => p.id === 1);
       const defender = PiecesRepository.getAll().find((p) => p.id === 50);
       expect(attacker).toBeDefined();
       expect(defender).toBeDefined();
-      expect(attacker!.hp).toBe(
-        PieceType.KNIGHT.config.maxHp - PieceType.KNIGHT.config.attackPowerAgainstPiece,
-      );
-      expect(defender!.hp).toBe(
-        PieceType.KNIGHT.config.maxHp - PieceType.KNIGHT.config.attackPowerAgainstPiece,
-      );
+      expect(attacker!.hp).toBe(6);
+      expect(defender!.hp).toBe(6);
       expect(attacker!.panelPosition.equals(origin)).toBe(true);
     });
 
@@ -1340,7 +1901,7 @@ describe("GameApi.endTurn", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.BISHOP,
+          pieceType: PieceType.NOBLE,
           hp: 1,
         }),
       );
@@ -1350,7 +1911,7 @@ describe("GameApi.endTurn", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.BISHOP,
+          pieceType: PieceType.NOBLE,
           hp: 1,
         }),
       );
@@ -1363,7 +1924,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1387,7 +1948,7 @@ describe("GameApi.endTurn", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       PiecesRepository.add(
@@ -1396,7 +1957,7 @@ describe("GameApi.endTurn", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1419,7 +1980,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.BISHOP,
+          pieceType: PieceType.NOBLE,
           hp: 5,
         }),
       );
@@ -1431,10 +1992,14 @@ describe("GameApi.endTurn", () => {
       const defender1 = PiecesRepository.getAll().find((p) => p.id === 50)!;
       const defender2 = PiecesRepository.getAll().find((p) => p.id === 51)!;
 
-      expect(piece1.hp).toBeCloseTo(10 / 3);
-      expect(piece2.hp).toBeCloseTo(5 / 3);
-      expect(defender1.hp).toBeCloseTo(9);
-      expect(defender2.hp).toBeCloseTo(9);
+      // Defenders: aggregated defense = 1 (both INFANTRY, def=1). Attacker damage = Rook(2-1)*1 + Noble(0-1→0)*1 = 1,
+      // split by HP over 20 total → 0.5 each → hp = 10-0.5 = 9.5.
+      // Attackers: aggregated defense = (1*10 + 0*5)/15 = 2/3. Defender damage = 2*(5-2/3)*1 = 26/3,
+      // split by attacker HP (10:5 of 15) → Rook 52/9, Noble 26/9.
+      expect(piece1.hp).toBeCloseTo(10 - 52 / 9);
+      expect(piece2.hp).toBeCloseTo(5 - 26 / 9);
+      expect(defender1.hp).toBeCloseTo(9.5);
+      expect(defender2.hp).toBeCloseTo(9.5);
       expect(piece1.panelPosition.equals(origin)).toBe(true);
       expect(piece2.panelPosition.equals(origin)).toBe(true);
     });
@@ -1460,7 +2025,7 @@ describe("GameApi.endTurn", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
           hp: 10,
         }),
       );
@@ -1473,7 +2038,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.BISHOP,
+          pieceType: PieceType.NOBLE,
         }),
       );
       PiecesRepository.add(
@@ -1489,18 +2054,65 @@ describe("GameApi.endTurn", () => {
 
       GameApi.endTurn(Player.SELF);
 
+      // Defenders (Rook+Infantry, both def=1): aggregated defense=1. Attacker damage = Noble(0-1→0)*1 + Rook(2-1)*1 = 1,
+      // split by HP over 20 total → 0.5 each → hp = 10-0.5 = 9.5.
+      // Attackers (Noble hp5 def0, Rook hp10 def1): aggregated defense = (0*5+1*10)/15 = 2/3.
+      // Defender damage = Rook(2-2/3)*1 + Infantry(5-2/3)*1 = 17/3, split by attacker HP (5:10 of 15).
       const rook = PiecesRepository.getAll().find((p) => p.id === 2);
       expect(rook).toBeDefined();
-      expect(rook!.hp).toBeCloseTo(16 / 3);
+      expect(rook!.hp).toBeCloseTo(10 - (17 / 3) * (10 / 15));
 
-      const bishop = PiecesRepository.getAll().find((p) => p.id === 1);
-      expect(bishop).toBeDefined();
-      expect(bishop!.hp).toBeCloseTo(8 / 3);
+      const noble = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(noble).toBeDefined();
+      expect(noble!.hp).toBeCloseTo(5 - (17 / 3) * (5 / 15));
 
       const defenderA = PiecesRepository.getAll().find((p) => p.id === 50);
       const defenderB = PiecesRepository.getAll().find((p) => p.id === 51);
-      expect(defenderA!.hp).toBeCloseTo(9);
-      expect(defenderB!.hp).toBeCloseTo(9);
+      expect(defenderA!.hp).toBeCloseTo(9.5);
+      expect(defenderB!.hp).toBeCloseTo(9.5);
+    });
+  });
+
+  describe("combat - ranged attack", () => {
+    test("endTurn resolves a pending ranged attack, damaging the target without moving the archer", () => {
+      GameApi.initializeGame({ layer: 4 });
+      const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const target = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: origin,
+          initialPosition: origin,
+          player: Player.SELF,
+          pieceType: PieceType.ARCHER,
+        }),
+      );
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+          hp: 100,
+        }),
+      );
+
+      const assignResult = GameApi.assignRangedAttack(Player.SELF, 1, target);
+      expectActionSuccessWithSnapshot(assignResult);
+
+      const endResult = GameApi.endTurn(Player.SELF);
+      expect(endResult.ok).toBe(true);
+      if (endResult.ok) {
+        expect(endResult.value.combatOutcomes.length).toBe(1);
+      }
+
+      const archer = PiecesRepository.getAll().find((p) => p.id === 1);
+      const defender = PiecesRepository.getAll().find((p) => p.id === 2);
+      expect(archer!.panelPosition.equals(origin)).toBe(true);
+      expect(archer!.rangedAttackTargetPosition).toBeUndefined();
+      // Archer (atk 4) vs Infantry (def 1): damage = (4-1)*1 = 3
+      expect(defender!.hp).toBe(97);
     });
   });
 
@@ -1517,7 +2129,7 @@ describe("GameApi.endTurn", () => {
           panelPosition: target,
           initialPosition: target,
           player: Player.OPPONENT,
-          pieceType: PieceType.BISHOP,
+          pieceType: PieceType.NOBLE,
           hp: 1,
         }),
       );
@@ -1530,7 +2142,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1557,7 +2169,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: oppHb,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1592,9 +2204,9 @@ describe("GameApi.endTurn", () => {
   });
 
   describe("passive gains for next player", () => {
-    test("KNIGHT on a panel claims ownership — panel.player becomes the knight's owner", () => {
+    test("INFANTRY on a panel claims ownership — panel.player becomes the infantry's owner", () => {
       GameApi.initializeGame({ layer: 4 });
-      // Place OPPONENT KNIGHT on a neutral panel
+      // Place OPPONENT INFANTRY on a neutral panel
       const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
       PiecesRepository.add(
         new Piece({
@@ -1602,7 +2214,7 @@ describe("GameApi.endTurn", () => {
           panelPosition: pos,
           initialPosition: pos,
           player: Player.OPPONENT,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1613,7 +2225,7 @@ describe("GameApi.endTurn", () => {
       expect(panel.player).toBe(Player.OPPONENT);
     });
 
-    test("BISHOP on a panel increases panel.resource by 1 (capped at PASSIVE_RESOURCE_CAP)", () => {
+    test("NOBLE on a panel increases panel.resource by 1 (capped at PASSIVE_RESOURCE_CAP)", () => {
       GameApi.initializeGame({ layer: 4 });
       const pos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
       const existingPanel = PanelRepository.find(pos)!;
@@ -1630,7 +2242,7 @@ describe("GameApi.endTurn", () => {
           panelPosition: pos,
           initialPosition: pos,
           player: Player.OPPONENT,
-          pieceType: PieceType.BISHOP,
+          pieceType: PieceType.NOBLE,
         }),
       );
 
@@ -1744,7 +2356,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: attackerOrigin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       PiecesRepository.add(
@@ -1754,7 +2366,8 @@ describe("GameApi.endTurn", () => {
           initialPosition: target,
           player: Player.OPPONENT,
           pieceType: PieceType.ROOK,
-          hp: PieceType.KNIGHT.config.attackPowerAgainstPiece,
+          // Damage = (attack - defense) * stackCount = (5-1)*1 = 4; hp set to exactly that to guarantee death.
+          hp: PieceType.INFANTRY.config.attackPowerAgainstPiece - PieceType.ROOK.config.defense,
         }),
       );
 
@@ -1783,6 +2396,44 @@ describe("GameApi.endTurn", () => {
   });
 });
 
+describe("HEAVY unit movement cadence (regression)", () => {
+  test("a HEAVY piece can be assigned a new move on every one of its own turns, including immediately after finishing an earlier move", () => {
+    GameApi.initializeGame({ layer: 4 });
+    const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+    const first = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
+    const second = new PanelPosition({ horizontalLayer: 0, verticalLayer: 2 });
+    PiecesRepository.add(
+      new Piece({
+        id: 1,
+        panelPosition: origin,
+        initialPosition: origin,
+        player: Player.SELF,
+        pieceType: PieceType.HEAVY,
+      }),
+    );
+
+    // Turn 1 (SELF): freshly produced, movementPoints is only the raw 0.5 rate — must
+    // still be assignable immediately (no turn may ever refuse to accept an order).
+    expect(GameApi.assignMove(Player.SELF, 1, first).ok).toBe(true);
+    GameApi.endTurn(Player.SELF);
+    GameApi.endTurn(Player.OPPONENT);
+
+    // Turn 2 (SELF): movementPoints has accrued to 1.0 and the piece resolves its hop,
+    // arriving at `first` with movementPoints spent down to 0.
+    GameApi.endTurn(Player.SELF);
+    GameApi.endTurn(Player.OPPONENT);
+    const arrived = PiecesRepository.getAll().find((p) => p.id === 1)!;
+    expect(arrived.panelPosition.equals(first)).toBe(true);
+    expect(arrived.targetPosition).toBeUndefined();
+    expect(arrived.movementPoints).toBeLessThan(1);
+
+    // Turn 3 (SELF): idle again with movementPoints still below MOVEMENT_HOP_COST
+    // (only 0.5 has accrued back) — must still be assignable right away.
+    const result = GameApi.assignMove(Player.SELF, 1, second);
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe("GameApi.getMovableTargets", () => {
   test("when pieceId does not exist, returns empty array", () => {
     GameApi.initializeGame({ layer: 4 });
@@ -1800,7 +2451,7 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: pos,
         initialPosition: pos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
 
@@ -1821,7 +2472,7 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: pos,
         initialPosition: pos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
     // Fill adjacent panel
@@ -1840,7 +2491,7 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: fullPanel,
         initialPosition: fullPanel,
         player: Player.SELF,
-        pieceType: PieceType.BISHOP,
+        pieceType: PieceType.NOBLE,
       }),
     );
 
@@ -1858,7 +2509,7 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: pos,
         initialPosition: pos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
     PiecesRepository.add(
@@ -1867,7 +2518,7 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: fullPanel,
         initialPosition: fullPanel,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
     PiecesRepository.add(
@@ -1894,7 +2545,7 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: pos,
         initialPosition: pos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
     PiecesRepository.add(
@@ -1903,7 +2554,7 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: enemyPanel,
         initialPosition: enemyPanel,
         player: Player.OPPONENT,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
 
@@ -1921,7 +2572,7 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: pos,
         initialPosition: pos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
     PiecesRepository.add(
@@ -1930,17 +2581,17 @@ describe("GameApi.getMovableTargets", () => {
         panelPosition: pos,
         initialPosition: pos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
-    // Piece 3 also stays on the same panel; three Knights collapse into one merged stack.
+    // Piece 3 also stays on the same panel; three Infantry collapse into one merged stack.
     PiecesRepository.add(
       new Piece({
         id: 3,
         panelPosition: pos,
         initialPosition: pos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
 
@@ -1966,7 +2617,7 @@ describe("GameApi state snapshot contract", () => {
           panelPosition: origin,
           initialPosition: origin,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -1991,7 +2642,7 @@ describe("GameApi state snapshot contract", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -2005,13 +2656,13 @@ describe("GameApi state snapshot contract", () => {
     test("generatePiece returns the full game state snapshot after resources and pieces are updated", () => {
       GameApi.initializeGame({ layer: 4 });
 
-      const result = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const result = GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
 
       expectActionSuccessWithSnapshot(result);
       if (!result.ok) return;
       expect(result.value.gameState.pieces).toHaveLength(1);
       expect(result.value.gameState.turn.resources[String(Player.SELF)]).toBe(
-        PLAYER_INIT_RESOURCE + HOME_BASE_INIT_RESOURCE - PieceType.KNIGHT.config.cost,
+        PLAYER_INIT_RESOURCE + HOME_BASE_INIT_RESOURCE - PieceType.INFANTRY.config.cost,
       );
     });
 
@@ -2081,7 +2732,7 @@ describe("GameApi state snapshot contract", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -2109,7 +2760,7 @@ describe("GameApi state snapshot contract", () => {
           panelPosition: origin,
           initialPosition: origin,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
 
@@ -2181,7 +2832,7 @@ describe("GameApi state snapshot contract", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       GameApi.setGenerationMode(Player.SELF, "rear");
@@ -2199,7 +2850,7 @@ describe("GameApi state snapshot contract", () => {
   describe("GameApi.loadGameState", () => {
     test("restores a snapshot produced by getGameState into the repositories", () => {
       GameApi.initializeGame({ layer: 4 });
-      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
       const snapshot = GameApi.getGameState();
 
       GameApi.initializeGame({ layer: 2 });
@@ -2212,7 +2863,7 @@ describe("GameApi state snapshot contract", () => {
 
     test("replaces the current game state completely when loading a different snapshot", () => {
       GameApi.initializeGame({ layer: 4 });
-      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
       const originalSnapshot = GameApi.getGameState();
 
       GameApi.initializeGame({ layer: 2 });
@@ -2236,7 +2887,7 @@ describe("GameApi state snapshot contract", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       );
       GameApi.setGenerationMode(Player.SELF, "rear");
@@ -2269,7 +2920,7 @@ describe("GameApi state snapshot contract", () => {
 
     test("accepts a JSON round-tripped snapshot and restores enum-backed values correctly", () => {
       GameApi.initializeGame({ layer: 4 });
-      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
       GameApi.setGenerationMode(Player.SELF, "rear");
 
       const transportedSnapshot = JSON.parse(
@@ -2313,7 +2964,7 @@ describe("GameApi state snapshot contract", () => {
 
     test("returns INVALID_GAME_STATE when a piece references a panel that does not exist", () => {
       GameApi.initializeGame({ layer: 4 });
-      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
       const snapshot = GameApi.getGameState();
 
       const result = GameApi.loadGameState({
@@ -2376,7 +3027,7 @@ describe("GameApi state snapshot contract", () => {
     test("the snapshot returned by an action matches the state returned by getGameState immediately after the action", () => {
       GameApi.initializeGame({ layer: 4 });
 
-      const result = GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      const result = GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
 
       expectActionSuccessWithSnapshot(result);
       if (!result.ok) return;
@@ -2385,7 +3036,7 @@ describe("GameApi state snapshot contract", () => {
 
     test("a snapshot from getGameState can be loaded and then read back without losing information", () => {
       GameApi.initializeGame({ layer: 4 });
-      GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+      GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
       GameApi.setGenerationMode(Player.SELF, "rear");
       const snapshot = GameApi.getGameState();
 
@@ -2400,8 +3051,8 @@ describe("GameApi state snapshot contract", () => {
 describe("GameApi.canGenerate", () => {
   test("when player has enough resources and a generation panel exists, returns true", () => {
     GameApi.initializeGame({ layer: 4 });
-    // SELF starts with 10 resources, KNIGHT costs 8, home base has resource=5
-    expect(GameApi.canGenerate(Player.SELF, PieceType.KNIGHT)).toBe(true);
+    // SELF starts with 10 resources, INFANTRY costs 8, home base has resource=5
+    expect(GameApi.canGenerate(Player.SELF, PieceType.INFANTRY)).toBe(true);
   });
 
   test("when player resources < pieceType cost, returns false", () => {
@@ -2409,7 +3060,7 @@ describe("GameApi.canGenerate", () => {
     const turn = TurnRepository.get();
     TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 0 } });
 
-    expect(GameApi.canGenerate(Player.SELF, PieceType.KNIGHT)).toBe(false);
+    expect(GameApi.canGenerate(Player.SELF, PieceType.INFANTRY)).toBe(false);
   });
 
   test("when no panel meets generation requirements, returns false", () => {
@@ -2419,7 +3070,7 @@ describe("GameApi.canGenerate", () => {
     const hbPanel = PanelRepository.find(hbPos)!;
     PanelRepository.update(new Panel({ ...hbPanel, resource: 0 }));
 
-    expect(GameApi.canGenerate(Player.SELF, PieceType.KNIGHT)).toBe(false);
+    expect(GameApi.canGenerate(Player.SELF, PieceType.INFANTRY)).toBe(false);
   });
 
   test("when resources are sufficient but all eligible panels are at max capacity with non-mergeable type, returns false", () => {
@@ -2456,7 +3107,7 @@ describe("GameApi.canGenerate", () => {
         panelPosition: hbPos,
         initialPosition: hbPos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
     PiecesRepository.add(
@@ -2465,11 +3116,11 @@ describe("GameApi.canGenerate", () => {
         panelPosition: hbPos,
         initialPosition: hbPos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
 
-    expect(GameApi.canGenerate(Player.SELF, PieceType.KNIGHT)).toBe(true);
+    expect(GameApi.canGenerate(Player.SELF, PieceType.INFANTRY)).toBe(true);
   });
 });
 
@@ -2477,7 +3128,7 @@ describe("unit merging", () => {
   const hbPos = new PanelPosition({ horizontalLayer: -3, verticalLayer: 0 });
   const midPos = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
 
-  test("endTurn: two SELF Knights moving to the same panel are merged into one with combined HP and stackCount=2", () => {
+  test("endTurn: two SELF Infantry moving to the same panel are merged into one with combined HP and stackCount=2", () => {
     GameApi.initializeGame({ layer: 4 });
     const origin1 = new PanelPosition({ horizontalLayer: -1, verticalLayer: 0 });
     const origin2 = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
@@ -2488,7 +3139,7 @@ describe("unit merging", () => {
         initialPosition: origin1,
         targetPosition: midPos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
     PiecesRepository.add(
@@ -2498,7 +3149,7 @@ describe("unit merging", () => {
         initialPosition: origin2,
         targetPosition: midPos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
 
@@ -2507,23 +3158,23 @@ describe("unit merging", () => {
     const atMid = PiecesRepository.getPiecesByPosition(midPos);
     expect(atMid).toHaveLength(1);
     expect(atMid[0].stackCount).toBe(2);
-    expect(atMid[0].hp).toBe(PieceType.KNIGHT.config.maxHp * 2);
-    expect(atMid[0].maxHp).toBe(PieceType.KNIGHT.config.maxHp * 2);
+    expect(atMid[0].hp).toBe(PieceType.INFANTRY.config.maxHp * 2);
+    expect(atMid[0].maxHp).toBe(PieceType.INFANTRY.config.maxHp * 2);
   });
 
-  test("endTurn: Knight moving to panel with resident SELF Knight merges after turn ends", () => {
+  test("endTurn: Infantry moving to panel with resident SELF Infantry merges after turn ends", () => {
     GameApi.initializeGame({ layer: 4 });
-    // Resident Knight already at midPos
+    // Resident Infantry already at midPos
     PiecesRepository.add(
       new Piece({
         id: 1,
         panelPosition: midPos,
         initialPosition: midPos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
-    // Moving Knight from origin
+    // Moving Infantry from origin
     const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 1 });
 
     // Temporarily set panel at origin to SELF so movement capacity allows it
@@ -2537,7 +3188,7 @@ describe("unit merging", () => {
         initialPosition: origin,
         targetPosition: midPos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
 
@@ -2548,25 +3199,25 @@ describe("unit merging", () => {
     expect(atMid[0].stackCount).toBe(2);
   });
 
-  test("endTurn: merged Knight attack power equals config AP + stackCount - 1", () => {
+  test("endTurn: merged Infantry attack power stays at config AP; wall AP scales by stackCount", () => {
     GameApi.initializeGame({ layer: 4 });
     const moveTarget = new PanelPosition({ horizontalLayer: -1, verticalLayer: 0 });
-    // Two SELF Knights both move to moveTarget (empty friendly-ish panel), then merge
+    // Two SELF Infantry, each starting adjacent to moveTarget, both move there and merge
     [1, 2].forEach((id) =>
       PiecesRepository.add(
         new Piece({
           id,
           panelPosition: new PanelPosition({
-            horizontalLayer: -2,
+            horizontalLayer: id === 1 ? -2 : -1,
             verticalLayer: id === 1 ? 0 : 1,
           }),
           initialPosition: new PanelPosition({
-            horizontalLayer: -2,
+            horizontalLayer: id === 1 ? -2 : -1,
             verticalLayer: id === 1 ? 0 : 1,
           }),
           targetPosition: moveTarget,
           player: Player.SELF,
-          pieceType: PieceType.KNIGHT,
+          pieceType: PieceType.INFANTRY,
         }),
       ),
     );
@@ -2575,38 +3226,38 @@ describe("unit merging", () => {
 
     const merged = PiecesRepository.getPiecesByPosition(moveTarget)[0];
     expect(merged.stackCount).toBe(2);
-    // AP = config(5) + 2 - 1 = 6
-    expect(merged.attackPowerAgainstPiece).toBe(
-      PieceType.KNIGHT.config.attackPowerAgainstPiece + 1,
+    // Merge no longer raises attack power — it raises hit count (stackCount) instead.
+    expect(merged.attackPowerAgainstPiece).toBe(PieceType.INFANTRY.config.attackPowerAgainstPiece);
+    // Wall AP = config(1) * stackCount(2) = 2
+    expect(merged.attackPowerAgainstWall).toBe(
+      PieceType.INFANTRY.config.attackPowerAgainstWall * 2,
     );
-    // Wall AP = config(2) + 2 - 1 = 3
-    expect(merged.attackPowerAgainstWall).toBe(PieceType.KNIGHT.config.attackPowerAgainstWall + 1);
   });
 
-  test("generatePiece: Knight generated on panel with existing same-player Knight merges immediately", () => {
+  test("generatePiece: Infantry generated on panel with existing same-player Infantry merges immediately", () => {
     GameApi.initializeGame({ layer: 4 });
-    // Place existing SELF Knight on home base panel
+    // Place existing SELF Infantry on home base panel
     PiecesRepository.add(
       new Piece({
         id: 1,
         panelPosition: hbPos,
         initialPosition: hbPos,
         player: Player.SELF,
-        pieceType: PieceType.KNIGHT,
+        pieceType: PieceType.INFANTRY,
       }),
     );
     // Give enough resources and ensure home base has resource >= threshold
     const turn = TurnRepository.get();
     TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 50 } });
 
-    GameApi.generatePiece(Player.SELF, PieceType.KNIGHT);
+    GameApi.generatePiece(Player.SELF, PieceType.INFANTRY);
 
     const atHb = PiecesRepository.getPiecesByPosition(hbPos);
     expect(atHb).toHaveLength(1);
     expect(atHb[0].stackCount).toBe(2);
   });
 
-  test("generatePiece: Bishop generated on panel with existing Bishop does NOT merge (non-mergeable)", () => {
+  test("generatePiece: Noble generated on panel with existing Noble does NOT merge (non-mergeable)", () => {
     GameApi.initializeGame({ layer: 4 });
     PiecesRepository.add(
       new Piece({
@@ -2614,13 +3265,13 @@ describe("unit merging", () => {
         panelPosition: hbPos,
         initialPosition: hbPos,
         player: Player.SELF,
-        pieceType: PieceType.BISHOP,
+        pieceType: PieceType.NOBLE,
       }),
     );
     const turn = TurnRepository.get();
     TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 50 } });
 
-    GameApi.generatePiece(Player.SELF, PieceType.BISHOP);
+    GameApi.generatePiece(Player.SELF, PieceType.NOBLE);
 
     const atHb = PiecesRepository.getPiecesByPosition(hbPos);
     expect(atHb).toHaveLength(2);
@@ -2630,16 +3281,17 @@ describe("unit merging", () => {
   test("endTurn: Rooks at same panel after movement do NOT merge (non-mergeable)", () => {
     GameApi.initializeGame({ layer: 4 });
     const moveTarget = new PanelPosition({ horizontalLayer: -1, verticalLayer: 0 });
+    // Two SELF Rooks, each starting adjacent to moveTarget, both move there in the same turn
     [1, 2].forEach((id) =>
       PiecesRepository.add(
         new Piece({
           id,
           panelPosition: new PanelPosition({
-            horizontalLayer: -2,
+            horizontalLayer: id === 1 ? -2 : -1,
             verticalLayer: id === 1 ? 0 : 1,
           }),
           initialPosition: new PanelPosition({
-            horizontalLayer: -2,
+            horizontalLayer: id === 1 ? -2 : -1,
             verticalLayer: id === 1 ? 0 : 1,
           }),
           targetPosition: moveTarget,

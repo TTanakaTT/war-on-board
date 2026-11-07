@@ -52,6 +52,56 @@ export class PanelsService {
     return panels.filter((x) => x.panelPosition.isAdjacent(panelPosition));
   }
 
+  /**
+   * Shortest path from origin to destination (inclusive of both ends), treating
+   * adjacency (`PanelPosition.isAdjacent`) as graph edges — breadth-first, so the
+   * result is minimal-length. Returns `[origin]` when origin equals destination,
+   * or `null` if destination is unreachable (shouldn't happen on a connected board).
+   */
+  static findShortestPath(
+    origin: PanelPosition,
+    destination: PanelPosition,
+  ): PanelPosition[] | null {
+    const key = (p: PanelPosition) => `${p.horizontalLayer},${p.verticalLayer}`;
+    if (origin.equals(destination)) return [origin];
+
+    const cameFrom = new Map<string, PanelPosition>();
+    const visited = new Set<string>([key(origin)]);
+    let frontier = [origin];
+
+    while (frontier.length > 0) {
+      const nextFrontier: PanelPosition[] = [];
+
+      for (const current of frontier) {
+        const neighbors = this.findAdjacentPanels(current).map((p) => p.panelPosition);
+
+        for (const neighbor of neighbors) {
+          const neighborKey = key(neighbor);
+          if (visited.has(neighborKey)) continue;
+
+          cameFrom.set(neighborKey, current);
+          if (neighbor.equals(destination)) {
+            const path = [neighbor];
+            let step = current;
+            while (!step.equals(origin)) {
+              path.unshift(step);
+              step = cameFrom.get(key(step))!;
+            }
+            path.unshift(origin);
+            return path;
+          }
+
+          visited.add(neighborKey);
+          nextFrontier.push(neighbor);
+        }
+      }
+
+      frontier = nextFrontier;
+    }
+
+    return null;
+  }
+
   static clearSelected(): Panel[] {
     const panels = PanelRepository.getAll();
     return panels.map((p) => {

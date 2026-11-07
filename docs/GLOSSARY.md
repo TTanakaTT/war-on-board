@@ -7,39 +7,47 @@ This glossary standardizes the English terms used in documentation and public co
 
 ## Core Terms
 
-| Term              | Definition                                                                                                                         |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 01. Match         | One full game session from setup to a winner or an automation stop.                                                                |
-| 02. Turn          | A single player's active phase. A turn ends after move resolution, victory check, player switch, passive gains, and resource gain. |
-| 03. Player        | A controllable seat in a match. The project uses two controllable players.                                                         |
-| 04. Self          | The first controllable player and the local "self" side in domain terms.                                                           |
-| 05. Opponent      | The second controllable player and the opposing side in domain terms.                                                              |
-| 06. Seat          | The player order label used in match setup and history presentation.                                                               |
-| 07. Controller    | The actor assigned to a player slot. Current values are human and CPU.                                                             |
-| 08. AI Strength   | The configured CPU level for a controlled slot.                                                                                    |
-| 09. Winner        | The player who captures the enemy home base, or the winning side shown in result and history views.                                |
-| 10. Board Size    | The selected layer count used to generate the hex board.                                                                           |
-| 11. Board Panel   | A single hex tile on the board. In domain code this is usually called a panel.                                                     |
-| 12. Panel         | The canonical domain term for a board tile. Panels store owner, resource, castle, and occupancy state.                             |
-| 13. Home Base     | The home panel that determines victory when captured by the enemy.                                                                 |
-| 14. Resource      | The economic value stored on a panel and gained at turn start from owned panels.                                                   |
-| 15. Castle        | The wall value on a panel. Castle must be reduced before attackers can enter an enemy panel.                                       |
-| 16. Piece         | The canonical domain term for a unit on the board.                                                                                 |
-| 17. Unit          | The player-facing summary term for pieces in counts and history views.                                                             |
-| 18. Knight        | Attack-focused piece type. Knights claim the panel they occupy at turn start.                                                      |
-| 19. Bishop        | Economy-focused piece type. Bishops increase panel resource at turn start.                                                         |
-| 20. Rook          | Defense-focused piece type. Rooks increase panel castle at turn start.                                                             |
-| 21. Produce       | The action name for creating a new piece.                                                                                          |
-| 22. Generation    | The game system that selects a valid panel and spends resources to create a new piece. Front and Rear are generation priorities.   |
-| 23. Match History | The exported or displayed record of turns and match metadata.                                                                      |
-| 24. Result        | The post-match summary dialog or section.                                                                                          |
-| 25. Current turn  | The marker used to highlight the row that matches the present turn in history displays.                                            |
-| 26. Turn Player   | The player label attached to a turn entry in history displays.                                                                     |
-| 27. Menu          | The drawer entry point and title for auxiliary controls and information.                                                           |
-| 28. Settings      | The UI area for language, theme, and reset actions.                                                                                |
-| 29. Language      | The locale selection setting for UI text.                                                                                          |
-| 30. Theme         | The color-scheme setting for the UI.                                                                                               |
-| 31. Information   | The non-board informational area shown in the drawer and panels.                                                                   |
+| Term              | Definition                                                                                                                                         |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01. Match         | One full game session from setup to a winner or an automation stop.                                                                                |
+| 02. Turn          | A single player's active phase. A turn ends after move resolution, victory check, player switch, passive gains, and resource gain.                 |
+| 03. Player        | A controllable seat in a match. The project uses two controllable players.                                                                         |
+| 04. Self          | The first controllable player and the local "self" side in domain terms.                                                                           |
+| 05. Opponent      | The second controllable player and the opposing side in domain terms.                                                                              |
+| 06. Seat          | The player order label used in match setup and history presentation.                                                                               |
+| 07. Controller    | The actor assigned to a player slot. Current values are human and CPU.                                                                             |
+| 08. AI Strength   | The configured CPU level for a controlled slot.                                                                                                    |
+| 09. Winner        | The player who captures the enemy home base, or the winning side shown in result and history views.                                                |
+| 10. Board Size    | The selected layer count used to generate the hex board.                                                                                           |
+| 11. Board Panel   | A single hex tile on the board. In domain code this is usually called a panel.                                                                     |
+| 12. Panel         | The canonical domain term for a board tile. Panels store owner, resource, castle, and occupancy state.                                             |
+| 13. Home Base     | The home panel that determines victory when captured by the enemy.                                                                                 |
+| 14. Resource      | The economic value stored on a panel and gained at turn start from owned panels.                                                                   |
+| 15. Castle        | The wall value on a panel. Castle must be reduced before attackers can enter an enemy panel.                                                       |
+| 16. Piece         | The canonical domain term for a unit on the board.                                                                                                 |
+| 17. Unit          | The player-facing summary term for pieces in counts and history views.                                                                             |
+| 18. Infantry      | Attack-focused piece type (formerly Knight). Infantry claim the panel they occupy at turn start.                                                   |
+| 19. Noble         | Economy-focused piece type (formerly Bishop). Nobles increase panel resource at turn start.                                                        |
+| 20. Rook          | Defense-focused piece type. Rooks increase panel castle at turn start.                                                                             |
+| 21. Archer        | Ranged combat piece type. Archers can attack non-Archer pieces within their attack range without moving and without retaliation.                   |
+| 22. Cavalry       | High-movement combat piece type.                                                                                                                   |
+| 23. Heavy         | High-HP, high-defense combat piece type whose move or attack resolves over two turns instead of one.                                               |
+| 24. Siege         | Wall-focused combat piece type with high attack power against castle and no attack power against pieces.                                           |
+| 25. Defense       | A piece stat that reduces incoming attack power before damage is applied. A defender's merge count does not affect this value.                     |
+| 26. Movement      | A piece stat determining how many panels a piece advances toward its target position per turn.                                                     |
+| 27. Attack Range  | A piece stat determining the panel distance at which a piece can attack without moving into the target panel.                                      |
+| 28. Merge Count   | The number of same-type, same-player pieces combined into a single piece (`stackCount` in code). Multiplies attack power; does not affect defense. |
+| 29. Produce       | The action name for creating a new piece.                                                                                                          |
+| 30. Generation    | The game system that selects a valid panel and spends resources to create a new piece. Front and Rear are generation priorities.                   |
+| 31. Match History | The exported or displayed record of turns and match metadata.                                                                                      |
+| 32. Result        | The post-match summary dialog or section.                                                                                                          |
+| 33. Current turn  | The marker used to highlight the row that matches the present turn in history displays.                                                            |
+| 34. Turn Player   | The player label attached to a turn entry in history displays.                                                                                     |
+| 35. Menu          | The drawer entry point and title for auxiliary controls and information.                                                                           |
+| 36. Settings      | The UI area for language, theme, and reset actions.                                                                                                |
+| 37. Language      | The locale selection setting for UI text.                                                                                                          |
+| 38. Theme         | The color-scheme setting for the UI.                                                                                                               |
+| 39. Information   | The non-board informational area shown in the drawer and panels.                                                                                   |
 
 ## API And Data Terms
 

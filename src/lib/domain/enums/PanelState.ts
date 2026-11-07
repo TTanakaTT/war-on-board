@@ -8,8 +8,7 @@ enum PANELSTATE {
   IMMOVABLE = "immovable",
 }
 
-@EnumClass(PANELSTATE)
-export class PanelState {
+class PanelState {
   static UNOCCUPIED: PanelState;
   static OCCUPIED: PanelState;
   static SELECTED: PanelState;
@@ -21,3 +20,7 @@ export class PanelState {
     this._value = value;
   }
 }
+
+EnumClass(PANELSTATE)(PanelState);
+
+export { PanelState };

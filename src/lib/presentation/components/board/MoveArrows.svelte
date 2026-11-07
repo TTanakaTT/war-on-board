@@ -3,24 +3,48 @@
   import { getPieceTokenOffset } from "$lib/presentation/PieceTokenLayout";
   import { BoardLayout } from "$lib/presentation/BoardLayout";
   import { Player } from "$lib/domain/enums/Player";
+  import type { Piece } from "$lib/domain/entities/Piece";
+  import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
 
-  let piecesWithMoves = $derived.by(() => {
-    return PiecesRepository.getAll()
+  type Arrow = {
+    key: string;
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+    colorClass: string;
+  };
+
+  function arrowColorClass(piece: Piece, isRangedAttack: boolean): string {
+    if (isRangedAttack) return "text-panel-ranged-target dark:text-panel-ranged-target-dark";
+    return piece.player === Player.SELF ? "text-player-self" : "text-player-opponent";
+  }
+
+  function toArrow(piece: Piece, target: PanelPosition, isRangedAttack: boolean): Arrow {
+    const sourcePieces = PiecesRepository.getPiecesByPosition(piece.panelPosition);
+    const pieceIndex = sourcePieces.findIndex((sourcePiece) => sourcePiece.id === piece.id);
+    const start = BoardLayout.getCoordinates(piece.panelPosition);
+    const end = BoardLayout.getCoordinates(target);
+
+    return {
+      key: `${piece.id}-${isRangedAttack ? "ranged" : "move"}`,
+      startX: start.x + getPieceTokenOffset(pieceIndex, sourcePieces.length),
+      startY: start.y,
+      endX: end.x,
+      endY: end.y,
+      colorClass: arrowColorClass(piece, isRangedAttack),
+    };
+  }
+
+  let arrows = $derived.by(() => {
+    const pieces = PiecesRepository.getAll();
+    const moveArrows = pieces
       .filter((piece) => piece.targetPosition)
-      .map((piece) => {
-        const sourcePieces = PiecesRepository.getPiecesByPosition(piece.panelPosition);
-        const pieceIndex = sourcePieces.findIndex((sourcePiece) => sourcePiece.id === piece.id);
-        const start = BoardLayout.getCoordinates(piece.panelPosition);
-        const end = BoardLayout.getCoordinates(piece.targetPosition!);
-
-        return {
-          piece,
-          startX: start.x + getPieceTokenOffset(pieceIndex, sourcePieces.length),
-          startY: start.y,
-          endX: end.x,
-          endY: end.y,
-        };
-      });
+      .map((piece) => toArrow(piece, piece.targetPosition!, false));
+    const rangedAttackArrows = pieces
+      .filter((piece) => piece.rangedAttackTargetPosition)
+      .map((piece) => toArrow(piece, piece.rangedAttackTargetPosition!, true));
+    return [...moveArrows, ...rangedAttackArrows];
   });
 </script>
 
@@ -31,19 +55,14 @@
     </marker>
   </defs>
 
-  {#each piecesWithMoves as movingPiece (movingPiece.piece.id)}
-    {@const color =
-      movingPiece.piece.player === Player.SELF ? "stroke-player-self" : "stroke-player-opponent"}
-    {@const textColor =
-      movingPiece.piece.player === Player.SELF ? "text-player-self" : "text-player-opponent"}
-
-    <g class="{textColor} opacity-35">
+  {#each arrows as arrow (arrow.key)}
+    <g class="{arrow.colorClass} opacity-35">
       <line
-        x1={movingPiece.startX}
-        y1={movingPiece.startY}
-        x2={movingPiece.endX}
-        y2={movingPiece.endY}
-        class={color}
+        x1={arrow.startX}
+        y1={arrow.startY}
+        x2={arrow.endX}
+        y2={arrow.endY}
+        stroke="currentColor"
         stroke-width="2"
         marker-end="url(#arrowhead)"
         stroke-dasharray="8 4"

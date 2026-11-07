@@ -3,6 +3,9 @@
   import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
   import { InteractionService } from "$lib/services/InteractionService";
   import { TurnRepository } from "$lib/data/repositories/TurnRepository";
+  import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
+  import { RangedAttackModeRepository } from "$lib/data/repositories/RangedAttackModeRepository";
+  import { MovementRulesService } from "$lib/services/MovementRulesService";
 
   import { PanelState } from "$lib/domain/enums/PanelState";
   import { Player } from "$lib/domain/enums/Player";
@@ -41,6 +44,34 @@
   let resource = $derived(panel?.resource);
 
   let panelState = $derived(panel?.panelState);
+
+  let selectedPiece = $derived.by(() => {
+    const selectedPieceId = SelectedPanelRepository.getPieceId();
+    if (selectedPieceId === undefined) return undefined;
+    return PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
+  });
+  // A MOVABLE panel beyond one hop from the selected piece takes multiple
+  // turns to reach (see PieceService.finalizePlayerMoves/advanceTravel) —
+  // shown in a distinct color so the player can tell it apart from a
+  // this-turn-reachable panel at a glance.
+  let isDistantMovable = $derived(
+    Boolean(
+      selectedPiece &&
+      !panelPosition.equals(selectedPiece.panelPosition) &&
+      !panelPosition.isAdjacent(selectedPiece.panelPosition),
+    ),
+  );
+  // While ranged-attack mode is active, a panel this reachable-by-fire (see
+  // MovementRulesService.canRangedAttack) is highlighted distinctly from a
+  // plain movable panel, since clicking it fires instead of walking there.
+  let isRangedAttackTarget = $derived(
+    Boolean(
+      selectedPiece &&
+      RangedAttackModeRepository.isActive() &&
+      MovementRulesService.canRangedAttack(selectedPiece.id, panelPosition),
+    ),
+  );
+
   let panelAppearance = $derived(getPanelAppearance());
   let isInteractive = $derived(panelAppearance.isInteractive);
   let panelFrameStyle = $derived(
@@ -111,14 +142,20 @@
           strokeDasharray,
         };
       case PanelState.SELECTED:
-      case PanelState.MOVABLE:
+      case PanelState.MOVABLE: {
+        const movableFill = isRangedAttackTarget
+          ? "fill-panel-ranged-target dark:fill-panel-ranged-target-dark"
+          : isDistantMovable
+            ? "fill-panel-movable-distant dark:fill-panel-movable-distant-dark"
+            : "fill-panel-movable dark:fill-panel-movable-dark";
         return {
           isInteractive: true,
           containerClass: `${baseContainerClass} cursor-pointer`,
-          polygonClass: `${basePolygonClass} fill-panel-movable group-hover:fill-panel-selected dark:fill-panel-movable-dark dark:group-hover:fill-panel-selected-dark`,
+          polygonClass: `${basePolygonClass} ${movableFill} group-hover:fill-panel-selected dark:group-hover:fill-panel-selected-dark`,
           strokeClass,
           strokeDasharray,
         };
+      }
       case PanelState.IMMOVABLE:
       default:
         return {

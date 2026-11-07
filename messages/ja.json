@@ -59,8 +59,14 @@
   "occupied_panels_label": "占領パネル",
   "unit_count_label": "ユニット数",
   "dead_unit_count_label": "死亡数",
-  "piece_knight": "ナイト",
+  "piece_infantry": "歩兵",
   "piece_rook": "ルーク",
-  "piece_bishop": "ビショップ",
-  "result_winner_message": "勝者: {winner}"
+  "piece_noble": "貴族",
+  "piece_archer": "弓兵",
+  "piece_cavalry": "騎兵",
+  "piece_heavy": "重装",
+  "piece_siege": "攻囲兵器",
+  "result_winner_message": "勝者: {winner}",
+  "ranged_attack_start": "遠距離攻撃",
+  "ranged_attack_cancel": "攻撃をキャンセル"
 }

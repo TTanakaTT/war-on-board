@@ -56,7 +56,7 @@ describe("GenerationService", () => {
             id: i + 1,
             panelPosition: pos(-3, 0),
             player: Player.SELF,
-            pieceType: PieceType.KNIGHT,
+            pieceType: PieceType.INFANTRY,
           }),
         );
       }
@@ -64,19 +64,19 @@ describe("GenerationService", () => {
     });
 
     test("allows full panel when pieceType is mergeable and same-type piece exists there", () => {
-      // Fill home base to max with Knights
+      // Fill home base to max with Infantry
       for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
         PiecesRepository.add(
           new Piece({
             id: i + 1,
             panelPosition: pos(-3, 0),
             player: Player.SELF,
-            pieceType: PieceType.KNIGHT,
+            pieceType: PieceType.INFANTRY,
           }),
         );
       }
-      // With pieceType=KNIGHT (mergeable), panel should be accepted
-      const result = GenerationService.findGenerationPanel(Player.SELF, PieceType.KNIGHT);
+      // With pieceType=INFANTRY (mergeable), panel should be accepted
+      const result = GenerationService.findGenerationPanel(Player.SELF, PieceType.INFANTRY);
       expect(result).not.toBeNull();
       expect(result!.horizontalLayer).toBe(-3);
     });
@@ -88,16 +88,16 @@ describe("GenerationService", () => {
             id: i + 1,
             panelPosition: pos(-3, 0),
             player: Player.SELF,
-            pieceType: PieceType.BISHOP,
+            pieceType: PieceType.NOBLE,
           }),
         );
       }
-      // Bishop is non-mergeable — panel should be rejected
-      expect(GenerationService.findGenerationPanel(Player.SELF, PieceType.BISHOP)).toBeNull();
+      // Noble is non-mergeable — panel should be rejected
+      expect(GenerationService.findGenerationPanel(Player.SELF, PieceType.NOBLE)).toBeNull();
     });
 
     test("returns null for full panel when mergeable pieceType differs from existing pieces", () => {
-      // Fill with Rooks (non-mergeable), try to generate Knight (mergeable but no match)
+      // Fill with Rooks (non-mergeable), try to generate Infantry (mergeable but no match)
       for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
         PiecesRepository.add(
           new Piece({
@@ -108,7 +108,7 @@ describe("GenerationService", () => {
           }),
         );
       }
-      expect(GenerationService.findGenerationPanel(Player.SELF, PieceType.KNIGHT)).toBeNull();
+      expect(GenerationService.findGenerationPanel(Player.SELF, PieceType.INFANTRY)).toBeNull();
     });
 
     test("prefers higher |horizontalLayer| in rear mode (closer to home)", () => {
@@ -209,7 +209,7 @@ describe("GenerationService", () => {
             id: i + 10,
             panelPosition: pos(-3, 0),
             player: Player.SELF,
-            pieceType: PieceType.KNIGHT,
+            pieceType: PieceType.INFANTRY,
           }),
         );
       }
@@ -220,14 +220,14 @@ describe("GenerationService", () => {
   });
 
   describe("generate", () => {
-    test("creates a KNIGHT by default when no pieceType specified", () => {
+    test("creates an INFANTRY by default when no pieceType specified", () => {
       // Ensure enough resources
       const turn = TurnRepository.get();
       TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 20 } });
       GenerationService.generate();
       const pieces = PiecesRepository.getAll();
       expect(pieces.length).toBe(1);
-      expect(pieces[0].pieceType).toBe(PieceType.KNIGHT);
+      expect(pieces[0].pieceType).toBe(PieceType.INFANTRY);
     });
 
     test("deducts cost from player resources", () => {
@@ -237,15 +237,15 @@ describe("GenerationService", () => {
         ...turn,
         resources: { ...turn.resources, [String(Player.SELF)]: initialResources },
       });
-      GenerationService.generate(PieceType.KNIGHT);
+      GenerationService.generate(PieceType.INFANTRY);
       const newResources = TurnRepository.get().resources[String(Player.SELF)];
-      expect(newResources).toBe(initialResources - PieceType.KNIGHT.config.cost);
+      expect(newResources).toBe(initialResources - PieceType.INFANTRY.config.cost);
     });
 
     test("places piece on the generation panel", () => {
       const turn = TurnRepository.get();
       TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 20 } });
-      GenerationService.generate(PieceType.KNIGHT);
+      GenerationService.generate(PieceType.INFANTRY);
       const piece = PiecesRepository.getAll()[0];
       // Should be placed on home base (best generation panel in rear mode)
       expect(piece.panelPosition.horizontalLayer).toBe(-3);
@@ -270,7 +270,7 @@ describe("GenerationService", () => {
       );
 
       const forcedPosition = pos(-3, 0);
-      const generatedPosition = GenerationService.generate(PieceType.KNIGHT, forcedPosition);
+      const generatedPosition = GenerationService.generate(PieceType.INFANTRY, forcedPosition);
 
       expect(generatedPosition?.equals(forcedPosition)).toBe(true);
 
@@ -282,7 +282,7 @@ describe("GenerationService", () => {
     test("does nothing when resources are insufficient", () => {
       const turn = TurnRepository.get();
       TurnRepository.set({ ...turn, resources: { ...turn.resources, [String(Player.SELF)]: 0 } });
-      GenerationService.generate(PieceType.KNIGHT);
+      GenerationService.generate(PieceType.INFANTRY);
       expect(PiecesRepository.getAll()).toHaveLength(0);
     });
 
@@ -311,7 +311,7 @@ describe("GenerationService", () => {
       const homePanel = PanelRepository.find(pos(-3, 0))!;
       const originalResource = homePanel.resource;
       const originalCastle = homePanel.castle;
-      GenerationService.generate(PieceType.KNIGHT);
+      GenerationService.generate(PieceType.INFANTRY);
       const updatedPanel = PanelRepository.find(pos(-3, 0))!;
       // Resource is preserved (not consumed from panel, only from turn resources)
       expect(updatedPanel.resource).toBe(originalResource);

@@ -3,6 +3,7 @@
   import { BoardLayout } from "$lib/presentation/BoardLayout";
   import { PIECE_PREVIEW_ANIMATION_MS } from "$lib/presentation/constants/PieceTokenConstants";
   import { getPieceTokenOffset } from "$lib/presentation/PieceTokenLayout";
+  import { PieceService } from "$lib/services/PieceService";
   import PieceToken from "./PieceToken.svelte";
 
   type MovingPreview = {
@@ -21,7 +22,7 @@
         const sourcePieces = PiecesRepository.getPiecesByPosition(piece.panelPosition);
         const pieceIndex = sourcePieces.findIndex((sourcePiece) => sourcePiece.id === piece.id);
         const sourceCoordinates = BoardLayout.getCoordinates(piece.panelPosition);
-        const targetCoordinates = BoardLayout.getCoordinates(piece.targetPosition!);
+        const targetCoordinates = BoardLayout.getCoordinates(PieceService.previewTravelStop(piece));
         const startX = sourceCoordinates.x + getPieceTokenOffset(pieceIndex, sourcePieces.length);
 
         return {

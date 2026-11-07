@@ -59,8 +59,14 @@
   "occupied_panels_label": "Panels",
   "unit_count_label": "Units",
   "dead_unit_count_label": "Lost",
-  "piece_knight": "Knight",
+  "piece_infantry": "Infantry",
   "piece_rook": "Rook",
-  "piece_bishop": "Bishop",
-  "result_winner_message": "Winner: {winner}"
+  "piece_noble": "Noble",
+  "piece_archer": "Archer",
+  "piece_cavalry": "Cavalry",
+  "piece_heavy": "Heavy",
+  "piece_siege": "Siege",
+  "result_winner_message": "Winner: {winner}",
+  "ranged_attack_start": "Ranged Attack",
+  "ranged_attack_cancel": "Cancel Attack"
 }

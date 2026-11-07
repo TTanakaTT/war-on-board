@@ -88,7 +88,7 @@ export class GenerationService {
    * Consumes resources and places the piece on the best available panel.
    */
   static generate(
-    pieceType: PieceType = PieceTypeClass.KNIGHT,
+    pieceType: PieceType = PieceTypeClass.INFANTRY,
     generationPosition?: PanelPosition,
   ): PanelPosition | null {
     const turn = TurnRepository.get();

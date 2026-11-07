@@ -1,9 +1,13 @@
 import { EnumClass } from "./EnumFactory";
 
 enum PIECETYPE {
-  KNIGHT = "knight",
+  INFANTRY = "infantry",
   ROOK = "rook",
-  BISHOP = "bishop",
+  NOBLE = "noble",
+  ARCHER = "archer",
+  CAVALRY = "cavalry",
+  HEAVY = "heavy",
+  SIEGE = "siege",
 }
 
 interface PieceConfig {
@@ -12,20 +16,38 @@ interface PieceConfig {
   readonly maxHp: number;
   readonly attackPowerAgainstPiece: number;
   readonly attackPowerAgainstWall: number;
+  readonly defense: number;
+  /**
+   * Panels advanced toward a piece's target position per turn. Movement points
+   * accrue each turn up to max(movement, MOVEMENT_HOP_COST) — see
+   * PieceService.computeAccruedMovementPoints — and merge does not scale it.
+   */
+  readonly movement: number;
+  /**
+   * Panel distance at which this piece can deal and receive combat damage.
+   * A defender only counterattacks if its own attackRange reaches the actual
+   * distance to its attacker — see CombatService.resolveCombat. Not scaled
+   * by merge/stackCount.
+   */
+  readonly attackRange: number;
   /**
    * Whether units of this type can merge when multiple occupy the same panel.
-   * Merging sums HP, maxHp, stackCount and adds +1 attack power per merge.
+   * Merging sums HP, maxHp, stackCount. Merge multiplies attack *count*, not
+   * attack power — see Piece.attackPowerAgainstPiece/attackPowerAgainstWall.
    */
   readonly mergeable: boolean;
 }
 
 const CONFIGS: Record<PIECETYPE, PieceConfig> = {
-  [PIECETYPE.KNIGHT]: {
-    iconName: "chess_knight",
+  [PIECETYPE.INFANTRY]: {
+    iconName: "chess_pawn",
     cost: 8,
     maxHp: 10,
     attackPowerAgainstPiece: 5,
-    attackPowerAgainstWall: 2,
+    attackPowerAgainstWall: 1,
+    defense: 1,
+    movement: 1,
+    attackRange: 1,
     mergeable: true,
   },
   [PIECETYPE.ROOK]: {
@@ -34,23 +56,76 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     maxHp: 10,
     attackPowerAgainstPiece: 2,
     attackPowerAgainstWall: 2,
+    defense: 1,
+    movement: 1,
+    attackRange: 1,
     mergeable: false,
   },
-  [PIECETYPE.BISHOP]: {
-    iconName: "chess_bishop",
+  [PIECETYPE.NOBLE]: {
+    iconName: "chess_bishop_2",
     cost: 10,
     maxHp: 5,
     attackPowerAgainstPiece: 0,
     attackPowerAgainstWall: 0,
+    defense: 0,
+    movement: 1,
+    attackRange: 0,
     mergeable: false,
+  },
+  [PIECETYPE.ARCHER]: {
+    iconName: "archer",
+    cost: 10,
+    maxHp: 8,
+    attackPowerAgainstPiece: 4,
+    attackPowerAgainstWall: 0,
+    defense: 0,
+    movement: 1,
+    attackRange: 2,
+    mergeable: true,
+  },
+  [PIECETYPE.CAVALRY]: {
+    iconName: "chess_knight",
+    cost: 16,
+    maxHp: 12,
+    attackPowerAgainstPiece: 8,
+    attackPowerAgainstWall: 1,
+    defense: 1,
+    movement: 2,
+    attackRange: 1,
+    mergeable: true,
+  },
+  [PIECETYPE.HEAVY]: {
+    iconName: "shield",
+    cost: 16,
+    maxHp: 20,
+    attackPowerAgainstPiece: 6,
+    attackPowerAgainstWall: 1,
+    defense: 2,
+    movement: 0.5,
+    attackRange: 1,
+    mergeable: true,
+  },
+  [PIECETYPE.SIEGE]: {
+    iconName: "siege",
+    cost: 30,
+    maxHp: 30,
+    attackPowerAgainstPiece: 1,
+    attackPowerAgainstWall: 5,
+    defense: 3,
+    movement: 1,
+    attackRange: 1,
+    mergeable: true,
   },
 } as const;
 
-@EnumClass(PIECETYPE)
-export class PieceType {
-  static KNIGHT: PieceType;
+class PieceType {
+  static INFANTRY: PieceType;
   static ROOK: PieceType;
-  static BISHOP: PieceType;
+  static NOBLE: PieceType;
+  static ARCHER: PieceType;
+  static CAVALRY: PieceType;
+  static HEAVY: PieceType;
+  static SIEGE: PieceType;
 
   private readonly _value: PIECETYPE;
   constructor(value: PIECETYPE) {
@@ -61,3 +136,7 @@ export class PieceType {
     return CONFIGS[this._value];
   }
 }
+
+EnumClass(PIECETYPE)(PieceType);
+
+export { PieceType };

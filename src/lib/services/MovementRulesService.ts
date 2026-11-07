@@ -1,8 +1,13 @@
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import type { Piece } from "$lib/domain/entities/Piece";
 import { Player } from "$lib/domain/enums/Player";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { DEFAULT_MAX_PIECES_PER_PANEL } from "$lib/domain/constants/GameConstants";
+import { PanelsService } from "$lib/services/PanelService";
+import {
+  DEFAULT_MAX_PIECES_PER_PANEL,
+  MOVEMENT_HOP_COST,
+} from "$lib/domain/constants/GameConstants";
 
 /**
  * MovementRulesService — pure query service for movement-related rules.
@@ -70,9 +75,24 @@ export class MovementRulesService {
   }
 
   /**
+   * Whether <attacker> may target a panel occupied by <defenders> at all.
+   * Every defender's defense must be <= the attacker's raw base attack power
+   * against pieces (not merge/stackCount adjusted — merge multiplies hit
+   * count, never raw attack power). If even one defender's defense exceeds
+   * it, the attacker cannot legally select this target — a hard block on
+   * move/attack selection, distinct from dealing 0 damage. Only meaningful
+   * when defenders are present; wall-only panels are never gated by this.
+   */
+  static canDefeatAllDefenders(attacker: Piece, defenders: Piece[]): boolean {
+    return defenders.every((defender) => defender.defense <= attacker.attackPowerAgainstPiece);
+  }
+
+  /**
    * Determine whether <player>'s piece (id = selectedPieceId) can move to <targetPosition>.
    *
-   * - Enemy panels → always movable (attack target; capacity is irrelevant).
+   * - Enemy panels → movable if the piece can attack and, when defenders are
+   *   present, can defeat every one of them (see canDefeatAllDefenders).
+   *   Capacity is irrelevant for enemy panels.
    * - Friendly panels → movable only if projected post-merge stack count <= maxPieces.
    */
   static canMoveTo(
@@ -85,6 +105,12 @@ export class MovementRulesService {
     if (!piece) return false;
     if (this.hasEnemyPresence(targetPosition, player)) {
       if (!piece.canAttack) return false;
+
+      const defenders = PiecesRepository.getPiecesByPosition(targetPosition).filter(
+        (p) => p.player !== player && p.player !== Player.UNKNOWN,
+      );
+      if (defenders.length > 0 && !this.canDefeatAllDefenders(piece, defenders)) return false;
+
       return true;
     }
 
@@ -109,9 +135,67 @@ export class MovementRulesService {
   }
 
   /**
+   * Whether <position> blocks travel through it toward a farther target, from
+   * <player>'s perspective: either enemy presence (piece or wall — engaging it
+   * mid-transit isn't a plain pass-through) or a friendly panel already at/over
+   * capacity. Only meaningful for intermediate hops — the final destination of a
+   * move/attack is validated separately (see canMoveTo/canDefeatAllDefenders).
+   */
+  static isTransitObstacle(
+    position: PanelPosition,
+    player: Player,
+    maxPieces: number = DEFAULT_MAX_PIECES_PER_PANEL,
+  ): boolean {
+    if (this.hasEnemyPresence(position, player)) return true;
+    return this.projectedFriendlyStackCount(position, player) >= maxPieces;
+  }
+
+  /**
+   * Whether <attackerId> may fire a ranged attack (GameApi.assignRangedAttack)
+   * at <targetPosition> without moving there. Requires the panel distance to
+   * be farther than adjacent (distance 1 is always handled by canMoveTo's
+   * ordinary attack path) but no farther than the attacker's own attackRange,
+   * enemy pieces present at the target (and no enemy castle wall there —
+   * PieceService.resolveRangedAttacks never deals wall damage, so a walled
+   * panel is never a valid ranged-attack target), and every defending piece
+   * defeatable (see canDefeatAllDefenders). Reused both by
+   * GameApi.assignRangedAttack's validation and by the board UI to highlight
+   * valid targets.
+   */
+  static canRangedAttack(attackerId: number, targetPosition: PanelPosition): boolean {
+    const piece = PiecesRepository.getAll().find((candidate) => candidate.id === attackerId);
+    if (!piece) return false;
+
+    const path = PanelsService.findShortestPath(piece.panelPosition, targetPosition);
+    const distance = path ? path.length - 1 : Infinity;
+    if (distance <= 1 || distance > piece.attackRange) return false;
+
+    const targetPanel = PanelRepository.find(targetPosition);
+    if (
+      targetPanel &&
+      targetPanel.player !== piece.player &&
+      targetPanel.player !== Player.UNKNOWN &&
+      targetPanel.castle > 0
+    ) {
+      return false;
+    }
+
+    const defenders = PiecesRepository.getPiecesByPosition(targetPosition).filter(
+      (p) => p.player !== piece.player && p.player !== Player.UNKNOWN,
+    );
+    if (defenders.length === 0) return false;
+
+    return this.canDefeatAllDefenders(piece, defenders);
+  }
+
+  /**
    * Check whether cancelling a piece's pending move is allowed.
-   * Cancel is blocked if returning the piece to its current panel would
-   * exceed the capacity limit.
+   *
+   * Blocked if:
+   *   - The piece's movement is below MOVEMENT_HOP_COST (e.g. a movement<1 piece)
+   *     — its pending action is committed the instant it's assigned (see
+   *     GameApi.assignMove) and cannot be redirected or cancelled until it resolves.
+   *   - Returning the piece to its current panel would exceed the capacity limit.
    */
   static canCancelMove(
     pieceCurrentPosition: PanelPosition,
@@ -119,6 +203,9 @@ export class MovementRulesService {
     pieceId: number,
     maxPieces: number = DEFAULT_MAX_PIECES_PER_PANEL,
   ): boolean {
+    const piece = PiecesRepository.getAll().find((candidate) => candidate.id === pieceId);
+    if (piece && piece.pieceType.config.movement < MOVEMENT_HOP_COST) return false;
+
     const projectedStackCount = this.projectedFriendlyStackCount(
       pieceCurrentPosition,
       player,

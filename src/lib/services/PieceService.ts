@@ -8,8 +8,16 @@ import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { PanelState } from "$lib/domain/enums/PanelState";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { CombatService } from "$lib/services/CombatService";
-import { PASSIVE_RESOURCE_CAP, PASSIVE_CASTLE_CAP } from "$lib/domain/constants/GameConstants";
+import { PanelsService } from "$lib/services/PanelService";
+import { MovementRulesService } from "$lib/services/MovementRulesService";
+import {
+  PASSIVE_RESOURCE_CAP,
+  PASSIVE_CASTLE_CAP,
+  MOVEMENT_HOP_COST,
+  DEFAULT_MAX_PIECES_PER_PANEL,
+} from "$lib/domain/constants/GameConstants";
 import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
+import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 
 export class PieceService {
   /**
@@ -96,8 +104,97 @@ export class PieceService {
       hp: selectedPiece.hp,
       stackCount: selectedPiece.stackCount,
       maxHp: selectedPiece.maxHp,
+      movementPoints: selectedPiece.movementPoints - MOVEMENT_HOP_COST,
     });
     PiecesRepository.update(newPiece);
+  }
+
+  /**
+   * Movement points accrued this turn, capped so a piece never banks more
+   * than max(movementRate, MOVEMENT_HOP_COST). A movementRate below
+   * MOVEMENT_HOP_COST (e.g. 0.5) takes multiple turns to reach the cap.
+   */
+  static computeAccruedMovementPoints(currentPoints: number, movementRate: number): number {
+    const cap = Math.max(movementRate, MOVEMENT_HOP_COST);
+    return Math.min(cap, currentPoints + movementRate);
+  }
+
+  static accrueMovementForPlayer(player: Player): void {
+    const pieces = PiecesRepository.getPiecesByPlayer(player);
+    pieces.forEach((piece: Piece) => {
+      PiecesRepository.update(
+        new Piece({
+          ...piece,
+          movementPoints: this.computeAccruedMovementPoints(
+            piece.movementPoints,
+            piece.pieceType.config.movement,
+          ),
+        }),
+      );
+    });
+  }
+
+  /**
+   * Compute how far <piece> can advance this turn toward <destination> without
+   * mutating anything, and whether a transit obstacle stops it short of that.
+   * Always stops one panel short of the destination — the final hop (entry or
+   * attack) is handled by resolveTargetPanel/move(), never here, so a hop is
+   * never double-charged. When an intermediate panel is a transit obstacle
+   * (see MovementRulesService.isTransitObstacle), stops there and reports it
+   * via obstaclePosition — the caller resolves it as this turn's action
+   * instead of continuing toward the original destination.
+   */
+  private static computeTravelAdvance(
+    piece: Piece,
+    destination: PanelPosition,
+    maxPieces: number,
+  ): { stopPosition: PanelPosition; hopsUsed: number; obstaclePosition?: PanelPosition } {
+    const path = PanelsService.findShortestPath(piece.panelPosition, destination);
+    if (!path || path.length < 2) return { stopPosition: piece.panelPosition, hopsUsed: 0 };
+
+    const stopThreshold = path.length - 2; // index of the panel adjacent to destination
+    let hopsBudget = Math.floor(piece.movementPoints / MOVEMENT_HOP_COST);
+    let stopIndex = 0;
+
+    for (let i = 1; i <= stopThreshold && hopsBudget > 0; i++) {
+      if (MovementRulesService.isTransitObstacle(path[i], piece.player, maxPieces)) {
+        return { stopPosition: path[stopIndex], hopsUsed: stopIndex, obstaclePosition: path[i] };
+      }
+      stopIndex = i;
+      hopsBudget -= 1;
+    }
+
+    return { stopPosition: path[stopIndex], hopsUsed: stopIndex };
+  }
+
+  /**
+   * Whether <position> is close enough to <target> to attempt entry/attack
+   * this turn — either the same panel or adjacent to it.
+   */
+  private static isInEngagementRange(position: PanelPosition, target: PanelPosition): boolean {
+    return position.equals(target) || position.isAdjacent(target);
+  }
+
+  /**
+   * Read-only preview of where <piece> would attempt to act at the end of the
+   * current turn if finalizePlayerMoves ran right now. Used by the board UI
+   * to show "this turn's actual movement" instead of the final (possibly
+   * distant) targetPosition. When a transit obstacle blocks the way, this
+   * returns the obstacle panel itself (where the piece will attack/merge/be
+   * blocked this turn), not the panel short of it — mirroring how an
+   * already-in-range piece optimistically shows its actual target regardless
+   * of whether entry will succeed. Always matches finalizePlayerMoves's real
+   * outcome, since both rely on the same computeTravelAdvance.
+   */
+  static previewTravelStop(piece: Piece): PanelPosition {
+    const target = piece.targetPosition;
+    if (!target) return piece.panelPosition;
+    if (this.isInEngagementRange(piece.panelPosition, target)) return target;
+
+    const turn = TurnRepository.get();
+    const maxPieces = turn.maxPiecesPerPanel[String(piece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
+    const { stopPosition, obstaclePosition } = this.computeTravelAdvance(piece, target, maxPieces);
+    return obstaclePosition ?? stopPosition;
   }
 
   static resetInitialPositions(player: Player) {
@@ -153,7 +250,7 @@ export class PieceService {
         const overflowResult = CombatService.resolveOverflowCombat(
           attackers,
           defenders,
-          wallAttackResult.overflowPieceDamage,
+          wallAttackResult.overflowRatio,
         );
         deadIds = new Set([...deadIds, ...overflowResult.deadIds]);
       }
@@ -188,7 +285,16 @@ export class PieceService {
       if (canEnter) {
         this.move(targetPosition, current);
       } else {
-        PiecesRepository.update(new Piece({ ...current, targetPosition: undefined }));
+        // Reaching this branch means an attack was actually attempted (wall or piece combat
+        // occurred) but didn't fully succeed — it still costs a movement point, same as a
+        // successful move, regardless of outcome.
+        PiecesRepository.update(
+          new Piece({
+            ...current,
+            targetPosition: undefined,
+            movementPoints: current.movementPoints - MOVEMENT_HOP_COST,
+          }),
+        );
       }
     }
 
@@ -223,7 +329,7 @@ export class PieceService {
       const panel = PanelRepository.find(piece.panelPosition);
       if (!panel) return;
 
-      if (piece.pieceType === PieceType.BISHOP) {
+      if (piece.pieceType === PieceType.NOBLE) {
         PanelRepository.update(
           new Panel({
             ...panel,
@@ -242,6 +348,7 @@ export class PieceService {
         );
         MatchStatsRepository.addBuiltCastle(piece.player, nextCastle - panel.castle);
       } else {
+        // Infantry and all future combat unit types claim the panel they occupy.
         PanelRepository.update(
           new Panel({
             ...panel,
@@ -255,19 +362,157 @@ export class PieceService {
   /**
    * Finalize all pending moves for a player.
    *
-   * Groups attackers by target panel, then resolves each group
-   * with simultaneous multi-unit combat.
+   * A piece whose targetPosition is farther than one hop away advances toward it
+   * via computeTravelAdvance, stopping one panel short of the target. If it lands
+   * in range (adjacent to or on the target) with movement points still remaining,
+   * it proceeds to engage this same turn; otherwise its target and remaining
+   * points are left untouched for a later turn's finalizePlayerMoves to continue
+   * — UNLESS an intermediate panel blocks it (a transit obstacle, see
+   * MovementRulesService.isTransitObstacle). Hitting an obstacle always resolves
+   * this turn and always cancels the pending distant order afterward, regardless
+   * of outcome:
+   *   - An enemy-occupied (or enemy-walled) obstacle is engaged exactly like a
+   *     direct target, via resolveTargetPanel (attack/wall combat, entering only
+   *     if it's cleared).
+   *   - A friendly panel already at capacity is entered (and later merged by
+   *     mergeAllPiecesForPlayer) if this specific piece would still fit once
+   *     merge-consolidation is accounted for (MovementRulesService.canMoveTo);
+   *     otherwise the piece stays put, unable to proceed at all.
+   *
+   * Pieces that reach engagement range of their actual final target are grouped
+   * by that target panel and resolved with simultaneous multi-unit combat,
+   * exactly as for an already-adjacent piece.
+   *
+   * A piece whose banked movementPoints haven't yet reached MOVEMENT_HOP_COST is skipped
+   * entirely — its pending target and points are left untouched, to be resolved on a later
+   * turn once enough movement has accrued (see GameApi.assignMove for how a movement<1
+   * piece's points are committed down to its rate on assignment).
    *
    * @returns Combat outcomes for groups where combat occurred.
    */
   static finalizePlayerMoves(player: Player): CombatOutcome[] {
-    const pieces = PiecesRepository.getPiecesByPlayer(player);
-    const piecesWithMoves = pieces.filter((p) => p.targetPosition);
+    const turn = TurnRepository.get();
+    const maxPieces = turn.maxPiecesPerPanel[String(player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
 
-    // Group by target panel position
-    const groups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
+    const pieces = PiecesRepository.getPiecesByPlayer(player);
+    const piecesWithMoves = pieces.filter(
+      (p) => p.targetPosition && p.movementPoints >= MOVEMENT_HOP_COST,
+    );
+
+    const readyForEngagement: Piece[] = [];
+    const enemyObstacleGroups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
+    const friendlyObstacleEncounters: { piece: Piece; obstaclePosition: PanelPosition }[] = [];
+
     for (const piece of piecesWithMoves) {
+      const target = piece.targetPosition!;
+
+      if (this.isInEngagementRange(piece.panelPosition, target)) {
+        readyForEngagement.push(piece);
+        continue;
+      }
+
+      const { stopPosition, hopsUsed, obstaclePosition } = this.computeTravelAdvance(
+        piece,
+        target,
+        maxPieces,
+      );
+
+      let current = piece;
+      if (hopsUsed > 0) {
+        current = new Piece({
+          ...piece,
+          panelPosition: stopPosition,
+          initialPosition: stopPosition,
+          movementPoints: piece.movementPoints - hopsUsed * MOVEMENT_HOP_COST,
+        });
+        PiecesRepository.update(current);
+      }
+
+      if (obstaclePosition) {
+        if (MovementRulesService.hasEnemyPresence(obstaclePosition, player)) {
+          const key = `${obstaclePosition.horizontalLayer},${obstaclePosition.verticalLayer}`;
+          const group = enemyObstacleGroups.get(key);
+          if (group) {
+            group.attackers.push(current);
+          } else {
+            enemyObstacleGroups.set(key, { attackers: [current], target: obstaclePosition });
+          }
+        } else {
+          friendlyObstacleEncounters.push({ piece: current, obstaclePosition });
+        }
+        continue;
+      }
+
+      if (
+        this.isInEngagementRange(current.panelPosition, target) &&
+        current.movementPoints >= MOVEMENT_HOP_COST
+      ) {
+        readyForEngagement.push(current);
+      }
+    }
+
+    const outcomes: CombatOutcome[] = [];
+
+    // Final-target engagements, grouped by target panel.
+    const groups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
+    for (const piece of readyForEngagement) {
       const tp = piece.targetPosition!;
+      const key = `${tp.horizontalLayer},${tp.verticalLayer}`;
+      const group = groups.get(key);
+      if (group) {
+        group.attackers.push(piece);
+      } else {
+        groups.set(key, { attackers: [piece], target: tp });
+      }
+    }
+    for (const { attackers, target } of groups.values()) {
+      const outcome = this.resolveTargetPanel(attackers, target);
+      if (outcome) outcomes.push(outcome);
+    }
+
+    // Transit obstacles: always resolved (and the distant order cancelled) this turn.
+    for (const { attackers, target } of enemyObstacleGroups.values()) {
+      const outcome = this.resolveTargetPanel(attackers, target);
+      if (outcome) outcomes.push(outcome);
+    }
+    for (const { piece, obstaclePosition } of friendlyObstacleEncounters) {
+      if (MovementRulesService.canMoveTo(obstaclePosition, player, piece.id, maxPieces)) {
+        this.move(obstaclePosition, piece);
+      } else {
+        PiecesRepository.update(
+          new Piece({
+            ...piece,
+            targetPosition: undefined,
+            movementPoints: piece.movementPoints - MOVEMENT_HOP_COST,
+          }),
+        );
+      }
+    }
+
+    return outcomes;
+  }
+
+  /**
+   * Resolve all pending ranged attacks for a player (see GameApi.assignRangedAttack).
+   *
+   * Unlike finalizePlayerMoves, a ranged attacker never moves — it stays at its
+   * current panel and fires at rangedAttackTargetPosition. Attackers targeting the
+   * same panel are grouped and resolved as simultaneous combat via
+   * CombatService.resolveCombat, passing the actual panel distance so defenders
+   * whose own attackRange can't reach that far don't counterattack. Every attacker's
+   * rangedAttackTargetPosition is cleared and a MOVEMENT_HOP_COST spent regardless of
+   * outcome — firing is the action, whether or not the target is destroyed.
+   *
+   * @returns Combat outcomes for groups where combat occurred.
+   */
+  static resolveRangedAttacks(player: Player): CombatOutcome[] {
+    const pieces = PiecesRepository.getPiecesByPlayer(player).filter(
+      (p) => p.rangedAttackTargetPosition && p.movementPoints >= MOVEMENT_HOP_COST,
+    );
+
+    const groups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
+    for (const piece of pieces) {
+      const tp = piece.rangedAttackTargetPosition!;
       const key = `${tp.horizontalLayer},${tp.verticalLayer}`;
       const group = groups.get(key);
       if (group) {
@@ -279,9 +524,36 @@ export class PieceService {
 
     const outcomes: CombatOutcome[] = [];
     for (const { attackers, target } of groups.values()) {
-      const outcome = this.resolveTargetPanel(attackers, target);
-      if (outcome) outcomes.push(outcome);
+      for (const attacker of attackers) {
+        PiecesRepository.update(
+          new Piece({
+            ...attacker,
+            rangedAttackTargetPosition: undefined,
+            movementPoints: attacker.movementPoints - MOVEMENT_HOP_COST,
+          }),
+        );
+      }
+
+      const defenders = PiecesRepository.getPiecesByPosition(target).filter(
+        (p) => p.player !== player && p.player !== Player.UNKNOWN,
+      );
+      if (defenders.length === 0) continue;
+
+      const path = PanelsService.findShortestPath(attackers[0].panelPosition, target);
+      const distance = path ? path.length - 1 : attackers[0].attackRange;
+      const { deadIds } = CombatService.resolveCombat(attackers, defenders, distance);
+
+      outcomes.push({
+        targetPosition: {
+          horizontalLayer: target.horizontalLayer,
+          verticalLayer: target.verticalLayer,
+        },
+        destroyedPieceIds: [...deadIds],
+        entered: false,
+        wallDamageDealt: 0,
+      });
     }
+
     return outcomes;
   }
 }

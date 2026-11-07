@@ -6,8 +6,7 @@ enum PLAYER {
   UNKNOWN = "unknown",
 }
 
-@EnumClass(PLAYER)
-export class Player {
+class Player {
   static SELF: Player;
   static OPPONENT: Player;
   static UNKNOWN: Player;
@@ -17,3 +16,7 @@ export class Player {
     this._value = value;
   }
 }
+
+EnumClass(PLAYER)(Player);
+
+export { Player };

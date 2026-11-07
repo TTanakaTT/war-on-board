@@ -3,8 +3,9 @@
   import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
   import { PanelRepository } from "$lib/data/repositories/PanelRepository";
   import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-  import { PieceType } from "$lib/domain/enums/PieceType";
+  import type { PieceType } from "$lib/domain/enums/PieceType";
   import { Player } from "$lib/domain/enums/Player";
+  import type { MatchStatsPieceKey } from "$lib/domain/types/matchStats";
   import { m } from "$lib/paraglide/messages";
   import Icon from "$lib/presentation/components/primitives/Icon.svelte";
   import { PIECE_TYPE_DISPLAY_ORDER, pieceTypeLabel } from "$lib/presentation/piecePresentation";
@@ -40,17 +41,8 @@
   let pieces = $derived(PiecesRepository.getAll());
 
   function deadCountByType(cardId: PlayerInfoCard["id"], pieceType: PieceType): number {
-    const playerStats = matchStats[cardId];
-
-    if (pieceType === PieceType.ROOK) {
-      return playerStats.deadUnitCounts.rook;
-    }
-
-    if (pieceType === PieceType.BISHOP) {
-      return playerStats.deadUnitCounts.bishop;
-    }
-
-    return playerStats.deadUnitCounts.knight;
+    // Every PieceType's string value matches its deadUnitCounts field name directly.
+    return matchStats[cardId].deadUnitCounts[String(pieceType) as MatchStatsPieceKey];
   }
 
   function buildPlayerInfo(player: Player): PlayerInfoCard {

@@ -9,6 +9,8 @@ import { PanelState } from "$lib/domain/enums/PanelState";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { Player } from "$lib/domain/enums/Player";
 import { InteractionService } from "$lib/services/InteractionService";
+import { PanelsService } from "$lib/services/PanelService";
+import { RangedAttackModeRepository } from "$lib/data/repositories/RangedAttackModeRepository";
 
 const pos = (horizontalLayer: number, verticalLayer: number) =>
   new PanelPosition({ horizontalLayer, verticalLayer });
@@ -19,7 +21,19 @@ function setupSelfPiece(position: PanelPosition, id = 1): Piece {
     panelPosition: position,
     initialPosition: position,
     player: Player.SELF,
-    pieceType: PieceType.KNIGHT,
+    pieceType: PieceType.INFANTRY,
+  });
+  PiecesRepository.add(piece);
+  return piece;
+}
+
+function setupSelfArcher(position: PanelPosition, id = 1): Piece {
+  const piece = new Piece({
+    id,
+    panelPosition: position,
+    initialPosition: position,
+    player: Player.SELF,
+    pieceType: PieceType.ARCHER,
   });
   PiecesRepository.add(piece);
   return piece;
@@ -82,6 +96,86 @@ describe("InteractionService", () => {
 
       expect(getPiece(1).targetPosition?.equals(nextTarget)).toBe(true);
       expect(PanelRepository.find(pos(0, 0))?.panelState).toBe(PanelState.OCCUPIED);
+    });
+  });
+
+  describe("highlightMovableFromOccupied — distant targets", () => {
+    test("marks a distant (non-adjacent) empty panel as MOVABLE", () => {
+      setupSelfPiece(pos(-3, 0));
+      PanelsService.refreshPanelStates();
+      const distantTarget = pos(0, 0);
+
+      InteractionService.pieceChange(getPiece(1));
+
+      expect(PanelRepository.find(distantTarget)?.panelState).toBe(PanelState.MOVABLE);
+    });
+
+    test("leaves a distant panel unchanged when canMoveTo disallows it (piece cannot attack at all)", () => {
+      setupSelfPiece(pos(-3, 0));
+      const noble = getPiece(1);
+      PiecesRepository.update(new Piece({ ...noble, pieceType: PieceType.NOBLE }));
+
+      const distantEnemyPosition = pos(0, 0);
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: distantEnemyPosition,
+          initialPosition: distantEnemyPosition,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+      PanelsService.refreshPanelStates();
+
+      InteractionService.pieceChange(getPiece(1));
+
+      const panelState = PanelRepository.find(distantEnemyPosition)?.panelState;
+      expect(panelState).not.toBe(PanelState.MOVABLE);
+      expect(panelState).not.toBe(PanelState.IMMOVABLE);
+    });
+  });
+
+  describe("ranged attack mode", () => {
+    test("toggleRangedAttackMode does nothing when no piece is selected", () => {
+      InteractionService.toggleRangedAttackMode();
+      expect(RangedAttackModeRepository.isActive()).toBe(false);
+    });
+
+    test("panelChange fires assignRangedAttack when attack mode is active, then exits the mode", () => {
+      setupSelfArcher(pos(0, 0));
+      const target = pos(2, 0);
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: target,
+          initialPosition: target,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+
+      InteractionService.pieceChange(getPiece(1));
+      InteractionService.toggleRangedAttackMode();
+      expect(RangedAttackModeRepository.isActive()).toBe(true);
+
+      InteractionService.panelChange(target);
+
+      expect(RangedAttackModeRepository.isActive()).toBe(false);
+      expect(getPiece(1).rangedAttackTargetPosition?.equals(target)).toBe(true);
+      // The archer never moves when assigning a ranged attack.
+      expect(getPiece(1).panelPosition.equals(pos(0, 0))).toBe(true);
+    });
+
+    test("selecting a different piece exits ranged attack mode", () => {
+      setupSelfArcher(pos(0, 0));
+      setupSelfPiece(pos(0, 1), 2);
+
+      InteractionService.pieceChange(getPiece(1));
+      InteractionService.toggleRangedAttackMode();
+      expect(RangedAttackModeRepository.isActive()).toBe(true);
+
+      InteractionService.pieceChange(getPiece(2));
+      expect(RangedAttackModeRepository.isActive()).toBe(false);
     });
   });
 });

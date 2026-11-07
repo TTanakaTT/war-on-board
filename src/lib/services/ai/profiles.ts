@@ -2,7 +2,15 @@ import { AiStrength } from "$lib/domain/enums/AiStrength";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import type { AiStrengthProfile } from "$lib/services/ai/types";
 
-const DEFAULT_PREFERRED_PIECE_ORDER = [PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP];
+const DEFAULT_PREFERRED_PIECE_ORDER = [
+  PieceType.ROOK,
+  PieceType.INFANTRY,
+  PieceType.NOBLE,
+  PieceType.ARCHER,
+  PieceType.CAVALRY,
+  PieceType.HEAVY,
+  PieceType.SIEGE,
+];
 
 const AI_STRENGTH_PROFILES: Record<AiStrength, AiStrengthProfile> = {
   [AiStrength.STRENGTH_1]: {
@@ -13,6 +21,7 @@ const AI_STRENGTH_PROFILES: Record<AiStrength, AiStrengthProfile> = {
     preferredPieceOrder: DEFAULT_PREFERRED_PIECE_ORDER,
     targetScoring: "standard",
     pieceSelection: "standard",
+    combatAssertiveness: "aggressive",
   },
   [AiStrength.STRENGTH_2]: {
     moveSelection: "lookahead",
@@ -22,6 +31,7 @@ const AI_STRENGTH_PROFILES: Record<AiStrength, AiStrengthProfile> = {
     preferredPieceOrder: DEFAULT_PREFERRED_PIECE_ORDER,
     targetScoring: "standard",
     pieceSelection: "standard",
+    combatAssertiveness: "aggressive",
   },
   [AiStrength.STRENGTH_3]: {
     moveSelection: "lookahead",
@@ -30,7 +40,8 @@ const AI_STRENGTH_PROFILES: Record<AiStrength, AiStrengthProfile> = {
     lookaheadWeight: 0.25,
     preferredPieceOrder: DEFAULT_PREFERRED_PIECE_ORDER,
     targetScoring: "home-side-growth",
-    pieceSelection: "knight-balanced-support",
+    pieceSelection: "infantry-balanced-support",
+    combatAssertiveness: "standard",
   },
 };
 
