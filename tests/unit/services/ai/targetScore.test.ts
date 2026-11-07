@@ -82,13 +82,9 @@ describe("scoreTarget against a walled enemy panel", () => {
       pieces: [piece],
     });
 
-    const standardScore = scoreTarget(
-      gameState,
-      piece,
+    const standardScore = scoreTarget(gameState, piece, target, createProfile("standard"), [
       target,
-      createProfile("standard"),
-      [target],
-    );
+    ]);
     const aggressiveScore = scoreTarget(gameState, piece, target, createProfile("aggressive"), [
       target,
     ]);
@@ -227,13 +223,9 @@ describe("scoreTarget against a walled enemy panel", () => {
       pieces: [piece, heavyDefender],
     });
 
-    const standardScore = scoreTarget(
-      gameState,
-      piece,
+    const standardScore = scoreTarget(gameState, piece, target, createProfile("standard"), [
       target,
-      createProfile("standard"),
-      [target],
-    );
+    ]);
     const aggressiveScore = scoreTarget(gameState, piece, target, createProfile("aggressive"), [
       target,
     ]);

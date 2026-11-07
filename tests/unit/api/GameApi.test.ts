@@ -41,8 +41,7 @@ function snapshotFromRepositories(): GameStateSnapshot {
           verticalLayer: panel.panelPosition.verticalLayer,
         },
         panelState: String(hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED) as
-          | "occupied"
-          | "unoccupied",
+          "occupied" | "unoccupied",
         player: String(panel.player) as "self" | "opponent" | "unknown",
         resource: panel.resource,
         castle: panel.castle,

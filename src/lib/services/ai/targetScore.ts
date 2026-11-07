@@ -231,11 +231,13 @@ const MUTUAL_DESTRUCTION_PENALTY: Record<AiStrengthProfile["combatAssertiveness"
   standard: 140,
   aggressive: 0,
 };
-const OVERFLOW_MUTUAL_DESTRUCTION_PENALTY: Record<AiStrengthProfile["combatAssertiveness"], number> =
-  {
-    standard: 120,
-    aggressive: 0,
-  };
+const OVERFLOW_MUTUAL_DESTRUCTION_PENALTY: Record<
+  AiStrengthProfile["combatAssertiveness"],
+  number
+> = {
+  standard: 120,
+  aggressive: 0,
+};
 
 function scoreAttackTarget(
   piece: PieceSnapshot,
