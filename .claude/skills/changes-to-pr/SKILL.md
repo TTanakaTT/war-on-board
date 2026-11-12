@@ -1,9 +1,9 @@
 ---
-name: ship
-description: Run quality checks, bump the version, commit, push, and open a pull request for the current work. Use when the user asks to commit, push, open a PR, or "ship" the changes. Never merges.
+name: changes-to-pr
+description: Run quality checks, bump the version, commit, push, and open a pull request for the current work. Use when the user asks to commit, push, open a PR the current changes. Never merges.
 ---
 
-# Ship the current work as a pull request
+# Turn the current changes into a pull request
 
 Run every step in order. If a step fails, fix the cause and rerun from that step. Do not skip steps.
 

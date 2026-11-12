@@ -1,0 +1,71 @@
+# Implements an agreed specification and opens a pull request when a human adds
+# the `ready-for-dev` label to an issue. Only the issue title and body are passed
+# to Claude; comments are not read. Claude cannot merge pull requests.
+name: Issue to PR
+
+on:
+  issues:
+    types: [labeled]
+
+concurrency:
+  group: issue-to-pr-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    if: github.event.label.name == 'ready-for-dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Implement with Claude
+        # v1
+        uses: anthropics/claude-code-action@97e0a7f336e732b8c9400f7c7d71d41725923201
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Implement the agreed specification below for issue #${{ github.event.issue.number }} in ${{ github.repository }}.
+            The issue title and body are the only source of the specification. Do not read issue comments.
+
+            <issue_title>
+            ${{ github.event.issue.title }}
+            </issue_title>
+
+            <issue_body>
+            ${{ github.event.issue.body }}
+            </issue_body>
+
+            Steps:
+            1. Create a branch from main named `<feat|fix|refactor|chore>/issue-${{ github.event.issue.number }}-<short-kebab-summary>`.
+               If the body names a prototype branch (`proto/...`), fetch it and use it as a reference, but implement on the new branch.
+            2. Implement the specification following CLAUDE.md and docs/ARCHITECTURE.md, adding or updating unit tests.
+            3. Follow `.claude/skills/changes-to-pr/SKILL.md` from step 2 onward to run the checks, bump the version, commit, push, and open the pull request.
+               The pull request body must include `Closes #${{ github.event.issue.number }}`.
+            4. If the specification is ambiguous or cannot be implemented, do not guess: comment on the issue explaining what is unclear and stop.
+
+            Never merge pull requests and never push to main.
+          claude_args: |
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(pnpm:*),Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh issue comment:*)"
