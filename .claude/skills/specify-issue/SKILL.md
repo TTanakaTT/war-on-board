@@ -1,6 +1,6 @@
 ---
-name: feedback-to-issue
-description: Discuss a product complaint or feature idea with the user until the specification is agreed, optionally build a prototype for the user to try, then record the agreed specification as a GitHub issue. Use when the user voices a complaint or idea about the game, runs `/feedback-to-issue`, or runs `/feedback-to-issue <issue number>` to continue from an existing issue.
+name: specify-issue
+description: Discuss a product complaint or feature idea with the user until the specification is agreed, optionally build a prototype for the user to try, then record the agreed specification as a GitHub issue. Use when the user voices a complaint or idea about the game, runs `/specify-issue`, or runs `/specify-issue <issue number>` to continue from an existing issue.
 ---
 
 # Agree on a specification and record it as an issue
@@ -9,8 +9,8 @@ Talk with the user in Japanese. The goal is a specification precise enough that 
 
 ## 1. Entry point
 
-- **`/feedback-to-issue` or a complaint in chat**: start from what the user said.
-- **`/feedback-to-issue <number>`**: read the issue first with `gh issue view <number> --repo TTanakaTT/war-on-board --comments`, then start from its contents.
+- **`/specify-issue` or a complaint in chat**: start from what the user said.
+- **`/specify-issue <number>`**: read the issue first with `gh issue view <number> --repo TTanakaTT/war-on-board --comments`, then start from its contents.
 
 ## 2. Discuss
 
