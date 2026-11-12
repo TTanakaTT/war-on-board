@@ -1,6 +1,6 @@
 ---
 name: changes-to-pr
-description: Run quality checks, bump the version, commit, push, and open a pull request for the current work. Use when the user asks to commit, push, open a PR the current changes. Never merges.
+description: Run quality checks, bump the version, commit, push, and open a pull request for the current work. Use when the user asks to commit, push, or open a PR for the current changes. Never merges.
 ---
 
 # Turn the current changes into a pull request
