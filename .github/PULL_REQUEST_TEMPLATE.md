@@ -1,9 +1,13 @@
-# Checkbox
+## 概要
 
-- [ ] `pnpm update`
-- [ ] `pnpm outdated`
-- [ ] `pnpm format`
-- [ ] `pnpm lint`
-- [ ] `pnpm check`
-- [ ] `pnpm test`
-- [ ] version increment at [package.json]
+<!-- 何を・なぜ変更したか -->
+
+## 関連 Issue
+
+<!-- Closes #123 -->
+
+## 確認方法
+
+プレビュー: https://ttanakatt.github.io/war-on-board/ （最後に push されたブランチが表示されます）
+
+<!-- 確認してほしい操作や画面 -->
