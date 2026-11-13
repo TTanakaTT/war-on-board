@@ -1,5 +1,6 @@
-# Opens version-update pull requests; a human reviews and merges them.
-# The cooldown skips releases younger than 7 days to avoid picking up a
+# Opens version-update pull requests. Patch updates are auto-merged once CI
+# passes (see workflows/dependabot-auto-merge.yml); a human reviews and merges
+# the rest. The cooldown skips releases younger than 7 days to avoid picking up a
 # compromised version right after it is published. Keep it in sync with
 # `minimumReleaseAge` in pnpm-workspace.yaml, which also covers transitive
 # dependencies.
