@@ -108,7 +108,7 @@
 <!-- PROTOTYPE ONLY (#45): switch highlight variant -->
 <button
   type="button"
-  class="bg-surface text-onsurface dark:bg-surface-dark dark:text-onsurface-dark border-outline fixed bottom-4 left-4 z-50 rounded-full border px-4 py-2 text-sm font-bold shadow-lg"
+  class="bg-surface text-onsurface dark:bg-surface-dark dark:text-onsurface-dark border-outline fixed right-2 bottom-2 z-50 rounded-full border px-3 py-1.5 text-xs font-bold shadow-lg"
   onclick={() => ProtoHighlightMode.toggle()}
 >
   強調: {ProtoHighlightMode.label()}（タップで切替）

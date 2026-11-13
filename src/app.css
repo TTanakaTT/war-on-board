@@ -54,8 +54,6 @@
   --color-player-self-muted: rgb(255 255 255 / 90%);
   --color-player-opponent-muted: rgb(0 0 0 / 80%);
   --color-health-fill: var(--color-white);
-  --color-piece-selected: var(--color-yellow-300);
-  --color-piece-selected-dark: var(--color-yellow-300);
   --color-modal-scrim: rgb(0 0 0 / 60%);
   --color-dialog-backdrop: rgb(0 0 0 / 30%);
 }

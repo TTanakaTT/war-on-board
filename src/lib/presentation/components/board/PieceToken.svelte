@@ -12,20 +12,12 @@
 
   let { piece, isSelected = false }: Props = $props();
 
-  let highlightClass = $derived.by(() => {
-    if (!isSelected) return "";
-    const color = "outline-offset-2 outline-piece-selected dark:outline-piece-selected-dark";
-    switch (ProtoHighlightMode.get()) {
-      case "ring2":
-        return `outline-2 ${color}`;
-      case "ring3":
-        return `outline-3 ${color}`;
-      case "ring4":
-        return `outline-4 ${color}`;
-      default:
-        return "scale-110";
-    }
+  // PROTOTYPE (#45): thicker existing border + slight scale-up when selected.
+  let borderWidthClass = $derived.by(() => {
+    if (!isSelected) return "border";
+    return ProtoHighlightMode.get() === "border2" ? "border-2" : "border-3";
   });
+  let scaleClass = $derived(isSelected ? "scale-110" : "");
 
   let pieceColorClass = $derived(
     piece.player === Player.SELF
@@ -47,13 +39,13 @@
     ></div>
   </div>
 
-  <div class="relative rounded-xl transition-transform duration-200 {highlightClass}">
+  <div class="relative transition-transform duration-200 {scaleClass}">
     <Icon
       icon={piece.pieceType.config.iconName}
       size={22}
       transition={slide}
       transitionParams={{ duration: 500, axis: "y" }}
-      additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {pieceColorClass}"
+      additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl {borderWidthClass} p-1 {pieceColorClass}"
     />
 
     {#if piece.stackCount > 1}
