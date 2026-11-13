@@ -5,3 +5,10 @@ onlyBuiltDependencies:
 # transitive dependencies. Keep it in sync with the cooldown in
 # .github/dependabot.yml.
 minimumReleaseAge: 10080
+
+# Reject a version with weaker publish evidence (trusted publisher or
+# provenance) than earlier releases, a sign of a stolen npm token. Versions
+# older than 30 days (in minutes) are not checked, so old false positives such
+# as manual publishes do not block installs.
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 43200
