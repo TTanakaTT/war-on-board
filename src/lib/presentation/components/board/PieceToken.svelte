@@ -31,15 +31,16 @@
     ></div>
   </div>
 
-  <div class="relative">
+  <div class="relative transition-transform duration-200 {isSelected ? 'scale-110' : ''}">
+    <!-- The thicker selected border grows the icon by 4px; -m-0.5 cancels that in layout so neighbouring pieces stay put. -->
     <Icon
       icon={piece.pieceType.config.iconName}
       size={22}
       transition={slide}
       transitionParams={{ duration: 500, axis: "y" }}
-      additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border transition-transform duration-200 {isSelected
-        ? 'scale-110 border-3 p-0.5'
-        : 'p-1'} {pieceColorClass}"
+      additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl p-1 {isSelected
+        ? 'border-3 -m-0.5'
+        : 'border'} {pieceColorClass}"
     />
 
     {#if piece.stackCount > 1}
