@@ -1,0 +1,9 @@
+name: Memo
+description: Jot down anything odd or any idea. The spec is refined later with /specify-issue.
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: Notes
+    validations:
+      required: true
