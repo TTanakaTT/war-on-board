@@ -1,0 +1,39 @@
+# Opens version-update pull requests; a human reviews and merges them.
+# The cooldown skips releases younger than 7 days to avoid picking up a
+# compromised version right after it is published. Keep it in sync with
+# `minimumReleaseAge` in pnpm-workspace.yaml, which also covers transitive
+# dependencies.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore
+      include: scope
+    # Group only packages released together from the same repository, so a
+    # group never pulls in a version that is still within its cooldown.
+    groups:
+      tailwindcss:
+        patterns:
+          - tailwindcss
+          - "@tailwindcss/*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore
+      include: scope
