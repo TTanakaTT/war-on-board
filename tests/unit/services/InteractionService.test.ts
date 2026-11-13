@@ -70,7 +70,107 @@ describe("InteractionService", () => {
     });
   });
 
+  describe("selection state", () => {
+    const hasHighlight = () =>
+      PanelRepository.getAll().some(
+        (p) => p.panelState === PanelState.SELECTED || p.panelState === PanelState.MOVABLE,
+      );
+
+    test("selecting the same piece twice cancels the selection", () => {
+      setupSelfPiece(pos(0, 0));
+
+      InteractionService.pieceChange(getPiece(1));
+      InteractionService.pieceChange(getPiece(1));
+
+      expect(SelectedPanelRepository.getPieceId()).toBeUndefined();
+      expect(hasHighlight()).toBe(false);
+    });
+
+    test("selecting another piece switches the selection", () => {
+      setupSelfPiece(pos(0, 0));
+      setupSelfPiece(pos(0, 1), 2);
+
+      InteractionService.pieceChange(getPiece(1));
+      InteractionService.pieceChange(getPiece(2));
+
+      expect(SelectedPanelRepository.getPieceId()).toBe(2);
+      expect(PanelRepository.find(pos(0, 1))?.panelState).toBe(PanelState.SELECTED);
+      expect(PanelRepository.find(pos(0, 0))?.panelState).not.toBe(PanelState.SELECTED);
+    });
+
+    test("selecting another piece on the same panel switches the selection", () => {
+      setupSelfPiece(pos(0, 0));
+      setupSelfPiece(pos(0, 0), 2);
+
+      InteractionService.pieceChange(getPiece(1));
+      InteractionService.pieceChange(getPiece(2));
+
+      expect(SelectedPanelRepository.getPieceId()).toBe(2);
+      expect(PanelRepository.find(pos(0, 0))?.panelState).toBe(PanelState.SELECTED);
+    });
+
+    test("clicking the SELECTED panel background clears the selected piece id", () => {
+      setupSelfPiece(pos(0, 0));
+
+      InteractionService.pieceChange(getPiece(1));
+      InteractionService.panelChange(pos(0, 0));
+
+      expect(SelectedPanelRepository.getPieceId()).toBeUndefined();
+      expect(hasHighlight()).toBe(false);
+    });
+
+    test("assigning a move clears the selected piece id", () => {
+      setupSelfPiece(pos(0, 0));
+
+      InteractionService.pieceChange(getPiece(1));
+      InteractionService.panelChange(pos(0, 1));
+
+      expect(getPiece(1).targetPosition?.equals(pos(0, 1))).toBe(true);
+      expect(SelectedPanelRepository.getPieceId()).toBeUndefined();
+    });
+  });
+
   describe("panelChange", () => {
+    test("OCCUPIED background click selects the first unreserved own piece", () => {
+      setupSelfPiece(pos(0, 0));
+      setupSelfPiece(pos(0, 0), 2);
+      GameApi.assignMove(Player.SELF, 1, pos(0, 1));
+      PanelsService.refreshPanelStates();
+
+      InteractionService.panelChange(pos(0, 0));
+
+      expect(SelectedPanelRepository.getPieceId()).toBe(2);
+    });
+
+    test("OCCUPIED background click selects the first reserved piece when all are reserved", () => {
+      setupSelfPiece(pos(0, 0));
+      setupSelfPiece(pos(0, 0), 2);
+      GameApi.assignMove(Player.SELF, 1, pos(0, 1));
+      GameApi.assignMove(Player.SELF, 2, pos(1, 0));
+      PanelsService.refreshPanelStates();
+
+      InteractionService.panelChange(pos(0, 0));
+
+      expect(SelectedPanelRepository.getPieceId()).toBe(1);
+    });
+
+    test("OCCUPIED background click does nothing for opponent-only panels", () => {
+      PiecesRepository.add(
+        new Piece({
+          id: 1,
+          panelPosition: pos(0, 0),
+          initialPosition: pos(0, 0),
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+      PanelsService.refreshPanelStates();
+
+      InteractionService.panelChange(pos(0, 0));
+
+      expect(SelectedPanelRepository.getPieceId()).toBeUndefined();
+    });
+
     test("cancels a pending move when the selected source panel is clicked", () => {
       setupSelfPiece(pos(0, 0));
       const source = pos(0, 0);

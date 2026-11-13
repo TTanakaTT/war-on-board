@@ -36,6 +36,7 @@
     onclick: () => void;
   } = $props();
 
+  let selectedPieceId = $derived(SelectedPanelRepository.getPieceId());
   let pieces = $derived(PiecesRepository.getPiecesByPosition(panelPosition));
 
   let panel = $derived(PanelsService.find(panelPosition));
@@ -229,7 +230,7 @@
               }
             }}
           >
-            <PieceToken {piece} />
+            <PieceToken {piece} isSelected={piece.id === selectedPieceId} />
           </button>
         {/each}
       </div>

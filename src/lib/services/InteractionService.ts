@@ -90,6 +90,15 @@ export class InteractionService {
         }
         break;
       }
+      case PanelState.OCCUPIED: {
+        const turn = TurnRepository.get();
+        const ownPieces = PiecesRepository.getPiecesByPosition(panelPosition).filter(
+          (p) => p.player === turn.player,
+        );
+        const piece = ownPieces.find((p) => !p.targetPosition) ?? ownPieces[0];
+        if (piece) this.pieceChange(piece);
+        return;
+      }
       default:
         return;
     }
@@ -108,7 +117,17 @@ export class InteractionService {
     const turn = TurnRepository.get();
     if (piece.player !== turn.player) return;
 
+    const isSameSelected =
+      SelectedPanelRepository.getPieceId() === piece.id &&
+      PanelsService.findPanelState(piece.panelPosition) === PanelState.SELECTED;
+
+    PanelRepository.setAll(PanelsService.clearSelected());
     RangedAttackModeRepository.set(false);
+    if (isSameSelected) {
+      this.clearSelection();
+      return;
+    }
+
     SelectedPanelRepository.set(
       new Panel({
         panelPosition: piece.panelPosition,
@@ -139,6 +158,7 @@ export class InteractionService {
       case PanelState.SELECTED:
       case PanelState.MOVABLE: {
         PanelRepository.setAll(PanelsService.clearSelected());
+        this.clearSelection();
         break;
       }
       case PanelState.OCCUPIED: {
