@@ -60,7 +60,9 @@
   }
 </script>
 
-<div class="border-outline dark:border-outline-dark overflow-auto rounded-xl border">
+<div
+  class="border-outline dark:border-outline-dark relative overflow-auto overscroll-contain rounded-xl border"
+>
   <table
     class="bg-surface dark:bg-surface-dark w-max min-w-full border-separate border-spacing-0 text-sm"
   >
