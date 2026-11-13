@@ -6,9 +6,10 @@
 
   interface Props {
     piece: Piece;
+    isSelected?: boolean;
   }
 
-  let { piece }: Props = $props();
+  let { piece, isSelected = false }: Props = $props();
 
   let pieceColorClass = $derived(
     piece.player === Player.SELF
@@ -23,20 +24,29 @@
 </script>
 
 <div class="relative flex flex-col items-center">
-  <div class="bg-outline dark:bg-outline-dark mb-1 h-1 w-6 overflow-hidden rounded-full">
+  <!-- When selected, the token grows sideways only: -my-0.5 cancels the thicker border's
+       extra height in layout so pieces beside it do not move vertically, and the HP bar is
+       lifted visually to keep its gap above the scaled icon. -->
+  <div
+    class="bg-outline dark:bg-outline-dark mb-1 h-1 w-6 overflow-hidden rounded-full transition-transform duration-200 {isSelected
+      ? '-translate-y-0.5'
+      : ''}"
+  >
     <div
       class="bg-health-fill h-full transition-all duration-300"
       style="width: {(piece.hp / piece.maxHp) * 100}%"
     ></div>
   </div>
 
-  <div class="relative">
+  <div class="relative transition-transform duration-200 {isSelected ? 'scale-110' : ''}">
     <Icon
       icon={piece.pieceType.config.iconName}
       size={22}
       transition={slide}
       transitionParams={{ duration: 500, axis: "y" }}
-      additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl border p-1 {pieceColorClass}"
+      additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl p-1 {isSelected
+        ? 'border-3 -my-0.5'
+        : 'border'} {pieceColorClass}"
     />
 
     {#if piece.stackCount > 1}
