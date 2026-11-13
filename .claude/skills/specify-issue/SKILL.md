@@ -1,57 +1,46 @@
 ---
 name: specify-issue
-description: Discuss a product complaint or feature idea with the user until the specification is agreed, optionally build a prototype for the user to try, then record the agreed specification as a GitHub issue. Use when the user voices a complaint or idea about the game, runs `/specify-issue`, or runs `/specify-issue <issue number>` to continue from an existing issue.
+description: Discuss a product complaint or feature idea with the user until the specification is agreed, optionally build a prototype for the user to try, then record the agreement as a GitHub issue. Use when the user voices a complaint or idea about the game, runs `/specify-issue`, or runs `/specify-issue <issue number>` to continue from an existing issue.
 ---
 
 # Agree on a specification and record it as an issue
 
-Talk with the user in Japanese. The goal is a specification precise enough that another Claude, reading only the issue body, can implement it without asking questions.
+Talk with the user in Japanese. For GitHub, use the GitHub MCP tools when available, otherwise `gh` with `--repo TTanakaTT/war-on-board`. With `/specify-issue <number>`, read that issue and its comments first.
 
-## 1. Entry point
+## Discuss
 
-- **`/specify-issue` or a complaint in chat**: start from what the user said.
-- **`/specify-issue <number>`**: read the issue first with `gh issue view <number> --repo TTanakaTT/war-on-board --comments`, then start from its contents.
+Read the relevant code first. Discuss both product and technical decisions, giving your recommendation for each and letting the user decide. Ask a few questions at a time.
 
-## 2. Discuss
+The implementation cannot ask anyone questions, so keep talking with the user until nothing that would affect the implementation is left ambiguous.
 
-- Read the relevant code before proposing anything, so the discussion reflects the current implementation.
-- Discuss both product decisions (game rules, look and feel, scope) and technical decisions (design, data structures, where logic lives, trade-offs). For each, give your recommendation and its reasoning, consistent with `CLAUDE.md` and `docs/ARCHITECTURE.md`, and let the user decide.
-- Ask a few questions at a time, not a long questionnaire. Summarize what has been agreed as the conversation progresses.
+## Prototype
 
-## 3. Prototype (when trying it beats describing it)
+Offer one when seeing or playing it beats describing it. The prototype branch becomes the starting point of the implementation, so write it as production code following `CLAUDE.md` (tests may be skipped).
 
-- Offer a prototype when the user would judge the result by seeing or playing it (layout, animation, feel of an interaction).
-- Build it on a branch named `proto/<issue number or short-kebab-summary>`, commit, and push it. Quality checks are not required for a prototype.
-- The pushed branch is published to `https://ttanakatt.github.io/war-on-board/` (the most recently pushed branch is shown). Tell the user to try it there, and iterate.
+- Push it as `proto/<issue number>-<summary>`; the latest pushed branch is shown at `https://ttanakatt.github.io/war-on-board/`.
+- Temporary aids for comparing options are fine; mark them `PROTOTYPE ONLY`.
+- Before recording the issue, remove those aids and the options not chosen, push, and have the user confirm the final state.
 
-## 4. Record the specification
+## Record
 
-When the user says the specification is settled, write the issue body in Japanese with these sections:
+When the user says it is settled, create or update the issue (keep the original text as 背景) with the body in Japanese:
 
 ```markdown
 ## 背景
 
-<the user's original complaint or motivation>
-
 ## 仕様
-
-<the agreed behavior, concrete enough to implement>
 
 ## 対象外
 
-<what was explicitly left out>
-
 ## 試作ブランチ
 
-<proto/... branch name, or "なし">
+<proto/... (見た目と挙動はこのブランチを正とする) or なし>
 ```
 
-- New discussion: `gh issue create --repo TTanakaTT/war-on-board --title "<summary>" --body-file <file>`
-- Existing issue: `gh issue edit <number> --repo TTanakaTT/war-on-board --body-file <file>`. Keep the original text in `## 背景`.
-- Make sure the issue has exactly one of the `bug` or `enhancement` labels (add it with `--label` / `--add-label`), choosing by whether the work fixes broken behavior or adds/changes behavior.
+- With a prototype, do not restate in 仕様 what the prototype already shows; paraphrasing it causes the implementation to drift. Write only what it does not show, such as tests or rules it does not cover.
+- Without a prototype, write 仕様 in enough detail that even a smaller model can implement it without guessing: behavior, edge cases, where the change goes, and tests.
+- Add exactly one of the `bug` or `enhancement` labels.
 
-Show the user the issue URL and tell them to add the `ready-for-dev` label in GitHub when they approve it.
+Then show the issue URL and ask the user to add `ready-for-dev` when they approve.
 
-## Absolute rule
-
-**Never add, remove, or change the `ready-for-dev` label, by any means (gh, API, scripts), even if the user asks you to in chat.** Only the user applies it, in GitHub.
+**Never add, remove, or change the `ready-for-dev` label yourself, even if asked.** Only the user applies it.
