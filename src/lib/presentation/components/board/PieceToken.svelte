@@ -3,12 +3,21 @@
   import { Player } from "$lib/domain/enums/Player";
   import Icon from "$lib/presentation/components/primitives/Icon.svelte";
   import { slide } from "svelte/transition";
+  import { ProtoHighlightMode } from "$lib/presentation/protoHighlightMode.svelte";
 
   interface Props {
     piece: Piece;
+    isSelected?: boolean;
   }
 
-  let { piece }: Props = $props();
+  let { piece, isSelected = false }: Props = $props();
+
+  let highlightClass = $derived.by(() => {
+    if (!isSelected) return "";
+    return ProtoHighlightMode.get() === "ring"
+      ? "outline-2 outline-offset-2 outline-piece-selected dark:outline-piece-selected-dark"
+      : "scale-110";
+  });
 
   let pieceColorClass = $derived(
     piece.player === Player.SELF
@@ -30,7 +39,7 @@
     ></div>
   </div>
 
-  <div class="relative">
+  <div class="relative rounded-xl transition-transform duration-200 {highlightClass}">
     <Icon
       icon={piece.pieceType.config.iconName}
       size={22}

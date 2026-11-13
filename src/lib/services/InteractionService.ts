@@ -90,6 +90,15 @@ export class InteractionService {
         }
         break;
       }
+      case PanelState.OCCUPIED: {
+        const turn = TurnRepository.get();
+        const ownPieces = PiecesRepository.getPiecesByPosition(panelPosition).filter(
+          (p) => p.player === turn.player,
+        );
+        const piece = ownPieces.find((p) => !p.targetPosition) ?? ownPieces[0];
+        if (piece) this.pieceChange(piece);
+        return;
+      }
       default:
         return;
     }

@@ -229,7 +229,7 @@
               }
             }}
           >
-            <PieceToken {piece} />
+            <PieceToken {piece} isSelected={piece.id === selectedPiece?.id} />
           </button>
         {/each}
       </div>
