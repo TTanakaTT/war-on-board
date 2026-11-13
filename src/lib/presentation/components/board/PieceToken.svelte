@@ -14,9 +14,17 @@
 
   let highlightClass = $derived.by(() => {
     if (!isSelected) return "";
-    return ProtoHighlightMode.get() === "ring"
-      ? "outline-2 outline-offset-2 outline-piece-selected dark:outline-piece-selected-dark"
-      : "scale-110";
+    const color = "outline-offset-2 outline-piece-selected dark:outline-piece-selected-dark";
+    switch (ProtoHighlightMode.get()) {
+      case "ring2":
+        return `outline-2 ${color}`;
+      case "ring3":
+        return `outline-3 ${color}`;
+      case "ring4":
+        return `outline-4 ${color}`;
+      default:
+        return "scale-110";
+    }
   });
 
   let pieceColorClass = $derived(

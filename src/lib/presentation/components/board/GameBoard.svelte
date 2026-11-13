@@ -111,5 +111,5 @@
   class="bg-surface text-onsurface dark:bg-surface-dark dark:text-onsurface-dark border-outline fixed bottom-4 left-4 z-50 rounded-full border px-4 py-2 text-sm font-bold shadow-lg"
   onclick={() => ProtoHighlightMode.toggle()}
 >
-  強調: {ProtoHighlightMode.get() === "ring" ? "枠線" : "拡大"}（タップで切替）
+  強調: {ProtoHighlightMode.label()}（タップで切替）
 </button>

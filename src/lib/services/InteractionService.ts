@@ -117,6 +117,17 @@ export class InteractionService {
     const turn = TurnRepository.get();
     if (piece.player !== turn.player) return;
 
+    // Re-clicking the selected piece cancels the selection; clicking any
+    // other piece switches the selection to it.
+    const wasSelected =
+      SelectedPanelRepository.getPieceId() === piece.id &&
+      PanelsService.findPanelState(piece.panelPosition) === PanelState.SELECTED;
+    PanelRepository.setAll(PanelsService.clearSelected());
+    if (wasSelected) {
+      this.clearSelection();
+      return;
+    }
+
     RangedAttackModeRepository.set(false);
     SelectedPanelRepository.set(
       new Panel({
@@ -148,6 +159,7 @@ export class InteractionService {
       case PanelState.SELECTED:
       case PanelState.MOVABLE: {
         PanelRepository.setAll(PanelsService.clearSelected());
+        this.clearSelection();
         break;
       }
       case PanelState.OCCUPIED: {
