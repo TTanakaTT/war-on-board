@@ -24,7 +24,14 @@
 </script>
 
 <div class="relative flex flex-col items-center">
-  <div class="bg-outline dark:bg-outline-dark mb-1 h-1 w-6 overflow-hidden rounded-full">
+  <!-- When selected, the token grows sideways only: -my-0.5 cancels the thicker border's
+       extra height in layout so pieces beside it do not move vertically, and the HP bar is
+       lifted visually to keep its gap above the scaled icon. -->
+  <div
+    class="bg-outline dark:bg-outline-dark mb-1 h-1 w-6 overflow-hidden rounded-full transition-transform duration-200 {isSelected
+      ? '-translate-y-0.5'
+      : ''}"
+  >
     <div
       class="bg-health-fill h-full transition-all duration-300"
       style="width: {(piece.hp / piece.maxHp) * 100}%"
@@ -38,7 +45,7 @@
       transition={slide}
       transitionParams={{ duration: 500, axis: "y" }}
       additionalClass="bg-primary-variant dark:bg-primary-variant-dark rounded-xl p-1 {isSelected
-        ? 'border-3'
+        ? 'border-3 -my-0.5'
         : 'border'} {pieceColorClass}"
     />
 
