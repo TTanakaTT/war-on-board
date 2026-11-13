@@ -1,5 +1,5 @@
-onlyBuiltDependencies:
-  - esbuild
+allowBuilds:
+  esbuild: true
 
 # Skip versions published less than 7 days (in minutes) ago, including
 # transitive dependencies. Keep it in sync with the cooldown in
