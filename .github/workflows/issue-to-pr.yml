@@ -48,7 +48,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             Implement the agreed specification below for issue #${{ github.event.issue.number }} in ${{ github.repository }}.
-            The issue title and body are the only source of the specification. Do not read issue comments.
+            The issue title and body, plus the prototype branch the body names, are the only sources of the specification. Do not read issue comments.
 
             <issue_title>
             ${{ github.event.issue.title }}
@@ -59,13 +59,16 @@ jobs:
             </issue_body>
 
             Steps:
-            1. Create a branch from main named `<feat|fix|refactor|chore>/issue-${{ github.event.issue.number }}-<short-kebab-summary>`.
-               If the body names a prototype branch (`proto/...`), fetch it and use it as a reference, but implement on the new branch.
-            2. Implement the specification following CLAUDE.md and docs/ARCHITECTURE.md, adding or updating unit tests.
+            1. Create the implementation branch named `<feat|fix|refactor|chore>/issue-${{ github.event.issue.number }}-<short-kebab-summary>`:
+               - If the body names a prototype branch (`proto/...`), fetch it, create the branch from it, and merge `origin/main` into it.
+               - Otherwise, create the branch from main.
+            2. Implement following CLAUDE.md and docs/ARCHITECTURE.md:
+               - With a prototype branch, the prototype is the source of truth for look and behavior. Keep its visual output and behavior exactly as they are. Only remove leftovers marked `PROTOTYPE ONLY`, bring the code up to the project rules without changing what the user sees, implement what `## 仕様` adds beyond the prototype, and add the tests it lists.
+               - Without a prototype branch, implement `## 仕様` and add the tests it lists.
+               - If `## 仕様` contradicts the prototype, the prototype takes precedence.
             3. Commit the changes following `.claude/skills/commit/SKILL.md`.
             4. Open the pull request following `.claude/skills/pull-request/SKILL.md`.
                The pull request body must include `Closes #${{ github.event.issue.number }}`.
-            5. If the specification is ambiguous or cannot be implemented, do not guess: comment on the issue explaining what is unclear and stop.
 
             Never merge pull requests and never push to main.
           claude_args: |
