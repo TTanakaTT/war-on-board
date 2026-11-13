@@ -1,10 +1,9 @@
 name: Deploy to GitHub Pages
 
 # Preview deployment for checking work: the most recently pushed branch is published.
-# Dependabot branches are excluded so they do not replace the preview.
 on:
   push:
-    branches: ["**", "!dependabot/**"]
+    branches: ["**"]
   workflow_dispatch:
 
 permissions:
