@@ -48,6 +48,7 @@ When the user says the specification is settled, write the issue body in Japanes
 
 - New discussion: `gh issue create --repo TTanakaTT/war-on-board --title "<summary>" --body-file <file>`
 - Existing issue: `gh issue edit <number> --repo TTanakaTT/war-on-board --body-file <file>`. Keep the original text in `## 背景`.
+- Make sure the issue has exactly one of the `bug` or `enhancement` labels (add it with `--label` / `--add-label`), choosing by whether the work fixes broken behavior or adds/changes behavior.
 
 Show the user the issue URL and tell them to add the `ready-for-dev` label in GitHub when they approve it.
 
