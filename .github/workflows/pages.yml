@@ -1,10 +1,17 @@
 name: Deploy to GitHub Pages
 
+# Preview deployment for checking work: the most recently pushed branch is published.
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   build_site:
