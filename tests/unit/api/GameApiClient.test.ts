@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
   createGameApiClient,
   type GameApiCommandDelegate,
@@ -162,5 +162,62 @@ describe("GameApiClient logger", () => {
     expect(initializeResponse).toBe(successResult);
     expect(assignResponse).toBe(errorResult);
     expect(entries).toEqual([]);
+  });
+});
+
+describe("GameApiClient observe", () => {
+  test("passes operation, args, before, after, and result to the observer for every command", () => {
+    const before = createGameStateSnapshot();
+    const after = { ...createGameStateSnapshot(), layer: 5 };
+    const states = [before, after];
+    const result = createSuccessResult();
+    const client = createGameApiClient({
+      isDev: false,
+      delegate: createDelegate({ setGenerationMode: () => result }),
+      getGameState: () => states.shift()!,
+    });
+    const observer = vi.fn();
+    client.observe(observer);
+
+    client.setGenerationMode(Player.SELF, "rear");
+
+    expect(observer).toHaveBeenCalledTimes(1);
+    expect(observer).toHaveBeenCalledWith({
+      operation: "setGenerationMode",
+      args: [Player.SELF, "rear"],
+      before,
+      after,
+      result,
+    });
+  });
+
+  test("does not call an observer after it is unregistered", () => {
+    const client = createGameApiClient({
+      isDev: false,
+      delegate: createDelegate(),
+      getGameState: () => createGameStateSnapshot(),
+    });
+    const observer = vi.fn();
+    const unobserve = client.observe(observer);
+
+    client.endTurn(Player.SELF);
+    unobserve();
+    client.endTurn(Player.SELF);
+
+    expect(observer).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not read the game state while nobody observes", () => {
+    const getGameState = vi.fn(() => createGameStateSnapshot());
+    const client = createGameApiClient({
+      isDev: false,
+      delegate: createDelegate(),
+      getGameState,
+    });
+
+    client.initializeGame({ layer: 4 });
+    client.endTurn(Player.SELF);
+
+    expect(getGameState).not.toHaveBeenCalled();
   });
 });
