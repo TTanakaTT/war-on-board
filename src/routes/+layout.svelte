@@ -1,6 +1,6 @@
 <script lang="ts">
   import "../app.css";
-  import { browser } from "$app/environment";
+  import { browser, dev } from "$app/environment";
   import { page } from "$app/state";
   import AppDrawer from "$lib/presentation/components/shell/AppDrawer.svelte";
   import AppHeader from "$lib/presentation/components/shell/AppHeader.svelte";
@@ -179,3 +179,9 @@
 >
   {@render children()}
 </main>
+
+{#if dev}
+  {#await import("$lib/presentation/components/debug/DebugModeOverlay.svelte") then { default: DebugModeOverlay }}
+    <DebugModeOverlay />
+  {/await}
+{/if}

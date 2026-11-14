@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { dev } from "$app/environment";
   import { page } from "$app/state";
   import { cookieDomain, cookieName, getLocale, locales, setLocale } from "$lib/paraglide/runtime";
   import { m } from "$lib/paraglide/messages";
@@ -104,6 +105,12 @@
         onChange={handleThemeChange}
       />
     </section>
+
+    {#if dev}
+      {#await import("$lib/presentation/components/debug/DebugModeSettingsSection.svelte") then { default: DebugModeSettingsSection }}
+        <DebugModeSettingsSection />
+      {/await}
+    {/if}
 
     <AppButton additionalClass="self-center" variant="error" onclick={resetSettings}>
       {m.settings_reset()}

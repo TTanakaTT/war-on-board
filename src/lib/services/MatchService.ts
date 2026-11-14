@@ -69,6 +69,14 @@ export class MatchService {
     return AUTOMATION_STEP_DELAY_MS;
   }
 
+  /**
+   * Stops scheduled CPU automation without a stop reason, so no result dialog opens
+   * and the board stays as it is for inspection.
+   */
+  static haltAutomation(): void {
+    this.setAutomationIdle(MatchControlRepository.get());
+  }
+
   private static createMatchControl(options: StartMatchOptions): MatchControl {
     const mode = this.createMatchMode(options.controllers);
 

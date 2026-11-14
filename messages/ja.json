@@ -68,5 +68,20 @@
   "piece_siege": "攻囲兵器",
   "result_winner_message": "勝者: {winner}",
   "ranged_attack_start": "遠距離攻撃",
-  "ranged_attack_cancel": "攻撃をキャンセル"
+  "ranged_attack_cancel": "攻撃をキャンセル",
+  "debug_checks_title": "不変条件チェック（開発用）",
+  "debug_checks_on": "ON",
+  "debug_checks_off": "OFF",
+  "debug_violation_badge": "不変条件違反 {count}件: {type}（詳細はコンソール）",
+  "debug_violation_piece_capacity_exceeded": "1マスの駒数上限超過",
+  "debug_violation_mixed_players_on_panel": "1マスに両陣営の駒が混在",
+  "debug_violation_piece_hp_out_of_range": "駒のHPが範囲外",
+  "debug_violation_movement_points_out_of_range": "移動ポイントが範囲外",
+  "debug_violation_duplicate_piece_id": "駒IDの重複",
+  "debug_violation_piece_off_board": "盤外の位置を持つ駒",
+  "debug_violation_unmerged_pieces": "合体されていない駒",
+  "debug_violation_negative_resources": "資源がマイナス",
+  "debug_violation_state_changed_after_winner": "勝敗確定後の状態変化",
+  "debug_violation_uncaught_exception": "捕捉されない例外",
+  "debug_violation_ai_stalled": "AIの手番が進まない"
 }

@@ -1,8 +1,13 @@
 import { dev } from "$app/environment";
 import { GameApi } from "$lib/api/GameApi";
-import type { GameActionResult, Result, TurnEndResult } from "$lib/domain/types/api";
+import type {
+  GameActionResult,
+  GameStateSnapshot,
+  Result,
+  TurnEndResult,
+} from "$lib/domain/types/api";
 
-type GameApiCommandName =
+export type GameApiCommandName =
   | "initializeGame"
   | "assignMove"
   | "cancelMove"
@@ -12,7 +17,7 @@ type GameApiCommandName =
   | "setGenerationMode"
   | "endTurn";
 
-type LoggedCommandResult = Result<GameActionResult> | Result<TurnEndResult>;
+export type LoggedCommandResult = Result<GameActionResult> | Result<TurnEndResult>;
 
 export type GameApiCommandDelegate = Pick<typeof GameApi, GameApiCommandName>;
 
@@ -51,10 +56,23 @@ export interface GameApiResponseLogEntry {
 
 export type GameApiLogEntry = GameApiRequestLogEntry | GameApiResponseLogEntry;
 
+/** A command that went through the client, with the game state around it. */
+export interface GameApiCommandEvent {
+  operation: GameApiCommandName;
+  args: unknown[];
+  before: GameStateSnapshot;
+  after: GameStateSnapshot;
+  result: LoggedCommandResult;
+}
+
+export type GameApiCommandObserver = (event: GameApiCommandEvent) => void;
+
 interface CreateGameApiClientOptions {
   isDev?: boolean;
   delegate?: GameApiCommandDelegate;
   logger?: (entry: GameApiLogEntry) => void;
+  /** Reads the current game state for command observers. */
+  getGameState?: () => GameStateSnapshot;
 }
 
 function summarizeResult(
@@ -90,7 +108,13 @@ function defaultLogger(entry: GameApiLogEntry): void {
 }
 
 export function createGameApiClient(options: CreateGameApiClientOptions = {}) {
-  const { isDev = dev, delegate = GameApi, logger = defaultLogger } = options;
+  const {
+    isDev = dev,
+    delegate = GameApi,
+    logger = defaultLogger,
+    getGameState = () => GameApi.getGameState(),
+  } = options;
+  const observers = new Set<GameApiCommandObserver>();
 
   const log = (entry: GameApiLogEntry): void => {
     if (!isDev) {
@@ -112,7 +136,16 @@ export function createGameApiClient(options: CreateGameApiClientOptions = {}) {
       args,
     });
 
+    // Snapshots are only taken while someone observes, so unobserved commands cost nothing extra.
+    const before = observers.size > 0 ? getGameState() : null;
     const result = execute();
+
+    if (before !== null) {
+      const after = getGameState();
+      for (const observer of observers) {
+        observer({ operation, args, before, after, result });
+      }
+    }
 
     log({
       transport: "gameapi",
@@ -125,6 +158,14 @@ export function createGameApiClient(options: CreateGameApiClientOptions = {}) {
   };
 
   return {
+    /** Registers <observer> for every later command. Returns a function that unregisters it. */
+    observe(observer: GameApiCommandObserver): () => void {
+      observers.add(observer);
+      return () => {
+        observers.delete(observer);
+      };
+    },
+
     initializeGame(config: Parameters<GameApiCommandDelegate["initializeGame"]>[0]) {
       return runCommand("initializeGame", [config], () => delegate.initializeGame(config));
     },
