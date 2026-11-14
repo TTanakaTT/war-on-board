@@ -63,6 +63,12 @@ function snapshotFromRepositories(): GameStateSnapshot {
             verticalLayer: piece.targetPosition.verticalLayer,
           }
         : undefined,
+      rangedAttackTargetPosition: piece.rangedAttackTargetPosition
+        ? {
+            horizontalLayer: piece.rangedAttackTargetPosition.horizontalLayer,
+            verticalLayer: piece.rangedAttackTargetPosition.verticalLayer,
+          }
+        : undefined,
       player: String(piece.player) as "self" | "opponent",
       pieceType: String(piece.pieceType) as "infantry" | "rook" | "noble",
       hp: piece.hp,
