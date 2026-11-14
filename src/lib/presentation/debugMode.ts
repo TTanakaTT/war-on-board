@@ -9,29 +9,25 @@ import type {
   AutomationStopReason,
   StartMatchOptions,
 } from "$lib/domain/types/match";
-import { m } from "$lib/paraglide/messages";
-import type { Locale } from "$lib/paraglide/runtime";
 import { DebugModeService } from "$lib/services/DebugModeService";
 import { MatchService } from "$lib/services/MatchService";
 
 const DEBUG_CHECKS_STORAGE_KEY = "war-on-board-debug-checks";
 const AUTOMATION_PROGRESS_CHECK_INTERVAL_MS = 1000;
 
-const VIOLATION_TYPE_LABELS: Record<
-  InvariantViolationType,
-  (inputs: Record<string, never>, options: { locale?: Locale }) => string
-> = {
-  "piece-capacity-exceeded": m.debug_violation_piece_capacity_exceeded,
-  "mixed-players-on-panel": m.debug_violation_mixed_players_on_panel,
-  "piece-hp-out-of-range": m.debug_violation_piece_hp_out_of_range,
-  "movement-points-out-of-range": m.debug_violation_movement_points_out_of_range,
-  "duplicate-piece-id": m.debug_violation_duplicate_piece_id,
-  "piece-off-board": m.debug_violation_piece_off_board,
-  "unmerged-pieces": m.debug_violation_unmerged_pieces,
-  "negative-resources": m.debug_violation_negative_resources,
-  "state-changed-after-winner": m.debug_violation_state_changed_after_winner,
-  "uncaught-exception": m.debug_violation_uncaught_exception,
-  "ai-stalled": m.debug_violation_ai_stalled,
+// Dev-build-only text: English literals on purpose, not Paraglide messages (see CLAUDE.md).
+const VIOLATION_TYPE_LABELS: Record<InvariantViolationType, string> = {
+  "piece-capacity-exceeded": "Too many pieces on a panel",
+  "mixed-players-on-panel": "Both players' pieces on one panel",
+  "piece-hp-out-of-range": "Piece HP out of range",
+  "movement-points-out-of-range": "Movement points out of range",
+  "duplicate-piece-id": "Duplicate piece ID",
+  "piece-off-board": "Piece position off the board",
+  "unmerged-pieces": "Unmerged pieces",
+  "negative-resources": "Negative resources",
+  "state-changed-after-winner": "State changed after the game ended",
+  "uncaught-exception": "Uncaught exception",
+  "ai-stalled": "AI turn stalled",
 };
 
 export interface DebugModeStatus {
@@ -46,11 +42,11 @@ export interface WarOnBoardDebugHandle {
   startMatch(options: StartMatchOptions): Promise<void>;
   getStatus(): DebugModeStatus;
   getReports(): InvariantViolationReport[];
-  getViolationTypeLabel(type: InvariantViolationType, locale?: Locale): string;
+  getViolationTypeLabel(type: InvariantViolationType): string;
 }
 
-export function violationTypeLabel(type: InvariantViolationType, locale?: Locale): string {
-  return VIOLATION_TYPE_LABELS[type]({}, { locale });
+export function violationTypeLabel(type: InvariantViolationType): string {
+  return VIOLATION_TYPE_LABELS[type];
 }
 
 export function loadDebugChecksPreference(): boolean {

@@ -63,7 +63,7 @@ async function writeIssueFiles(
   page: import("@playwright/test").Page,
 ): Promise<void> {
   const typeLabel = await page.evaluate(
-    (type) => window.__WAR_ON_BOARD_DEBUG__?.getViolationTypeLabel(type, "ja") ?? type,
+    (type) => window.__WAR_ON_BOARD_DEBUG__?.getViolationTypeLabel(type) ?? type,
     report.violations[0].type,
   );
   const issue = buildInvariantIssue(report, typeLabel);

@@ -68,20 +68,5 @@
   "piece_siege": "Siege",
   "result_winner_message": "Winner: {winner}",
   "ranged_attack_start": "Ranged Attack",
-  "ranged_attack_cancel": "Cancel Attack",
-  "debug_checks_title": "Invariant checks (dev only)",
-  "debug_checks_on": "On",
-  "debug_checks_off": "Off",
-  "debug_violation_badge": "Invariant violations: {count} – {type} (see console)",
-  "debug_violation_piece_capacity_exceeded": "Too many pieces on a panel",
-  "debug_violation_mixed_players_on_panel": "Both players' pieces on one panel",
-  "debug_violation_piece_hp_out_of_range": "Piece HP out of range",
-  "debug_violation_movement_points_out_of_range": "Movement points out of range",
-  "debug_violation_duplicate_piece_id": "Duplicate piece ID",
-  "debug_violation_piece_off_board": "Piece position off the board",
-  "debug_violation_unmerged_pieces": "Unmerged pieces",
-  "debug_violation_negative_resources": "Negative resources",
-  "debug_violation_state_changed_after_winner": "State changed after the game ended",
-  "debug_violation_uncaught_exception": "Uncaught exception",
-  "debug_violation_ai_stalled": "AI turn stalled"
+  "ranged_attack_cancel": "Cancel Attack"
 }
