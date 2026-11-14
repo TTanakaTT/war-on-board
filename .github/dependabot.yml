@@ -4,15 +4,22 @@
 # avoid picking up a compromised version right after it is published. Keep it
 # in sync with `minimumReleaseAge` in pnpm-workspace.yaml, which also covers
 # transitive dependencies.
+#
+# Each ecosystem runs daily before working hours, 30 minutes apart, and keeps at
+# most one pull request open. This keeps Dependabot pull requests from
+# conflicting with each other or cancelling each other's Pages build.
+# workflows/update-vulnerable-packages.yml runs after them at 06:00 and updates
+# packages with known vulnerabilities, including transitive dependencies.
+# Dependabot security updates stay disabled because they ignore the cooldown.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-      day: monday
-      time: "09:00"
+      interval: daily
+      time: "04:00"
       timezone: Asia/Tokyo
+    open-pull-requests-limit: 1
     cooldown:
       default-days: 7
     commit-message:
@@ -29,10 +36,10 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
-      time: "09:00"
+      interval: daily
+      time: "04:30"
       timezone: Asia/Tokyo
+    open-pull-requests-limit: 1
     cooldown:
       default-days: 7
     commit-message:

@@ -1,0 +1,117 @@
+# Updates packages with known vulnerabilities every morning.
+#
+# It updates only the packages that `pnpm audit` reports as fixable, within the
+# ranges in package.json. pnpm's minimumReleaseAge keeps versions younger than
+# 7 days out, so a fix is picked up once it is 7 days old, and no pull request
+# is opened while nothing can be updated yet. A critical vulnerability whose fix
+# is younger than that is left for a human to decide.
+#
+# The pull request is opened with a GitHub App token, because pull requests
+# opened with GITHUB_TOKEN do not trigger the required checks. The token is
+# created only after third-party code (pnpm install / update) has finished.
+# GitHub merges the pull request once the required checks pass.
+name: Update vulnerable packages
+
+on:
+  schedule:
+    - cron: "0 21 * * *" # 06:00 JST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-vulnerable-packages
+  cancel-in-progress: false
+
+env:
+  BRANCH: fix/update-vulnerable-packages
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: 12
+
+      - name: Install Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Update packages that have a fix
+        id: update
+        run: |
+          pnpm audit --json > "$RUNNER_TEMP/before.json" || true
+          packages=$(jq -r '[.advisories[] | select(.patched_versions != null and .patched_versions != "<0.0.0") | .module_name] | unique | .[]' "$RUNNER_TEMP/before.json")
+          if [ -z "$packages" ]; then
+            echo "No fixable vulnerability." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # Word splitting is intended: one argument per package.
+          # shellcheck disable=SC2086
+          pnpm update $packages
+          if git diff --quiet; then
+            echo "Nothing to update: the fixes are younger than 7 days or outside the ranges in package.json (such as a major update)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          pnpm audit --json > "$RUNNER_TEMP/after.json" || true
+          {
+            echo "## 概要"
+            echo
+            echo "\`pnpm audit\` で修正版がある脆弱なパッケージを、\`package.json\` の範囲内で公開から 7 日以上経った版に更新しました（Update vulnerable packages workflow による自動作成）。"
+            echo
+            echo "| 深刻度 | 更新前 | 更新後 |"
+            echo "| --- | --- | --- |"
+            for severity in critical high moderate low; do
+              echo "| $severity | $(jq ".metadata.vulnerabilities.$severity" "$RUNNER_TEMP/before.json") | $(jq ".metadata.vulnerabilities.$severity" "$RUNNER_TEMP/after.json") |"
+            done
+            echo
+            echo "対象: $(echo "$packages" | sed 's/.*/`&`/' | paste -sd ' ' -)"
+            echo
+            echo "## チェック"
+            echo
+            echo "- [x] \`package.json\` version up"
+          } > "$RUNNER_TEMP/body.md"
+          cat "$RUNNER_TEMP/body.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub App token
+        if: steps.update.outputs.changed == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DEPENDENCY_UPDATER_CLIENT_ID }}
+          private-key: ${{ secrets.DEPENDENCY_UPDATER_PRIVATE_KEY }}
+
+      - name: Open pull request
+        if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          user_id=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git commit -q -am "fix(deps): update packages with known vulnerabilities"
+          version=$(pnpm version patch --no-git-tag-version | tail -1 | sed 's/.* //')
+          git commit -q -am "chore: bump version to ${version#v}"
+          git push --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/$BRANCH"
+          if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit "$BRANCH" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --base main --head "$BRANCH" --title "fix(deps): update packages with known vulnerabilities" --body-file "$RUNNER_TEMP/body.md"
+          fi
+          gh pr merge "$BRANCH" --auto --squash
