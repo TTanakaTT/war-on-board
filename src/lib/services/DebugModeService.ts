@@ -1,5 +1,9 @@
 import { GameApi } from "$lib/api/GameApi";
-import { GameApiClient, type GameApiCommandEvent } from "$lib/api/GameApiClient";
+import {
+  GameApiClient,
+  type GameApiCommandInterceptor,
+  type GameApiCommandName,
+} from "$lib/api/GameApiClient";
 import { DebugModeRepository } from "$lib/data/repositories/DebugModeRepository";
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
 import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
@@ -15,6 +19,14 @@ import { MatchService } from "$lib/services/MatchService";
 
 /** How long CPU automation may run without the turn advancing before it counts as stalled. */
 export const AI_STALL_THRESHOLD_MS = 5000;
+
+/** A command that went through GameApiClient, with the game state around it. */
+export interface CheckedCommand {
+  operation: GameApiCommandName;
+  args: unknown[];
+  before: GameStateSnapshot;
+  after: GameStateSnapshot;
+}
 
 interface AutomationProgress {
   signature: string;
@@ -32,7 +44,6 @@ interface AutomationProgress {
  * presentation/debugMode.ts; this service never touches browser APIs itself.
  */
 export class DebugModeService {
-  private static detachObserver: (() => void) | null = null;
   private static turnCommands: RecordedCommand[] = [];
   private static automationProgress: AutomationProgress | null = null;
 
@@ -44,17 +55,16 @@ export class DebugModeService {
     DebugModeRepository.setChecksEnabled(enabled);
 
     if (enabled) {
-      this.detachObserver ??= GameApiClient.observe((event) => this.handleCommand(event));
+      GameApiClient.setInterceptor(checkCommand);
       return;
     }
 
-    this.detachObserver?.();
-    this.detachObserver = null;
+    GameApiClient.setInterceptor(null);
     this.turnCommands = [];
     this.automationProgress = null;
   }
 
-  static handleCommand(event: GameApiCommandEvent): void {
+  static handleCommand(event: CheckedCommand): void {
     if (!this.isChecksEnabled()) return;
 
     const command: RecordedCommand = {
@@ -180,6 +190,13 @@ export class DebugModeService {
     };
   }
 }
+
+const checkCommand: GameApiCommandInterceptor = (operation, args, execute) => {
+  const before = GameApi.getGameState();
+  const result = execute();
+  DebugModeService.handleCommand({ operation, args, before, after: GameApi.getGameState() });
+  return result;
+};
 
 function hasTurnChanged(before: GameStateSnapshot, after: GameStateSnapshot): boolean {
   return before.turn.num !== after.turn.num || before.turn.player !== after.turn.player;
