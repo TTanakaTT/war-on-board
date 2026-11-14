@@ -1,6 +1,6 @@
-# Enables auto-merge (squash) on Dependabot pull requests for patch updates.
-# GitHub merges them only after the `ci` check required by main's branch
-# protection passes. Minor, major and unknown update types are left for a human.
+# Enables auto-merge (squash) on Dependabot pull requests for patch and minor
+# updates. GitHub merges them only after the checks required by main's branch
+# protection pass. Major and unknown update types are left for a human.
 name: Dependabot auto-merge
 
 on:
@@ -20,8 +20,10 @@ jobs:
         id: metadata
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
 
-      - name: Enable auto-merge for patch updates
-        if: steps.metadata.outputs.update-type == 'version-update:semver-patch'
+      - name: Enable auto-merge for patch and minor updates
+        if: >-
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
