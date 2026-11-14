@@ -870,6 +870,9 @@ export class GameApi {
       targetPosition: piece.targetPosition
         ? this.snapshotPosition(piece.targetPosition)
         : undefined,
+      rangedAttackTargetPosition: piece.rangedAttackTargetPosition
+        ? this.snapshotPosition(piece.rangedAttackTargetPosition)
+        : undefined,
       player: this.snapshotControllablePlayer(piece.player),
       pieceType: this.snapshotPieceType(piece.pieceType),
       hp: piece.hp,
@@ -885,6 +888,9 @@ export class GameApi {
       panelPosition: this.restorePosition(piece.panelPosition),
       initialPosition: this.restorePosition(piece.initialPosition),
       targetPosition: piece.targetPosition ? this.restorePosition(piece.targetPosition) : undefined,
+      rangedAttackTargetPosition: piece.rangedAttackTargetPosition
+        ? this.restorePosition(piece.rangedAttackTargetPosition)
+        : undefined,
       player: this.restoreControllablePlayer(piece.player),
       pieceType: this.restorePieceType(piece.pieceType),
       hp: piece.hp,
@@ -973,6 +979,12 @@ export class GameApi {
       if (!panelKeys.has(this.positionKey(piece.panelPosition))) return false;
       if (!panelKeys.has(this.positionKey(piece.initialPosition))) return false;
       if (piece.targetPosition && !panelKeys.has(this.positionKey(piece.targetPosition)))
+        return false;
+      if (
+        piece.rangedAttackTargetPosition &&
+        (!this.isValidPosition(piece.rangedAttackTargetPosition) ||
+          !panelKeys.has(this.positionKey(piece.rangedAttackTargetPosition)))
+      )
         return false;
       if (!Number.isFinite(piece.hp) || piece.hp < 0) return false;
       if (!Number.isFinite(piece.maxHp) || piece.maxHp < 0) return false;

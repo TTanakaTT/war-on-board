@@ -1,0 +1,85 @@
+# Plays AI-vs-AI matches in the dev build after every merge to main, checking the game
+# invariants after every command (see tests/simulation). The first violation found is
+# filed as an issue labeled `invariant-violation`, and the run fails. While any such
+# issue is open, the simulation does not run at all.
+name: Invariant Simulation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: invariant-simulation
+  cancel-in-progress: false
+
+jobs:
+  check-open-issue:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+    outputs:
+      open-count: ${{ steps.count.outputs.open-count }}
+    steps:
+      - name: Count open invariant-violation issues
+        id: count
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count=$(gh issue list --repo "$GITHUB_REPOSITORY" --label invariant-violation --state open --json number --jq length)
+          echo "open-count=$count" >> "$GITHUB_OUTPUT"
+
+  simulate:
+    needs: check-open-issue
+    if: needs.check-open-issue.outputs.open-count == '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: 12
+
+      - name: Install Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run AI simulation
+        id: simulation
+        run: pnpm run test:simulation
+
+      - name: File invariant violation issue
+        if: failure() && steps.simulation.outcome == 'failure' && hashFiles('simulation-results/issue-body.md') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create invariant-violation --repo "$GITHUB_REPOSITORY" --color B60205 \
+            --description "Filed automatically by the invariant simulation" --force
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "$(cat simulation-results/issue-title.txt)" \
+            --body-file simulation-results/issue-body.md \
+            --label bug --label invariant-violation
+
+      - name: Upload simulation results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: invariant-violation-report
+          path: |
+            simulation-results/
+            test-results/simulation/
+          retention-days: 30

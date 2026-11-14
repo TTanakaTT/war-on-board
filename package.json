@@ -1,7 +1,7 @@
 {
   "name": "war-on-board",
   "private": true,
-  "version": "0.3.7",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
@@ -14,7 +14,8 @@
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:simulation": "playwright test --config playwright.simulation.config.ts"
   },
   "dependencies": {
     "material-symbols": "^0.45.6",

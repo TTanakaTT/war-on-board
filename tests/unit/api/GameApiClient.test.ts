@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
   createGameApiClient,
   type GameApiCommandDelegate,
@@ -162,5 +162,42 @@ describe("GameApiClient logger", () => {
     expect(initializeResponse).toBe(successResult);
     expect(assignResponse).toBe(errorResult);
     expect(entries).toEqual([]);
+  });
+});
+
+describe("GameApiClient interceptor", () => {
+  test("wraps every command with its name and arguments and returns the command's result", () => {
+    const result = createSuccessResult();
+    const client = createGameApiClient({
+      isDev: false,
+      delegate: createDelegate({ setGenerationMode: () => result }),
+    });
+    const calls: { operation: string; args: unknown[] }[] = [];
+    client.setInterceptor((operation, args, execute) => {
+      calls.push({ operation, args });
+      return execute();
+    });
+
+    const returned = client.setGenerationMode(Player.SELF, "rear");
+
+    expect(calls).toEqual([{ operation: "setGenerationMode", args: [Player.SELF, "rear"] }]);
+    expect(returned).toBe(result);
+  });
+
+  test("runs the command directly after the interceptor is removed", () => {
+    const endTurn = vi.fn(() => createEndTurnSuccessResult());
+    const client = createGameApiClient({ isDev: false, delegate: createDelegate({ endTurn }) });
+    let interceptedCount = 0;
+    client.setInterceptor((_operation, _args, execute) => {
+      interceptedCount += 1;
+      return execute();
+    });
+
+    client.endTurn(Player.SELF);
+    client.setInterceptor(null);
+    client.endTurn(Player.SELF);
+
+    expect(interceptedCount).toBe(1);
+    expect(endTurn).toHaveBeenCalledTimes(2);
   });
 });

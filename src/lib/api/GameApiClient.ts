@@ -2,7 +2,7 @@ import { dev } from "$app/environment";
 import { GameApi } from "$lib/api/GameApi";
 import type { GameActionResult, Result, TurnEndResult } from "$lib/domain/types/api";
 
-type GameApiCommandName =
+export type GameApiCommandName =
   | "initializeGame"
   | "assignMove"
   | "cancelMove"
@@ -51,6 +51,17 @@ export interface GameApiResponseLogEntry {
 
 export type GameApiLogEntry = GameApiRequestLogEntry | GameApiResponseLogEntry;
 
+/**
+ * Wraps every command: receives the command's name and arguments plus a function that runs
+ * it, and must return that function's result. Lets tooling observe commands without this
+ * client knowing what it does with them.
+ */
+export type GameApiCommandInterceptor = <TResult>(
+  operation: GameApiCommandName,
+  args: unknown[],
+  execute: () => TResult,
+) => TResult;
+
 interface CreateGameApiClientOptions {
   isDev?: boolean;
   delegate?: GameApiCommandDelegate;
@@ -91,6 +102,7 @@ function defaultLogger(entry: GameApiLogEntry): void {
 
 export function createGameApiClient(options: CreateGameApiClientOptions = {}) {
   const { isDev = dev, delegate = GameApi, logger = defaultLogger } = options;
+  let interceptor: GameApiCommandInterceptor | null = null;
 
   const log = (entry: GameApiLogEntry): void => {
     if (!isDev) {
@@ -112,7 +124,7 @@ export function createGameApiClient(options: CreateGameApiClientOptions = {}) {
       args,
     });
 
-    const result = execute();
+    const result = interceptor ? interceptor(operation, args, execute) : execute();
 
     log({
       transport: "gameapi",
@@ -125,6 +137,11 @@ export function createGameApiClient(options: CreateGameApiClientOptions = {}) {
   };
 
   return {
+    /** Sets the interceptor that wraps every later command, or removes it with null. */
+    setInterceptor(next: GameApiCommandInterceptor | null): void {
+      interceptor = next;
+    },
+
     initializeGame(config: Parameters<GameApiCommandDelegate["initializeGame"]>[0]) {
       return runCommand("initializeGame", [config], () => delegate.initializeGame(config));
     },

@@ -34,16 +34,18 @@ This project follows **Clean Architecture** principles. Code is organized into c
 
 ## Service Responsibilities
 
-| Service                                                                 | Purpose                                                          |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| [**InteractionService**](../src/lib/services/InteractionService.ts)     | Board interaction: piece selection, panel click, highlight logic |
-| [**MovementRulesService**](../src/lib/services/MovementRulesService.ts) | Read-only movement queries: `canMoveTo`, `canCancelMove`         |
-| [**GenerationService**](../src/lib/services/GenerationService.ts)       | Unit generation: find best panel, spawn piece, consume resources |
-| [**CombatService**](../src/lib/services/CombatService.ts)               | Combat resolution: multi-unit simultaneous damage, wall siege    |
-| [**PieceService**](../src/lib/services/PieceService.ts)                 | Piece CRUD, move execution, passive gains                        |
-| [**PanelService**](../src/lib/services/PanelService.ts)                 | Panel initialization, adjacent lookup, state clearing            |
-| [**AiService**](../src/lib/services/AiService.ts)                       | AI player logic (strength profiles, strategic/lookahead choices) |
-| [**VictoryService**](../src/lib/services/VictoryService.ts)             | Win condition check (home base capture)                          |
+| Service                                                                 | Purpose                                                            |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [**InteractionService**](../src/lib/services/InteractionService.ts)     | Board interaction: piece selection, panel click, highlight logic   |
+| [**MovementRulesService**](../src/lib/services/MovementRulesService.ts) | Read-only movement queries: `canMoveTo`, `canCancelMove`           |
+| [**GenerationService**](../src/lib/services/GenerationService.ts)       | Unit generation: find best panel, spawn piece, consume resources   |
+| [**CombatService**](../src/lib/services/CombatService.ts)               | Combat resolution: multi-unit simultaneous damage, wall siege      |
+| [**PieceService**](../src/lib/services/PieceService.ts)                 | Piece CRUD, move execution, passive gains                          |
+| [**PanelService**](../src/lib/services/PanelService.ts)                 | Panel initialization, adjacent lookup, state clearing              |
+| [**AiService**](../src/lib/services/AiService.ts)                       | AI player logic (strength profiles, strategic/lookahead choices)   |
+| [**VictoryService**](../src/lib/services/VictoryService.ts)             | Win condition check (home base capture)                            |
+| [**InvariantService**](../src/lib/services/InvariantService.ts)         | Pure checks for game invariants that must hold after every command |
+| [**DebugModeService**](../src/lib/services/DebugModeService.ts)         | Dev-build-only invariant monitoring of every command               |
 
 ---
 
@@ -78,6 +80,7 @@ Presentation components may read repositories via `$derived`, but writes must be
     - [`entities/`](../tests/unit/domain/entities/) — Entity tests
     - [`enums/`](../tests/unit/domain/enums/) — Enum tests
 - [`e2e/`](../tests/e2e/) — Playwright (CI only)
+- [`simulation/`](../tests/simulation/) — Playwright AI-vs-AI invariant simulation against the dev server (CI on main only)
 
 ---
 

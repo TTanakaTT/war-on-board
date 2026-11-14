@@ -13,6 +13,7 @@
   1.  `messages/ja.json` / `messages/en.json` にキーを追加・更新
   2.  `pnpm build` を実行して Paraglide の生成物を更新
   3.  コード側では `import { m } from '$lib/paraglide/messages'` を用い `m.key()` を呼び出して表示
+- 例外: 開発ビルド専用のデバッグ表示（`$app/environment` の `dev` が true のときだけ読み込まれる UI）は本番コードではないため、Paraglide を使わず英語の文字列を直接書く。
 
 ### 型・命名・ファイル配置
 

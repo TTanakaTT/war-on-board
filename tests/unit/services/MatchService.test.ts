@@ -186,4 +186,31 @@ describe("MatchService", () => {
       expect(MatchControlRepository.get().automation.stopReason).toBe("turn-limit");
     });
   });
+
+  describe("haltAutomation", () => {
+    test("cancels scheduled automation and leaves it idle without a stop reason", async () => {
+      MatchService.startMatch({
+        controllers: {
+          self: "cpu",
+          opponent: "cpu",
+        },
+        layer: 4,
+        automationTurnLimit: 10,
+        aiStrengths: {
+          self: AiStrength.STRENGTH_1,
+          opponent: AiStrength.STRENGTH_1,
+        },
+      });
+      expect(MatchControlRepository.get().automation.status).toBe("running");
+
+      MatchService.haltAutomation();
+      await vi.runAllTimersAsync();
+
+      const { automation } = MatchControlRepository.get();
+      expect(automation.status).toBe("idle");
+      expect(automation.stopReason).toBeNull();
+      expect(TurnRepository.get().player).toBe(Player.SELF);
+      expect(GameApi.getGameStateHistory()).toHaveLength(1);
+    });
+  });
 });

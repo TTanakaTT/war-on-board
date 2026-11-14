@@ -63,6 +63,12 @@ function snapshotFromRepositories(): GameStateSnapshot {
             verticalLayer: piece.targetPosition.verticalLayer,
           }
         : undefined,
+      rangedAttackTargetPosition: piece.rangedAttackTargetPosition
+        ? {
+            horizontalLayer: piece.rangedAttackTargetPosition.horizontalLayer,
+            verticalLayer: piece.rangedAttackTargetPosition.verticalLayer,
+          }
+        : undefined,
       player: String(piece.player) as "self" | "opponent",
       pieceType: String(piece.pieceType) as "infantry" | "rook" | "noble",
       hp: piece.hp,
@@ -2980,6 +2986,75 @@ describe("GameApi state snapshot contract", () => {
       });
 
       expect(result).toEqual({ ok: false, error: ActionError.INVALID_GAME_STATE });
+    });
+
+    describe("ranged attack targets", () => {
+      const archerPosition = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
+      const rangedTarget = new PanelPosition({ horizontalLayer: 2, verticalLayer: 0 });
+      const rangedTargetSnapshot = {
+        horizontalLayer: rangedTarget.horizontalLayer,
+        verticalLayer: rangedTarget.verticalLayer,
+      };
+
+      function addArcherWithRangedTarget(player: Player): void {
+        PiecesRepository.add(
+          new Piece({
+            id: 1,
+            panelPosition: archerPosition,
+            initialPosition: archerPosition,
+            rangedAttackTargetPosition: rangedTarget,
+            player,
+            pieceType: PieceType.ARCHER,
+          }),
+        );
+      }
+
+      test("carries a ranged attack target from getGameState over to loadGameState", () => {
+        GameApi.initializeGame({ layer: 4 });
+        addArcherWithRangedTarget(Player.SELF);
+        const snapshot = GameApi.getGameState();
+        expect(snapshot.pieces[0].rangedAttackTargetPosition).toEqual(rangedTargetSnapshot);
+
+        GameApi.initializeGame({ layer: 2 });
+        const result = GameApi.loadGameState(snapshot);
+
+        expectActionSuccessWithSnapshot(result);
+        expect(PiecesRepository.getAll()[0].rangedAttackTargetPosition?.equals(rangedTarget)).toBe(
+          true,
+        );
+        expect(GameApi.getGameState()).toEqual(snapshot);
+      });
+
+      test("keeps a ranged attack target in getGameStateHistory", () => {
+        GameApi.initializeGame({ layer: 4 });
+        // The opponent's pending attack survives the self player's endTurn unresolved.
+        addArcherWithRangedTarget(Player.OPPONENT);
+
+        const endTurnResult = GameApi.endTurn(Player.SELF);
+        expectTurnEndSuccessWithSnapshot(endTurnResult);
+
+        const history = GameApi.getGameStateHistory();
+        expect(history).toHaveLength(2);
+        expect(history[1].snapshot.pieces[0].rangedAttackTargetPosition).toEqual(
+          rangedTargetSnapshot,
+        );
+      });
+
+      test("returns INVALID_GAME_STATE when a ranged attack target is off the board", () => {
+        GameApi.initializeGame({ layer: 4 });
+        addArcherWithRangedTarget(Player.SELF);
+        const snapshot = GameApi.getGameState();
+
+        const result = GameApi.loadGameState({
+          ...snapshot,
+          pieces: snapshot.pieces.map((piece) => ({
+            ...piece,
+            rangedAttackTargetPosition: { horizontalLayer: 99, verticalLayer: 99 },
+          })),
+        });
+
+        expect(result).toEqual({ ok: false, error: ActionError.INVALID_GAME_STATE });
+      });
     });
   });
 

@@ -71,6 +71,9 @@ export class GameStateHistoryRepository {
       panelPosition: this.clonePosition(piece.panelPosition),
       initialPosition: this.clonePosition(piece.initialPosition),
       targetPosition: piece.targetPosition ? this.clonePosition(piece.targetPosition) : undefined,
+      rangedAttackTargetPosition: piece.rangedAttackTargetPosition
+        ? this.clonePosition(piece.rangedAttackTargetPosition)
+        : undefined,
       player: piece.player,
       pieceType: piece.pieceType,
       hp: piece.hp,
