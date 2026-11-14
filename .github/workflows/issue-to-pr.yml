@@ -71,4 +71,5 @@ jobs:
 
             Never merge pull requests and never push to main.
           claude_args: |
+            --model opus
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(pnpm:*),Bash(git:*),Bash(gh pr create:*),Bash(gh pr view:*),Bash(gh issue comment:*)"
