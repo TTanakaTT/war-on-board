@@ -1,5 +1,4 @@
-# Updates packages with known vulnerabilities every morning, after Dependabot
-# has run.
+# Updates packages with known vulnerabilities every morning.
 #
 # It updates only the packages that `pnpm audit` reports as fixable, within the
 # ranges in package.json. pnpm's minimumReleaseAge keeps versions younger than
@@ -93,8 +92,8 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          client-id: ${{ vars.DEPS_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.DEPS_BOT_PRIVATE_KEY }}
+          client-id: ${{ vars.DEPENDENCY_UPDATER_CLIENT_ID }}
+          private-key: ${{ secrets.DEPENDENCY_UPDATER_PRIVATE_KEY }}
 
       - name: Open pull request
         if: steps.update.outputs.changed == 'true'
