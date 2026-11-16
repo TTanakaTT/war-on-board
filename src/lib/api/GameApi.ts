@@ -235,18 +235,25 @@ export class GameApi {
    * - If the piece already has a pending `targetPosition` (mid-transit toward an
    *   earlier order), redirecting it requires banked `movementPoints` to have
    *   climbed back to `MOVEMENT_HOP_COST`. An idle piece (no pending target) can
-   *   always be assigned a fresh order regardless of its banked movementPoints —
-   *   a slow piece just takes longer to actually get there (see Effects).
+   *   always be assigned a fresh order regardless of its banked movementPoints.
+   * - A piece that takes multiple turns per hop (see `Piece.takesMultipleTurnsPerHop`)
+   *   follows its own rule instead: its order can be changed freely until the end of
+   *   the turn it was given, and is locked once it starts winding up an attack (see
+   *   `MovementRulesService.isOrderLocked`). While in transit, only its final
+   *   destination changes — the hop in progress always completes first.
    * - Target is a real panel on the board.
-   * - Target satisfies movement rules (enemy panel = allowed if the piece can
-   *   defeat every defender there; friendly panel = projected count + 1 <=
-   *   maxPiecesPerPanel). Only the final destination is validated up front —
-   *   obstacles encountered en route are handled turn by turn as they're reached.
+   * - Target satisfies movement rules (`MovementRulesService.canMoveTo`): enemy panel =
+   *   allowed if the piece can defeat every defender there and its own panel still has
+   *   room for it (an attacker stays put unless it breaks through); friendly panel =
+   *   projected count + 1 <= maxPiecesPerPanel, and for a slow piece also room on the
+   *   next hop it starts this turn. Only the final destination and this turn's hop are
+   *   validated up front — obstacles farther along are handled turn by turn as they're
+   *   reached.
    *
    * **Effects:**
    * - Sets `piece.targetPosition` to `target`.
-   * - For a piece whose `movement` is below `MOVEMENT_HOP_COST`, commits
-   *   `movementPoints` down to its raw rate (see `PieceType.config.movement`).
+   * - For a piece that takes multiple turns per hop and is not in transit, resets
+   *   `movementPoints` (its hop progress) to 0.
    *
    * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
    * PIECE_NOT_OWNED, INSUFFICIENT_MOVEMENT_POINTS, TARGET_NOT_REACHABLE.
@@ -264,13 +271,16 @@ export class GameApi {
     if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
     if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
 
-    // Redirecting an already-committed pending action is blocked until banked
-    // movementPoints climb back to MOVEMENT_HOP_COST (e.g. a movement<1 piece
-    // still winding up toward its next hop — see the commit below). An idle piece
+    // Redirecting a pending action is blocked while it can no longer change: a piece
+    // that takes multiple turns per hop once it starts winding up an attack, any other
+    // piece until banked movementPoints climb back to MOVEMENT_HOP_COST. An idle piece
     // (no pending targetPosition yet) has nothing to redirect, so it may always be
     // given a fresh order this turn regardless of its banked movementPoints —
     // there must never be a turn where a piece simply cannot be ordered at all.
-    if (piece.targetPosition && piece.movementPoints < MOVEMENT_HOP_COST) {
+    const isRedirectBlocked = piece.takesMultipleTurnsPerHop
+      ? MovementRulesService.isOrderLocked(piece)
+      : piece.targetPosition !== undefined && piece.movementPoints < MOVEMENT_HOP_COST;
+    if (isRedirectBlocked) {
       return { ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS };
     }
 
@@ -288,18 +298,7 @@ export class GameApi {
       return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
     }
 
-    // A movement<1 piece commits its points down to the raw rate on assignment — this turn's
-    // accrual is considered "already spent" on declaring the action, and resolution only
-    // happens once accrual (see PieceService.computeAccruedMovementPoints) climbs back to
-    // MOVEMENT_HOP_COST over ceil(MOVEMENT_HOP_COST / movement) of the owner's turns.
-    const committedMovementPoints =
-      piece.pieceType.config.movement < MOVEMENT_HOP_COST
-        ? piece.pieceType.config.movement
-        : piece.movementPoints;
-
-    PiecesRepository.update(
-      new Piece({ ...piece, targetPosition: target, movementPoints: committedMovementPoints }),
-    );
+    PiecesRepository.update(MovementRulesService.withOrder(piece, target));
     return { ok: true, value: { gameState: this.getGameState() } };
   }
 
@@ -307,7 +306,10 @@ export class GameApi {
    * Cancel a piece's pending move.
    *
    * The piece must have a `targetPosition` set, and cancelling must not
-   * cause the origin panel to exceed its capacity.
+   * cause the origin panel to exceed its capacity. A piece that takes multiple turns
+   * per hop cannot cancel once it starts winding up an attack, and a piece in transit
+   * cancels by stopping at the panel it is moving into (see
+   * `MovementRulesService.canCancelMove`).
    *
    * @param player - The player performing the action.
    * @param pieceId - ID of the piece whose move to cancel.
@@ -319,7 +321,8 @@ export class GameApi {
    * - Cancelling does not exceed capacity at the piece's current panel.
    *
    * **Effects:**
-   * - Clears `piece.targetPosition` to `undefined`.
+   * - Clears `piece.targetPosition` to `undefined` — or, for a piece in transit, sets it
+   *   to the panel the piece is moving into.
    *
    * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
    * PIECE_NOT_OWNED, CANNOT_CANCEL.
@@ -339,7 +342,7 @@ export class GameApi {
       return { ok: false, error: ActionError.CANNOT_CANCEL };
     }
 
-    PiecesRepository.update(new Piece({ ...piece, targetPosition: undefined }));
+    PiecesRepository.update(new Piece({ ...piece, targetPosition: piece.transitPosition }));
     return { ok: true, value: { gameState: this.getGameState() } };
   }
 
@@ -712,6 +715,8 @@ export class GameApi {
    * - Friendly/neutral panels are included only if projected piece count + 1 <= maxPiecesPerPanel.
    *
    * Also includes the piece's initial position (to allow "staying") if capacity allows.
+   * A piece in transit is measured from the panel it is moving into (where it will be once
+   * its current hop completes), and a piece whose order is locked has no targets.
    *
    * @param pieceId - The ID of the piece to query.
    * @returns Array of reachable PanelPosition, or empty if piece not found.
@@ -719,18 +724,20 @@ export class GameApi {
   static getMovableTargets(pieceId: number): PanelPosition[] {
     const piece = PiecesRepository.getAll().find((p) => p.id === pieceId);
     if (!piece) return [];
+    if (MovementRulesService.isOrderLocked(piece)) return [];
 
     const turn = TurnRepository.get();
     const maxPieces = turn.maxPiecesPerPanel[String(piece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
+    const origin = piece.transitPosition ?? piece.initialPosition;
 
-    // Get all panels adjacent to the piece's initial position
+    // Get all panels adjacent to the piece's origin
     const allPanels = PanelRepository.getAll();
     const adjacentPositions = allPanels
-      .filter((p) => piece.initialPosition.isAdjacent(p.panelPosition))
+      .filter((p) => origin.isAdjacent(p.panelPosition))
       .map((p) => p.panelPosition);
 
-    // Include the piece's own position (stay)
-    const candidates = [...adjacentPositions, piece.initialPosition];
+    // Include the origin itself (stay)
+    const candidates = [...adjacentPositions, origin];
 
     return candidates.filter((pos) =>
       MovementRulesService.canMoveTo(pos, piece.player, pieceId, maxPieces),
@@ -882,6 +889,9 @@ export class GameApi {
       rangedAttackTargetPosition: piece.rangedAttackTargetPosition
         ? this.snapshotPosition(piece.rangedAttackTargetPosition)
         : undefined,
+      transitPosition: piece.transitPosition
+        ? this.snapshotPosition(piece.transitPosition)
+        : undefined,
       player: this.snapshotControllablePlayer(piece.player),
       pieceType: this.snapshotPieceType(piece.pieceType),
       hp: piece.hp,
@@ -899,6 +909,9 @@ export class GameApi {
       targetPosition: piece.targetPosition ? this.restorePosition(piece.targetPosition) : undefined,
       rangedAttackTargetPosition: piece.rangedAttackTargetPosition
         ? this.restorePosition(piece.rangedAttackTargetPosition)
+        : undefined,
+      transitPosition: piece.transitPosition
+        ? this.restorePosition(piece.transitPosition)
         : undefined,
       player: this.restoreControllablePlayer(piece.player),
       pieceType: this.restorePieceType(piece.pieceType),
@@ -993,6 +1006,12 @@ export class GameApi {
         piece.rangedAttackTargetPosition &&
         (!this.isValidPosition(piece.rangedAttackTargetPosition) ||
           !panelKeys.has(this.positionKey(piece.rangedAttackTargetPosition)))
+      )
+        return false;
+      if (
+        piece.transitPosition &&
+        (!this.isValidPosition(piece.transitPosition) ||
+          !panelKeys.has(this.positionKey(piece.transitPosition)))
       )
         return false;
       if (!Number.isFinite(piece.hp) || piece.hp < 0) return false;

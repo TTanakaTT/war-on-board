@@ -33,6 +33,7 @@ export interface PieceSnapshot {
   initialPosition: PanelPositionSnapshot;
   targetPosition?: PanelPositionSnapshot;
   rangedAttackTargetPosition?: PanelPositionSnapshot;
+  transitPosition?: PanelPositionSnapshot;
   player: ControllablePlayerSnapshot;
   pieceType: PieceTypeSnapshot;
   hp: number;

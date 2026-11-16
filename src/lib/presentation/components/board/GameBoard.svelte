@@ -5,6 +5,7 @@
   import { LayerRepository } from "$lib/data/repositories/LayerRepository";
   import MoveArrows from "./MoveArrows.svelte";
   import MovingPiecePreview from "./MovingPiecePreview.svelte";
+  import TransitPieceTokens from "./TransitPieceTokens.svelte";
   import RangedAttackModeButton from "./RangedAttackModeButton.svelte";
   import { BoardLayout } from "$lib/presentation/BoardLayout";
   import { BOARD_PANEL_VERTICAL_PIXEL_OFFSET } from "$lib/presentation/constants/BoardLayoutConstants";
@@ -97,6 +98,7 @@
         {/each}
       {/each}
       <MoveArrows />
+      <TransitPieceTokens />
       <MovingPiecePreview />
     </div>
 

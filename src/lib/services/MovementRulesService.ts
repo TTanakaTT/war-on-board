@@ -1,5 +1,5 @@
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import type { Piece } from "$lib/domain/entities/Piece";
+import { Piece } from "$lib/domain/entities/Piece";
 import type { PieceType } from "$lib/domain/enums/PieceType";
 import { Player } from "$lib/domain/enums/Player";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
@@ -19,8 +19,8 @@ import {
 export class MovementRulesService {
   /**
    * Counts how many stacks `player` will have on `targetPosition` at the end of the turn,
-   * grouping each piece by its end-of-turn destination. Mergeable pieces of the same type
-   * count as one stack.
+   * counting each piece on every panel it occupies then (see `endOfTurnOccupancy`).
+   * Mergeable pieces of the same type count as one stack.
    *
    * @param excludePieceId - Existing piece to leave out of the count.
    * @param includePieceId - Existing piece to count as if it ended the turn on `targetPosition`.
@@ -39,16 +39,9 @@ export class MovementRulesService {
 
     for (const piece of PiecesRepository.getPiecesByPlayer(player)) {
       if (piece.id === excludePieceId) continue;
-
-      let destination: PanelPosition;
-      if (piece.targetPosition) {
-        const isAttack = this.hasEnemyPresence(piece.targetPosition, player);
-        destination = isAttack ? piece.panelPosition : piece.targetPosition;
-      } else {
-        destination = piece.panelPosition;
+      if (!this.endOfTurnOccupancy(piece).some((position) => position.equals(targetPosition))) {
+        continue;
       }
-
-      if (!destination.equals(targetPosition)) continue;
 
       if (piece.pieceType.config.mergeable) {
         projectedMergeableTypes.add(String(piece.pieceType));
@@ -77,6 +70,97 @@ export class MovementRulesService {
     }
 
     return projectedStackCount + projectedMergeableTypes.size;
+  }
+
+  /**
+   * Panels <piece> takes up for its own side's capacity at the end of the current turn.
+   *
+   * - A piece that hops at most once per turn: its target when it moves to a panel without
+   *   enemy presence, otherwise (no order, or an attack) its own panel.
+   * - A piece that takes multiple turns per hop (see `Piece.takesMultipleTurnsPerHop`):
+   *   - its own panel while it has nothing to do, stays, or winds up / makes an attack
+   *     (an attacker stays put unless it breaks through);
+   *   - only the hop panel when it completes a hop into a panel without enemy presence
+   *     this turn (it leaves its own panel);
+   *   - both its own panel and the hop panel while it is, or this turn becomes, between
+   *     them — the piece is still on its own panel, and the hop panel is kept free for it.
+   *
+   * A slow piece is never counted on a final destination farther than its next hop: each
+   * hop checks for room before it starts (see PieceService.finalizePlayerMoves).
+   */
+  static endOfTurnOccupancy(piece: Piece): PanelPosition[] {
+    if (!piece.takesMultipleTurnsPerHop) {
+      if (piece.targetPosition && !this.hasEnemyPresence(piece.targetPosition, piece.player)) {
+        return [piece.targetPosition];
+      }
+      return [piece.panelPosition];
+    }
+
+    const hop = this.gradualHop(piece);
+    if (!hop || hop.equals(piece.panelPosition)) return [piece.panelPosition];
+    if (this.hasEnemyPresence(hop, piece.player)) return [piece.panelPosition];
+    if (this.completesHopThisTurn(piece)) return [hop];
+    return [piece.panelPosition, hop];
+  }
+
+  /**
+   * The panel a piece that takes multiple turns per hop is working toward: the panel it
+   * is moving into while in transit, otherwise the first step of the shortest path to its
+   * target (its own panel when the target is that panel). Undefined without an order.
+   */
+  static gradualHop(piece: Piece): PanelPosition | undefined {
+    if (piece.transitPosition) return piece.transitPosition;
+    if (!piece.targetPosition) return undefined;
+    const path = PanelsService.findShortestPath(piece.panelPosition, piece.targetPosition);
+    return path && path.length >= 2 ? path[1] : piece.panelPosition;
+  }
+
+  /**
+   * Whether the progress of a piece that takes multiple turns per hop reaches
+   * MOVEMENT_HOP_COST at the end of this turn, completing its hop or attack.
+   */
+  static completesHopThisTurn(piece: Piece): boolean {
+    return piece.movementPoints + piece.pieceType.config.movement >= MOVEMENT_HOP_COST;
+  }
+
+  /**
+   * Whether <piece>'s order can no longer be changed or cancelled: a piece that takes
+   * multiple turns per hop has started winding up an attack (it made progress without
+   * leaving its panel). A piece in transit is not locked — only its current hop is fixed,
+   * and its final destination can still change.
+   */
+  static isOrderLocked(piece: Piece): boolean {
+    return (
+      piece.takesMultipleTurnsPerHop &&
+      !piece.isInTransit &&
+      piece.targetPosition !== undefined &&
+      piece.movementPoints > 0
+    );
+  }
+
+  /**
+   * <piece> as it would be right after being ordered to <target>. A piece that takes
+   * multiple turns per hop starts its progress over, unless it is already in transit
+   * (its current hop keeps going and only the final destination changes).
+   */
+  static withOrder(piece: Piece, target: PanelPosition): Piece {
+    const restartsProgress = piece.takesMultipleTurnsPerHop && !piece.isInTransit;
+    return new Piece({
+      ...piece,
+      targetPosition: target,
+      movementPoints: restartsProgress ? 0 : piece.movementPoints,
+    });
+  }
+
+  /**
+   * Whether every panel <piece> (possibly a hypothetical state of an existing piece) takes
+   * up at the end of the turn stays within <maxPieces> with it counted there.
+   */
+  static fitsAtEndOfTurn(piece: Piece, maxPieces: number): boolean {
+    return this.endOfTurnOccupancy(piece).every(
+      (position) =>
+        this.projectedFriendlyStackCount(position, piece.player, piece.id, piece.id) <= maxPieces,
+    );
   }
 
   /**
@@ -110,10 +194,14 @@ export class MovementRulesService {
   /**
    * Determine whether <player>'s piece (id = selectedPieceId) can move to <targetPosition>.
    *
+   * - A piece whose order is locked (see isOrderLocked) cannot be given a new one.
    * - Enemy panels → movable if the piece can attack and, when defenders are
-   *   present, can defeat every one of them (see canDefeatAllDefenders).
-   *   Capacity is irrelevant for enemy panels.
-   * - Friendly panels → movable only if projected post-merge stack count <= maxPieces.
+   *   present, can defeat every one of them (see canDefeatAllDefenders). The target's
+   *   capacity is irrelevant, but the attacker stays on its own panel unless it breaks
+   *   through, so every panel it takes up at the end of the turn must have room for it.
+   * - Friendly panels → movable only if the projected post-merge stack count on the target
+   *   <= maxPieces, and every panel the piece takes up at the end of the turn (for a slow
+   *   piece, also the next hop it starts this turn) has room for it.
    */
   static canMoveTo(
     targetPosition: PanelPosition,
@@ -123,6 +211,9 @@ export class MovementRulesService {
   ): boolean {
     const piece = PiecesRepository.getAll().find((candidate) => candidate.id === selectedPieceId);
     if (!piece) return false;
+    if (this.isOrderLocked(piece)) return false;
+    const orderedPiece = this.withOrder(piece, targetPosition);
+
     if (this.hasEnemyPresence(targetPosition, player)) {
       if (!piece.canAttack) return false;
 
@@ -131,17 +222,7 @@ export class MovementRulesService {
       );
       if (defenders.length > 0 && !this.canDefeatAllDefenders(piece, defenders)) return false;
 
-      return true;
-    }
-
-    if (piece.panelPosition.equals(targetPosition)) {
-      const projectedStackCount = this.projectedFriendlyStackCount(
-        targetPosition,
-        player,
-        selectedPieceId,
-        selectedPieceId,
-      );
-      return projectedStackCount <= maxPieces;
+      return this.fitsAtEndOfTurn(orderedPiece, maxPieces);
     }
 
     const projectedStackCount = this.projectedFriendlyStackCount(
@@ -150,8 +231,9 @@ export class MovementRulesService {
       selectedPieceId,
       selectedPieceId,
     );
+    if (projectedStackCount > maxPieces) return false;
 
-    return projectedStackCount <= maxPieces;
+    return this.fitsAtEndOfTurn(orderedPiece, maxPieces);
   }
 
   /**
@@ -211,11 +293,10 @@ export class MovementRulesService {
   /**
    * Check whether cancelling a piece's pending move is allowed.
    *
-   * Blocked if:
-   *   - The piece's movement is below MOVEMENT_HOP_COST (e.g. a movement<1 piece)
-   *     — its pending action is committed the instant it's assigned (see
-   *     GameApi.assignMove) and cannot be redirected or cancelled until it resolves.
-   *   - Returning the piece to its current panel would exceed the capacity limit.
+   * - A piece whose order is locked (see isOrderLocked) cannot cancel it.
+   * - A piece in transit cancels by stopping at the panel it is moving into, so it can
+   *   cancel unless it is already headed nowhere farther.
+   * - Otherwise the piece stays on its current panel, which must not exceed capacity.
    */
   static canCancelMove(
     pieceCurrentPosition: PanelPosition,
@@ -224,7 +305,10 @@ export class MovementRulesService {
     maxPieces: number = DEFAULT_MAX_PIECES_PER_PANEL,
   ): boolean {
     const piece = PiecesRepository.getAll().find((candidate) => candidate.id === pieceId);
-    if (piece && piece.pieceType.config.movement < MOVEMENT_HOP_COST) return false;
+    if (piece && this.isOrderLocked(piece)) return false;
+    if (piece?.transitPosition) {
+      return !piece.targetPosition?.equals(piece.transitPosition);
+    }
 
     const projectedStackCount = this.projectedFriendlyStackCount(
       pieceCurrentPosition,

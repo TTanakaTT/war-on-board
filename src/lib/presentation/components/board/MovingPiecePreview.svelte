@@ -2,7 +2,7 @@
   import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
   import { BoardLayout } from "$lib/presentation/BoardLayout";
   import { PIECE_PREVIEW_ANIMATION_MS } from "$lib/presentation/constants/PieceTokenConstants";
-  import { getPieceTokenOffset } from "$lib/presentation/PieceTokenLayout";
+  import { getPieceTokenCoordinates } from "$lib/presentation/PieceTokenLayout";
   import { PieceService } from "$lib/services/PieceService";
   import PieceToken from "./PieceToken.svelte";
 
@@ -15,22 +15,21 @@
     piece: ReturnType<typeof PiecesRepository.getAll>[number];
   };
 
+  // Each pending order animates from where the piece is drawn now to where it will be at
+  // the end of this turn — part of the way between two panels for a slow piece.
   let movingPreviews = $derived.by<MovingPreview[]>(() => {
     return PiecesRepository.getAll()
-      .filter((piece) => piece.targetPosition)
+      .filter((piece) => piece.targetPosition || piece.isInTransit)
       .map((piece) => {
-        const sourcePieces = PiecesRepository.getPiecesByPosition(piece.panelPosition);
-        const pieceIndex = sourcePieces.findIndex((sourcePiece) => sourcePiece.id === piece.id);
-        const sourceCoordinates = BoardLayout.getCoordinates(piece.panelPosition);
-        const targetCoordinates = BoardLayout.getCoordinates(PieceService.previewTravelStop(piece));
-        const startX = sourceCoordinates.x + getPieceTokenOffset(pieceIndex, sourcePieces.length);
+        const start = getPieceTokenCoordinates(piece);
+        const end = BoardLayout.getPointCoordinates(PieceService.previewEndOfTurnPoint(piece));
 
         return {
           id: piece.id,
-          startX,
-          startY: sourceCoordinates.y,
-          travelX: targetCoordinates.x - startX,
-          travelY: targetCoordinates.y - sourceCoordinates.y,
+          startX: start.x,
+          startY: start.y,
+          travelX: end.x - start.x,
+          travelY: end.y - start.y,
           piece,
         };
       });

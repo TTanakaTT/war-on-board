@@ -101,6 +101,7 @@ export class InvariantService {
         ["panelPosition", piece.panelPosition],
         ["targetPosition", piece.targetPosition],
         ["rangedAttackTargetPosition", piece.rangedAttackTargetPosition],
+        ["transitPosition", piece.transitPosition],
       ];
       for (const [field, position] of positions) {
         if (position && !panelKeys.has(positionKey(position))) {
@@ -155,7 +156,11 @@ export class InvariantService {
         }
 
         for (const pieceType of mergeableTypes) {
-          const sameType = mergeablePieces.filter((piece) => piece.pieceType === pieceType);
+          // A piece between panels joins a same-type piece only once it arrives (or
+          // returns), so it is left out of the merge check while in transit.
+          const sameType = mergeablePieces.filter(
+            (piece) => piece.pieceType === pieceType && !piece.transitPosition,
+          );
           if (sameType.length > 1) {
             violations.push({
               type: "unmerged-pieces",

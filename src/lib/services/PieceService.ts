@@ -2,6 +2,7 @@ import { Piece } from "$lib/domain/entities/Piece";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import type { CombatOutcome } from "$lib/domain/types/api";
+import type { BoardPoint } from "$lib/domain/types/boardPoint";
 import { Player } from "$lib/domain/enums/Player";
 import { Panel } from "$lib/domain/entities/Panel";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
@@ -19,12 +20,31 @@ import {
 import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 
+/**
+ * What a piece that takes multiple turns per hop does at the end of its owner's turn
+ * (see PieceService.planGradualStep).
+ */
+type GradualStep =
+  | { kind: "idle" }
+  | { kind: "stay" }
+  | { kind: "windUp" }
+  | { kind: "startTransit"; hop: PanelPosition }
+  | { kind: "continueTransit" }
+  | { kind: "blocked" }
+  | { kind: "enter"; hop: PanelPosition }
+  | { kind: "attack"; hop: PanelPosition };
+
+function pointOnPanel(position: PanelPosition): BoardPoint {
+  return { from: position, to: position, progress: 0 };
+}
+
 export class PieceService {
   /**
    * Merge all mergeable pieces of the same type and player at the given panel position.
    *
    * For each group (player × pieceType) where pieceType.config.mergeable === true
-   * and the group has more than one piece:
+   * and the group has more than one piece (pieces in transit are left out — they join
+   * only once they arrive or return):
    *   - The piece with the lowest ID becomes the merged unit.
    *   - HP, maxHp, and stackCount are summed across all pieces in the group.
    *   - All other pieces in the group are removed from the repository.
@@ -36,6 +56,7 @@ export class PieceService {
     const groups = new Map<string, Piece[]>();
     for (const piece of piecesAtPanel) {
       if (!piece.pieceType.config.mergeable) continue;
+      if (piece.isInTransit) continue;
       const key = `${String(piece.player)}:${String(piece.pieceType)}`;
       const group = groups.get(key);
       if (group) {
@@ -112,15 +133,23 @@ export class PieceService {
   /**
    * Movement points accrued this turn, capped so a piece never banks more
    * than max(movementRate, MOVEMENT_HOP_COST). A movementRate below
-   * MOVEMENT_HOP_COST (e.g. 0.5) takes multiple turns to reach the cap.
+   * MOVEMENT_HOP_COST (e.g. 0.5) would take multiple turns to reach the cap, but such
+   * pieces do not bank points at all (see accrueMovementForPlayer).
    */
   static computeAccruedMovementPoints(currentPoints: number, movementRate: number): number {
     const cap = Math.max(movementRate, MOVEMENT_HOP_COST);
     return Math.min(cap, currentPoints + movementRate);
   }
 
+  /**
+   * Accrue movement points for <player>'s pieces at the start of their turn. A piece that
+   * takes multiple turns per hop is skipped: its movementPoints is hop progress, advanced
+   * by finalizePlayerMoves instead, and never banked while idle.
+   */
   static accrueMovementForPlayer(player: Player): void {
-    const pieces = PiecesRepository.getPiecesByPlayer(player);
+    const pieces = PiecesRepository.getPiecesByPlayer(player).filter(
+      (piece) => !piece.takesMultipleTurnsPerHop,
+    );
     pieces.forEach((piece: Piece) => {
       PiecesRepository.update(
         new Piece({
@@ -195,6 +224,125 @@ export class PieceService {
     const maxPieces = turn.maxPiecesPerPanel[String(piece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
     const { stopPosition, obstaclePosition } = this.computeTravelAdvance(piece, target, maxPieces);
     return obstaclePosition ?? stopPosition;
+  }
+
+  /** Where <piece> is drawn now: on its panel, or part of the way to the panel it is moving into. */
+  static currentBoardPoint(piece: Piece): BoardPoint {
+    if (!piece.transitPosition) return pointOnPanel(piece.panelPosition);
+    return {
+      from: piece.panelPosition,
+      to: piece.transitPosition,
+      progress: piece.movementPoints / MOVEMENT_HOP_COST,
+    };
+  }
+
+  /**
+   * Read-only preview of where <piece> will be at the end of the current turn if
+   * finalizePlayerMoves ran right now — part of the way between two panels for a piece
+   * that takes multiple turns per hop. Like previewTravelStop, an attack is shown at the
+   * attacked panel regardless of whether the attacker will break through.
+   */
+  static previewEndOfTurnPoint(piece: Piece): BoardPoint {
+    if (!piece.takesMultipleTurnsPerHop) return pointOnPanel(this.previewTravelStop(piece));
+
+    const turn = TurnRepository.get();
+    const maxPieces = turn.maxPiecesPerPanel[String(piece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
+    const step = this.planGradualStep(piece, maxPieces);
+    const progress = (piece.movementPoints + piece.pieceType.config.movement) / MOVEMENT_HOP_COST;
+
+    switch (step.kind) {
+      case "startTransit":
+        return { from: piece.panelPosition, to: step.hop, progress };
+      case "continueTransit":
+        return { from: piece.panelPosition, to: piece.transitPosition!, progress };
+      case "enter":
+      case "attack":
+        return pointOnPanel(step.hop);
+      default:
+        return pointOnPanel(piece.panelPosition);
+    }
+  }
+
+  /**
+   * Decide, without changing anything, what a piece that takes multiple turns per hop does
+   * at the end of this turn. Shared by finalizePlayerMoves and the board preview.
+   *
+   * - No order → idle. Ordered to its own panel → stay (the order is dropped).
+   * - The hop panel (see MovementRulesService.gradualHop) has enemy presence → the piece
+   *   winds up (or keeps moving, when already in transit) until its progress reaches
+   *   MOVEMENT_HOP_COST, then attacks that panel.
+   * - Otherwise the hop panel must have room for the piece — it is kept free for a piece
+   *   in transit, so this only fails when something else filled it — or the piece is
+   *   blocked. With room, it enters the hop panel once its progress reaches
+   *   MOVEMENT_HOP_COST, and otherwise starts or continues its transit.
+   */
+  static planGradualStep(piece: Piece, maxPieces: number): GradualStep {
+    const hop = MovementRulesService.gradualHop(piece);
+    if (!hop) return { kind: "idle" };
+    if (hop.equals(piece.panelPosition)) return { kind: "stay" };
+
+    const completes = MovementRulesService.completesHopThisTurn(piece);
+    if (MovementRulesService.hasEnemyPresence(hop, piece.player)) {
+      if (completes) return { kind: "attack", hop };
+      return piece.isInTransit ? { kind: "continueTransit" } : { kind: "windUp" };
+    }
+
+    const fits =
+      MovementRulesService.projectedFriendlyStackCount(hop, piece.player, piece.id, piece.id) <=
+      maxPieces;
+    if (!fits) return { kind: "blocked" };
+    if (completes) return { kind: "enter", hop };
+    return piece.isInTransit ? { kind: "continueTransit" } : { kind: "startTransit", hop };
+  }
+
+  /**
+   * Apply a slow piece's step that is not resolved as an engagement (see
+   * finalizePlayerMoves). Entering the final target and attacking are resolved together
+   * with the other engagements instead.
+   */
+  private static applyGradualStep(planned: Piece, step: GradualStep): void {
+    if (step.kind === "attack") return;
+    if (step.kind === "enter" && planned.targetPosition?.equals(step.hop)) return;
+    const piece = PiecesRepository.getAll().find((candidate) => candidate.id === planned.id);
+    if (!piece) return;
+    const progress = piece.movementPoints + piece.pieceType.config.movement;
+
+    switch (step.kind) {
+      case "stay":
+      case "blocked":
+        PiecesRepository.update(
+          new Piece({
+            ...piece,
+            targetPosition: undefined,
+            transitPosition: undefined,
+            movementPoints: 0,
+          }),
+        );
+        return;
+      case "windUp":
+      case "continueTransit":
+        PiecesRepository.update(new Piece({ ...piece, movementPoints: progress }));
+        return;
+      case "startTransit":
+        PiecesRepository.update(
+          new Piece({ ...piece, transitPosition: step.hop, movementPoints: progress }),
+        );
+        return;
+      case "enter":
+        // An intermediate hop: arrive and keep heading for the final target.
+        PiecesRepository.update(
+          new Piece({
+            ...piece,
+            panelPosition: step.hop,
+            initialPosition: step.hop,
+            transitPosition: undefined,
+            movementPoints: progress - MOVEMENT_HOP_COST,
+          }),
+        );
+        return;
+      default:
+        return;
+    }
   }
 
   static resetInitialPositions(player: Player) {
@@ -385,8 +533,15 @@ export class PieceService {
    *
    * A piece whose banked movementPoints haven't yet reached MOVEMENT_HOP_COST is skipped
    * entirely — its pending target and points are left untouched, to be resolved on a later
-   * turn once enough movement has accrued (see GameApi.assignMove for how a movement<1
-   * piece's points are committed down to its rate on assignment).
+   * turn once enough movement has accrued.
+   *
+   * A piece that takes multiple turns per hop (see Piece.takesMultipleTurnsPerHop) follows
+   * planGradualStep instead, decided for every such piece before anything moves: it moves
+   * between panels over several turns (see Piece.transitPosition) and winds an attack up
+   * over several turns. When it completes a hop into its final target, or attacks, it is
+   * resolved together with the other pieces engaging the same panel. An attack that fails
+   * to break through leaves it on its own panel with its order cancelled — including a
+   * piece in transit whose destination the enemy entered meanwhile.
    *
    * @returns Combat outcomes for groups where combat occurred.
    */
@@ -395,11 +550,16 @@ export class PieceService {
     const maxPieces = turn.maxPiecesPerPanel[String(player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
 
     const pieces = PiecesRepository.getPiecesByPlayer(player);
+    // Decided up front, from the same state the end-of-turn projection sees.
+    const gradualSteps = pieces
+      .filter((p) => p.takesMultipleTurnsPerHop)
+      .map((piece) => ({ piece, step: this.planGradualStep(piece, maxPieces) }));
     const piecesWithMoves = pieces.filter(
-      (p) => p.targetPosition && p.movementPoints >= MOVEMENT_HOP_COST,
+      (p) =>
+        !p.takesMultipleTurnsPerHop && p.targetPosition && p.movementPoints >= MOVEMENT_HOP_COST,
     );
 
-    const readyForEngagement: Piece[] = [];
+    const engagements: { piece: Piece; target: PanelPosition }[] = [];
     const enemyObstacleGroups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
     const friendlyObstacleEncounters: { piece: Piece; obstaclePosition: PanelPosition }[] = [];
 
@@ -407,7 +567,7 @@ export class PieceService {
       const target = piece.targetPosition!;
 
       if (this.isInEngagementRange(piece.panelPosition, target)) {
-        readyForEngagement.push(piece);
+        engagements.push({ piece, target });
         continue;
       }
 
@@ -447,22 +607,33 @@ export class PieceService {
         this.isInEngagementRange(current.panelPosition, target) &&
         current.movementPoints >= MOVEMENT_HOP_COST
       ) {
-        readyForEngagement.push(current);
+        engagements.push({ piece: current, target });
       }
+    }
+
+    for (const { piece, step } of gradualSteps) {
+      const entersFinalTarget = step.kind === "enter" && piece.targetPosition?.equals(step.hop);
+      if (step.kind !== "attack" && !entersFinalTarget) continue;
+      const engaging = new Piece({
+        ...piece,
+        transitPosition: undefined,
+        movementPoints: piece.movementPoints + piece.pieceType.config.movement,
+      });
+      PiecesRepository.update(engaging);
+      engagements.push({ piece: engaging, target: step.hop });
     }
 
     const outcomes: CombatOutcome[] = [];
 
-    // Final-target engagements, grouped by target panel.
+    // Engagements, grouped by target panel.
     const groups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
-    for (const piece of readyForEngagement) {
-      const tp = piece.targetPosition!;
-      const key = `${tp.horizontalLayer},${tp.verticalLayer}`;
+    for (const { piece, target } of engagements) {
+      const key = `${target.horizontalLayer},${target.verticalLayer}`;
       const group = groups.get(key);
       if (group) {
         group.attackers.push(piece);
       } else {
-        groups.set(key, { attackers: [piece], target: tp });
+        groups.set(key, { attackers: [piece], target });
       }
     }
     for (const { attackers, target } of groups.values()) {
@@ -487,6 +658,10 @@ export class PieceService {
           }),
         );
       }
+    }
+
+    for (const { piece, step } of gradualSteps) {
+      this.applyGradualStep(piece, step);
     }
 
     return outcomes;

@@ -562,12 +562,11 @@ describe("GameApi.assignMove", () => {
       expect(updated!.targetPosition!.equals(target)).toBe(true);
     });
 
-    test("assigning a movement<1 piece commits its movementPoints down to the rate value", () => {
+    test("assigning a movement<1 piece resets its hop progress, and the order can still be changed during the same turn", () => {
       GameApi.initializeGame({ layer: 4 });
       const origin = new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 });
-      // Synthetic movement<1 piece type (future Heavy-like unit), fully accrued (ready) at
-      // the movement cap of 1. Built as its own object rather than mutating the shared
-      // PieceType.INFANTRY singleton, which other tests depend on.
+      // Synthetic movement<1 piece type (Heavy-like unit). Built as its own object rather
+      // than mutating the shared PieceType.INFANTRY singleton, which other tests depend on.
       const slowPieceType = {
         config: { ...PieceType.INFANTRY.config, movement: 0.5 },
       } as unknown as PieceType;
@@ -586,15 +585,13 @@ describe("GameApi.assignMove", () => {
       GameApi.assignMove(Player.SELF, 1, target);
 
       const updated = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(updated.movementPoints).toBe(0.5);
+      expect(updated.movementPoints).toBe(0);
 
-      // A second assignment attempt is now blocked — the piece has committed its points.
-      const redirect = GameApi.assignMove(
-        Player.SELF,
-        1,
-        new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 }),
-      );
-      expect(redirect).toEqual({ ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS });
+      const redirectTarget = new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 });
+      const redirect = GameApi.assignMove(Player.SELF, 1, redirectTarget);
+      expect(redirect.ok).toBe(true);
+      const redirected = PiecesRepository.getAll().find((p) => p.id === 1)!;
+      expect(redirected.targetPosition?.equals(redirectTarget)).toBe(true);
     });
 
     test("when target is a full friendly panel but a resident friendly piece can merge, assignment succeeds", () => {
