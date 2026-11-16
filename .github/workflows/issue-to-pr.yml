@@ -26,6 +26,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          # Leave no auth header behind: claude-code-action cannot remove the one
+          # checkout v6+ keeps outside .git/config, and git would then push with
+          # GITHUB_TOKEN instead of the Claude App token. Pushes made with
+          # GITHUB_TOKEN do not trigger pages.yml (build_site, a required check).
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
