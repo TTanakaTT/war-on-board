@@ -1,5 +1,6 @@
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import type { Piece } from "$lib/domain/entities/Piece";
+import type { PieceType } from "$lib/domain/enums/PieceType";
 import { Player } from "$lib/domain/enums/Player";
 import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
 import { PanelRepository } from "$lib/data/repositories/PanelRepository";
@@ -16,11 +17,22 @@ import {
  * queries used by InteractionService when computing which panels are MOVABLE.
  */
 export class MovementRulesService {
+  /**
+   * Counts how many stacks `player` will have on `targetPosition` at the end of the turn,
+   * grouping each piece by its end-of-turn destination. Mergeable pieces of the same type
+   * count as one stack.
+   *
+   * @param excludePieceId - Existing piece to leave out of the count.
+   * @param includePieceId - Existing piece to count as if it ended the turn on `targetPosition`.
+   * @param includePieceType - Type of a hypothetical piece (not on the board yet) to count as
+   *   staying on `targetPosition`.
+   */
   static projectedFriendlyStackCount(
     targetPosition: PanelPosition,
     player: Player,
     excludePieceId?: number,
     includePieceId?: number,
+    includePieceType?: PieceType,
   ): number {
     const projectedMergeableTypes = new Set<string>();
     let projectedStackCount = 0;
@@ -53,6 +65,14 @@ export class MovementRulesService {
         } else {
           projectedStackCount += 1;
         }
+      }
+    }
+
+    if (includePieceType) {
+      if (includePieceType.config.mergeable) {
+        projectedMergeableTypes.add(String(includePieceType));
+      } else {
+        projectedStackCount += 1;
       }
     }
 

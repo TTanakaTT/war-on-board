@@ -9,6 +9,7 @@ import { PanelRepository } from "$lib/data/repositories/PanelRepository";
 import { TurnRepository } from "$lib/data/repositories/TurnRepository";
 import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
 import { PieceService } from "$lib/services/PieceService";
+import { MovementRulesService } from "$lib/services/MovementRulesService";
 import {
   RESOURCE_THRESHOLD_FOR_GENERATION,
   DEFAULT_MAX_PIECES_PER_PANEL,
@@ -28,8 +29,14 @@ export class GenerationService {
    * Mode "front": lower horizontal distance to the opponent home base first.
    *
    * Conditions: owned by player, resource >= RESOURCE_THRESHOLD_FOR_GENERATION,
-   * and either not at max capacity OR the panel has a same-type mergeable piece
-   * (merge will consolidate after generation).
+   * and enough capacity for the new piece (see `hasCapacityForNewPiece`), which takes
+   * reserved moves into and out of the panel into account.
+   *
+   * Candidates are filtered by these conditions and the first one in priority order is
+   * returned, so a full first choice falls through to the next candidate. When
+   * `pieceType` is omitted, the new piece is treated as non-mergeable.
+   *
+   * @returns The chosen panel position, or `null` when no panel qualifies.
    */
   static findGenerationPanel(player: Player, pieceType?: PieceType): PanelPosition | null {
     const turn = TurnRepository.get();
@@ -42,13 +49,7 @@ export class GenerationService {
     const candidates = PanelRepository.getAll().filter((panel) => {
       if (panel.player !== player) return false;
       if (panel.resource < RESOURCE_THRESHOLD_FOR_GENERATION) return false;
-      const piecesAtPanel = PiecesRepository.getPiecesByPosition(panel.panelPosition);
-      if (piecesAtPanel.length < maxPieces) return true;
-      // At capacity — allow if the new piece would merge with an existing one
-      if (pieceType?.config.mergeable) {
-        return piecesAtPanel.some((p) => p.player === player && p.pieceType === pieceType);
-      }
-      return false;
+      return this.hasCapacityForNewPiece(panel.panelPosition, player, maxPieces, pieceType);
     });
 
     if (candidates.length === 0) return null;
@@ -81,6 +82,45 @@ export class GenerationService {
     });
 
     return candidates[0].panelPosition;
+  }
+
+  /**
+   * Capacity rule for spawning a piece of `pieceType` on `position` (limit: `maxPieces`).
+   *
+   * - Mergeable type with a same-type piece of `player` already on the panel: always fits,
+   *   because the new piece merges into it right after generation.
+   * - Otherwise both must stay within the limit:
+   *   - the player's pieces currently on the panel + 1, and
+   *   - the projected end-of-turn stack count including the new piece staying on the panel
+   *     (MovementRulesService.projectedFriendlyStackCount).
+   */
+  private static hasCapacityForNewPiece(
+    position: PanelPosition,
+    player: Player,
+    maxPieces: number,
+    pieceType?: PieceType,
+  ): boolean {
+    const ownPiecesAtPanel = PiecesRepository.getPiecesByPosition(position).filter(
+      (piece) => piece.player === player,
+    );
+    if (
+      pieceType?.config.mergeable &&
+      ownPiecesAtPanel.some((piece) => piece.pieceType === pieceType)
+    ) {
+      return true;
+    }
+    if (ownPiecesAtPanel.length + 1 > maxPieces) return false;
+
+    const projectedStackCount = pieceType
+      ? MovementRulesService.projectedFriendlyStackCount(
+          position,
+          player,
+          undefined,
+          undefined,
+          pieceType,
+        )
+      : MovementRulesService.projectedFriendlyStackCount(position, player) + 1;
+    return projectedStackCount <= maxPieces;
   }
 
   /**
