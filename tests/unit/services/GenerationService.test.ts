@@ -9,6 +9,16 @@ import { PanelPosition } from "$lib/domain/entities/PanelPosition";
 import { Piece } from "$lib/domain/entities/Piece";
 import { PieceType } from "$lib/domain/enums/PieceType";
 import { Player } from "$lib/domain/enums/Player";
+import { ActionError } from "$lib/domain/enums/ActionError";
+import { InvariantService } from "$lib/services/InvariantService";
+import type {
+  ControllablePlayerSnapshot,
+  GameStateSnapshot,
+  PanelPositionSnapshot,
+  PanelStateSnapshot,
+  PieceTypeSnapshot,
+  PlayerSnapshot,
+} from "$lib/domain/types/api";
 import {
   RESOURCE_THRESHOLD_FOR_GENERATION,
   DEFAULT_MAX_PIECES_PER_PANEL,
@@ -317,5 +327,318 @@ describe("GenerationService", () => {
       expect(updatedPanel.resource).toBe(originalResource);
       expect(updatedPanel.castle).toBe(originalCastle);
     });
+  });
+});
+
+describe.each([Player.SELF, Player.OPPONENT])(
+  "GenerationService capacity with reserved moves (%s)",
+  (player) => {
+    // Mirror horizontal positions so both players run through the same scenarios.
+    const side = player === Player.SELF ? -1 : 1;
+    const at = (h: number, v: number) => pos(side * h, v);
+    const home = at(3, 0);
+    const nextCandidate = at(2, 0);
+    const neighbor = at(2, 1);
+
+    const setTurn = () => {
+      const turn = TurnRepository.get();
+      TurnRepository.set({
+        ...turn,
+        player,
+        resources: { ...turn.resources, [String(player)]: 100 },
+        generationMode: { ...turn.generationMode, [String(player)]: "rear" },
+      });
+    };
+
+    const ownPanel = (position: PanelPosition, resource: number) => {
+      const panel = PanelRepository.find(position)!;
+      PanelRepository.update(new Panel({ ...panel, player, resource }));
+    };
+
+    const addPiece = (
+      id: number,
+      panelPosition: PanelPosition,
+      pieceType: PieceType,
+      targetPosition?: PanelPosition,
+    ) => {
+      PiecesRepository.add(new Piece({ id, panelPosition, player, pieceType, targetPosition }));
+    };
+
+    beforeEach(() => {
+      GameApi.initializeGame({ layer: 4 });
+      setTurn();
+      ownPanel(neighbor, 0);
+    });
+
+    test("skips a panel whose projected count is full by inflows and uses the next candidate", () => {
+      ownPanel(nextCandidate, RESOURCE_THRESHOLD_FOR_GENERATION);
+      addPiece(1, neighbor, PieceType.ROOK, home);
+      addPiece(2, neighbor, PieceType.NOBLE, home);
+
+      const result = GenerationService.findGenerationPanel(player, PieceType.ROOK);
+      expect(result?.equals(nextCandidate)).toBe(true);
+
+      expect(GameApi.generatePiece(player, PieceType.ROOK).ok).toBe(true);
+      const spawned = PiecesRepository.getAll().find((piece) => piece.id === 3);
+      expect(spawned?.panelPosition.equals(nextCandidate)).toBe(true);
+    });
+
+    test("returns no panel when every candidate is full by projected or current count", () => {
+      ownPanel(nextCandidate, RESOURCE_THRESHOLD_FOR_GENERATION);
+      addPiece(1, neighbor, PieceType.ROOK, home);
+      addPiece(2, neighbor, PieceType.NOBLE, home);
+      addPiece(3, nextCandidate, PieceType.ROOK);
+      addPiece(4, nextCandidate, PieceType.NOBLE);
+
+      expect(GenerationService.findGenerationPanel(player, PieceType.ROOK)).toBeNull();
+      expect(GameApi.canGenerate(player, PieceType.ROOK)).toBe(false);
+      const generated = GameApi.generatePiece(player, PieceType.ROOK);
+      expect(generated.ok).toBe(false);
+      if (!generated.ok) expect(generated.error).toBe(ActionError.NO_GENERATION_PANEL);
+      expect(PiecesRepository.getAll()).toHaveLength(4);
+    });
+
+    test("does not generate on a panel that is currently full even if its pieces will leave", () => {
+      addPiece(1, home, PieceType.ROOK, neighbor);
+      addPiece(2, home, PieceType.NOBLE, neighbor);
+
+      expect(GenerationService.findGenerationPanel(player, PieceType.ROOK)).toBeNull();
+      expect(GenerationService.findGenerationPanel(player, PieceType.INFANTRY)).toBeNull();
+      expect(GenerationService.findGenerationPanel(player)).toBeNull();
+    });
+
+    test("generates on a full panel holding the same type and merges into it, keeping its move", () => {
+      addPiece(1, home, PieceType.INFANTRY, neighbor);
+      addPiece(2, home, PieceType.ROOK);
+
+      expect(GameApi.generatePiece(player, PieceType.INFANTRY).ok).toBe(true);
+
+      const piecesAtHome = PiecesRepository.getPiecesByPosition(home);
+      expect(piecesAtHome).toHaveLength(2);
+      const infantry = piecesAtHome.find((piece) => piece.pieceType === PieceType.INFANTRY)!;
+      expect(infantry.id).toBe(1);
+      expect(infantry.stackCount).toBe(2);
+      expect(infantry.targetPosition?.equals(neighbor)).toBe(true);
+    });
+
+    test("generates on a projected-full panel when the same type flows in, and stays within capacity after endTurn", () => {
+      addPiece(1, home, PieceType.ROOK);
+      addPiece(2, neighbor, PieceType.INFANTRY);
+      expect(GameApi.assignMove(player, 2, home).ok).toBe(true);
+
+      expect(GenerationService.findGenerationPanel(player, PieceType.ROOK)).toBeNull();
+      expect(GenerationService.findGenerationPanel(player, PieceType.INFANTRY)?.equals(home)).toBe(
+        true,
+      );
+
+      expect(GameApi.generatePiece(player, PieceType.INFANTRY).ok).toBe(true);
+      expect(GameApi.endTurn(player).ok).toBe(true);
+
+      const violations = InvariantService.check(GameApi.getGameState());
+      expect(violations.filter((v) => v.type === "piece-capacity-exceeded")).toEqual([]);
+      const ownAtHome = PiecesRepository.getPiecesByPosition(home).filter(
+        (piece) => piece.player === player,
+      );
+      expect(ownAtHome).toHaveLength(2);
+    });
+
+    test("chooses different panels or availability depending on the piece type", () => {
+      addPiece(1, neighbor, PieceType.ARCHER, home);
+      addPiece(2, neighbor, PieceType.NOBLE, home);
+
+      // Only the home base qualifies: archer merges with the inflowing archer, cavalry does not.
+      expect(GenerationService.findGenerationPanel(player, PieceType.ARCHER)?.equals(home)).toBe(
+        true,
+      );
+      expect(GenerationService.findGenerationPanel(player, PieceType.CAVALRY)).toBeNull();
+      expect(GameApi.canGenerate(player, PieceType.ARCHER)).toBe(true);
+      expect(GameApi.canGenerate(player, PieceType.CAVALRY)).toBe(false);
+
+      // With a second candidate, cavalry falls through to it while archer stays on home.
+      ownPanel(nextCandidate, RESOURCE_THRESHOLD_FOR_GENERATION);
+      expect(GenerationService.findGenerationPanel(player, PieceType.ARCHER)?.equals(home)).toBe(
+        true,
+      );
+      expect(
+        GenerationService.findGenerationPanel(player, PieceType.CAVALRY)?.equals(nextCandidate),
+      ).toBe(true);
+    });
+  },
+);
+
+type PositionTuple = [number, number];
+type PanelRow = [number, number, PanelStateSnapshot, PlayerSnapshot, number, number];
+// id, position, target, player, type, hp, stackCount, maxHp, movementPoints
+type PieceRow = [
+  number,
+  PositionTuple,
+  PositionTuple | null,
+  ControllablePlayerSnapshot,
+  PieceTypeSnapshot,
+  number,
+  number,
+  number,
+  number,
+];
+
+/**
+ * Board from issue #85 after steps 1-7 (before generating the cavalry), with SELF to move:
+ * the recorded "before" board without cavalry#15 and with its cost refunded.
+ */
+const issue85Snapshot = (): GameStateSnapshot => {
+  const panelRows: PanelRow[] = [
+    [-4, 0, "occupied", "self", 5, 10],
+    [-3, 0, "occupied", "self", 2, 1],
+    [-3, 1, "unoccupied", "self", 0, 1],
+    [-2, 0, "unoccupied", "self", 1, 0],
+    [-2, 1, "unoccupied", "self", 0, 0],
+    [-2, 2, "unoccupied", "self", 0, 1],
+    [-1, 0, "unoccupied", "unknown", 0, 0],
+    [-1, 1, "unoccupied", "self", 1, 0],
+    [-1, 2, "unoccupied", "self", 0, 0],
+    [-1, 3, "unoccupied", "self", 0, 1],
+    [0, 0, "unoccupied", "unknown", 0, 0],
+    [0, 1, "unoccupied", "self", 1, 0],
+    [0, 2, "unoccupied", "self", 1, 0],
+    [0, 3, "unoccupied", "self", 0, 1],
+    [0, 4, "unoccupied", "self", 0, 0],
+    [1, 0, "occupied", "opponent", 0, 0],
+    [1, 1, "occupied", "self", 2, 0],
+    [1, 2, "occupied", "self", 0, 2],
+    [1, 3, "occupied", "self", 0, 0],
+    [2, 0, "occupied", "opponent", 2, 1],
+    [2, 1, "occupied", "opponent", 0, 0],
+    [2, 2, "unoccupied", "opponent", 0, 0],
+    [3, 0, "occupied", "opponent", 2, 1],
+    [3, 1, "unoccupied", "opponent", 0, 1],
+    [4, 0, "occupied", "opponent", 5, 10],
+  ];
+  const pieceRows: PieceRow[] = [
+    [3, [1, 1], [2, 0], "self", "infantry", 1, 1, 10, 1],
+    [4, [2, 1], null, "opponent", "infantry", 26, 3, 30, 0],
+    [5, [1, 2], [2, 2], "self", "rook", 10, 1, 10, 1],
+    [6, [1, 0], null, "opponent", "rook", 6, 1, 10, 0],
+    [7, [1, 3], [2, 2], "self", "infantry", 20, 2, 20, 1],
+    [9, [-3, 0], [-4, 0], "self", "archer", 16, 2, 16, 1],
+    [10, [-4, 0], [-3, 0], "self", "rook", 10, 1, 10, 1],
+    [11, [2, 0], null, "opponent", "noble", 5, 1, 5, 0],
+    [12, [-3, 0], [-4, 0], "self", "noble", 5, 1, 5, 1],
+    [13, [3, 0], null, "opponent", "archer", 8, 1, 8, 0],
+    [14, [4, 0], null, "opponent", "infantry", 10, 1, 10, 1],
+  ];
+  const toPosition = ([h, v]: PositionTuple): PanelPositionSnapshot => ({
+    horizontalLayer: h,
+    verticalLayer: v,
+  });
+
+  return {
+    panels: panelRows.map(([h, v, panelState, owner, resource, castle]) => ({
+      panelPosition: toPosition([h, v]),
+      panelState,
+      player: owner,
+      resource,
+      castle,
+    })),
+    pieces: pieceRows.map(
+      ([id, position, target, owner, pieceType, hp, stackCount, maxHp, movementPoints]) => ({
+        id,
+        panelPosition: toPosition(position),
+        initialPosition: toPosition(position),
+        ...(target ? { targetPosition: toPosition(target) } : {}),
+        player: owner,
+        pieceType,
+        hp,
+        stackCount,
+        maxHp,
+        movementPoints,
+      }),
+    ),
+    turn: {
+      num: 11,
+      player: "self",
+      resources: { self: 3 + PieceType.CAVALRY.config.cost, opponent: 1 },
+      maxPiecesPerPanel: { self: 2, opponent: 2 },
+      generationMode: { self: "front", opponent: "front" },
+      winner: null,
+    },
+    homeBases: [
+      { player: "self", panelPosition: toPosition([-4, 0]) },
+      { player: "opponent", panelPosition: toPosition([4, 0]) },
+    ],
+    layer: 5,
+  };
+};
+
+/** Swaps the two sides of a snapshot (players and horizontal positions). */
+const mirrorSnapshot = (snapshot: GameStateSnapshot): GameStateSnapshot => {
+  const swap = <T extends PlayerSnapshot>(owner: T): T =>
+    (owner === "self" ? "opponent" : owner === "opponent" ? "self" : owner) as T;
+  const flip = (position: PanelPositionSnapshot): PanelPositionSnapshot => ({
+    horizontalLayer: -position.horizontalLayer,
+    verticalLayer: position.verticalLayer,
+  });
+  const swapRecord = <T>(record: Record<string, T>): Record<string, T> => ({
+    self: record.opponent,
+    opponent: record.self,
+  });
+
+  return {
+    panels: snapshot.panels.map((panel) => ({
+      ...panel,
+      panelPosition: flip(panel.panelPosition),
+      player: swap(panel.player),
+    })),
+    pieces: snapshot.pieces.map((piece) => ({
+      ...piece,
+      panelPosition: flip(piece.panelPosition),
+      initialPosition: flip(piece.initialPosition),
+      ...(piece.targetPosition ? { targetPosition: flip(piece.targetPosition) } : {}),
+      player: swap(piece.player),
+    })),
+    turn: {
+      ...snapshot.turn,
+      player: swap(snapshot.turn.player),
+      resources: swapRecord(snapshot.turn.resources),
+      maxPiecesPerPanel: swapRecord(snapshot.turn.maxPiecesPerPanel),
+      generationMode: swapRecord(snapshot.turn.generationMode),
+    },
+    homeBases: snapshot.homeBases.map((homeBase) => ({
+      player: swap(homeBase.player),
+      panelPosition: flip(homeBase.panelPosition),
+    })),
+    layer: snapshot.layer,
+  };
+};
+
+describe.each([Player.SELF, Player.OPPONENT])("regression: issue #85 board (%s)", (player) => {
+  const side = player === Player.SELF ? -1 : 1;
+  const home = pos(side * 4, 0);
+
+  beforeEach(() => {
+    const snapshot = issue85Snapshot();
+    const loaded = GameApi.loadGameState(
+      player === Player.SELF ? snapshot : mirrorSnapshot(snapshot),
+    );
+    expect(loaded.ok).toBe(true);
+  });
+
+  test("cavalry cannot be generated", () => {
+    expect(GameApi.canGenerate(player, PieceType.CAVALRY)).toBe(false);
+    const generated = GameApi.generatePiece(player, PieceType.CAVALRY);
+    expect(generated.ok).toBe(false);
+    if (!generated.ok) expect(generated.error).toBe(ActionError.NO_GENERATION_PANEL);
+  });
+
+  test("archer is generated on the home base and endTurn stays within capacity", () => {
+    expect(GameApi.generatePiece(player, PieceType.ARCHER).ok).toBe(true);
+    const spawned = PiecesRepository.getAll().find((piece) => piece.id === 15);
+    expect(spawned?.pieceType).toBe(PieceType.ARCHER);
+    expect(spawned?.panelPosition.equals(home)).toBe(true);
+
+    expect(GameApi.endTurn(player).ok).toBe(true);
+    const violations = InvariantService.check(GameApi.getGameState());
+    expect(violations.filter((violation) => violation.type === "piece-capacity-exceeded")).toEqual(
+      [],
+    );
   });
 });

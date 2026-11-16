@@ -447,11 +447,16 @@ export class GameApi {
    * - Game not over.
    * - It is `player`'s turn.
    * - Player has resources >= `pieceType.config.cost`.
-   * - At least one panel meets generation requirements.
+   * - At least one panel meets generation requirements
+   *   (`GenerationService.findGenerationPanel`): owned by `player`, enough panel resource,
+   *   and room for the new piece both now and at the end of the turn (reserved moves into
+   *   and out of the panel are counted). A mergeable type always fits on a panel where
+   *   `player` already has a piece of the same type.
    *
    * **Effects:**
    * - Deducts cost from player's resources.
-   * - Creates a new piece on the selected panel.
+   * - Creates a new piece on the first qualifying panel in generation-mode priority order,
+   *   then merges it into a same-type piece there (keeping that piece's reserved move).
    * - Panel state updated to OCCUPIED.
    *
    * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, INSUFFICIENT_RESOURCES,
@@ -737,6 +742,10 @@ export class GameApi {
    *
    * @param player - The player to check.
    * @param pieceType - The piece type to check affordability for.
+   * Uses the same conditions as `generatePiece` (resources and
+   * `GenerationService.findGenerationPanel`, which counts reserved moves when checking
+   * panel capacity), so the result can differ between piece types on the same board.
+   *
    * @returns `true` if the player has enough resources AND a valid generation panel exists.
    */
   static canGenerate(player: Player, pieceType: PieceType): boolean {
