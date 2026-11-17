@@ -1,4 +1,4 @@
-import type { GameStateHistoryEntry } from "$lib/domain/types/api";
+import type { GameStateHistoryEntry } from "#lib/domain/types/api.ts";
 
 const _history = $state<GameStateHistoryEntry[]>([]);
 

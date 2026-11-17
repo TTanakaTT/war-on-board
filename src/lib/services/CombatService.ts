@@ -1,8 +1,8 @@
-import { Piece } from "$lib/domain/entities/Piece";
-import { Panel } from "$lib/domain/entities/Panel";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import { Panel } from "#lib/domain/entities/Panel.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { MatchStatsRepository } from "#lib/data/repositories/MatchStatsRepository.ts";
 
 /**
  * CombatService — handles all combat resolution (piece-vs-piece, piece-vs-wall).

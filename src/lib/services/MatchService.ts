@@ -1,9 +1,9 @@
-import { GameApiClient } from "$lib/api/GameApiClient";
-import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { DEFAULT_AUTOMATION_TURN_LIMIT } from "$lib/domain/constants/GameConstants";
-import { AiStrength } from "$lib/domain/enums/AiStrength";
-import { Player } from "$lib/domain/enums/Player";
+import { GameApiClient } from "#lib/api/GameApiClient.ts";
+import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import { DEFAULT_AUTOMATION_TURN_LIMIT } from "#lib/domain/constants/GameConstants.ts";
+import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
 import type {
   MatchAutomationState,
   MatchAiStrengths,
@@ -12,9 +12,9 @@ import type {
   MatchMode,
   PlayerController,
   StartMatchOptions,
-} from "$lib/domain/types/match";
-import { AiService } from "$lib/services/AiService";
-import { GameDialogService } from "$lib/services/GameDialogService";
+} from "#lib/domain/types/match.ts";
+import { AiService } from "#lib/services/AiService.ts";
+import { GameDialogService } from "#lib/services/GameDialogService.ts";
 
 const AUTOMATION_STEP_DELAY_MS = 120;
 

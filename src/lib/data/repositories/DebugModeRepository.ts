@@ -1,5 +1,8 @@
-import { debugModeState } from "$lib/data/state/DebugModeState.svelte";
-import type { InvariantViolationReport, InvariantViolationType } from "$lib/domain/types/invariant";
+import { debugModeState } from "#lib/data/state/DebugModeState.svelte.ts";
+import type {
+  InvariantViolationReport,
+  InvariantViolationType,
+} from "#lib/domain/types/invariant.ts";
 
 export class DebugModeRepository {
   static isChecksEnabled(): boolean {

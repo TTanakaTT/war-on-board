@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { TransitionConfig } from "svelte/transition";
-  import { CUSTOM_PIECE_ICONS, type IconShape } from "$lib/presentation/constants/CustomIcons";
+  import { CUSTOM_PIECE_ICONS, type IconShape } from "#lib/presentation/constants/CustomIcons.ts";
 
   type TransitionFunc = (node: Element, params: Record<string, unknown>) => TransitionConfig;
 

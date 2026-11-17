@@ -1,4 +1,4 @@
-import { rangedAttackModeState } from "$lib/data/state/RangedAttackModeState.svelte";
+import { rangedAttackModeState } from "#lib/data/state/RangedAttackModeState.svelte.ts";
 
 export class RangedAttackModeRepository {
   static isActive(): boolean {

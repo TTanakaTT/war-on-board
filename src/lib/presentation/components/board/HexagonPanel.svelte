@@ -1,20 +1,20 @@
 <script lang="ts">
-  import { PanelsService } from "$lib/services/PanelService";
-  import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-  import { InteractionService } from "$lib/services/InteractionService";
-  import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-  import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
-  import { RangedAttackModeRepository } from "$lib/data/repositories/RangedAttackModeRepository";
-  import { MovementRulesService } from "$lib/services/MovementRulesService";
+  import { PanelsService } from "#lib/services/PanelService.ts";
+  import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+  import { InteractionService } from "#lib/services/InteractionService.ts";
+  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+  import { SelectedPanelRepository } from "#lib/data/repositories/SelectedPanelRepository.ts";
+  import { RangedAttackModeRepository } from "#lib/data/repositories/RangedAttackModeRepository.ts";
+  import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
 
-  import { PanelState } from "$lib/domain/enums/PanelState";
-  import { Player } from "$lib/domain/enums/Player";
-  import type { Piece } from "$lib/domain/entities/Piece";
-  import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-  import { m } from "$lib/paraglide/messages";
-  import { BoardLayout } from "$lib/presentation/BoardLayout";
-  import { getPanelRowPieces } from "$lib/presentation/PieceTokenLayout";
-  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
+  import { PanelState } from "#lib/domain/enums/PanelState.ts";
+  import { Player } from "#lib/domain/enums/Player.ts";
+  import type { Piece } from "#lib/domain/entities/Piece.ts";
+  import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+  import { m } from "#lib/paraglide/messages.js";
+  import { BoardLayout } from "#lib/presentation/BoardLayout.ts";
+  import { getPanelRowPieces } from "#lib/presentation/PieceTokenLayout.ts";
+  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
   import HexagonPanelSvg from "./HexagonPanelSvg.svelte";
   import PieceToken from "./PieceToken.svelte";
   import { slide } from "svelte/transition";

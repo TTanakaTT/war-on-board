@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { GameApi } from "$lib/api/GameApi";
-import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { Player } from "$lib/domain/enums/Player";
-import { simulateTargetOutcome } from "$lib/services/ai/lookaheadSimulation";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { MatchStatsRepository } from "#lib/data/repositories/MatchStatsRepository.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import { simulateTargetOutcome } from "#lib/services/ai/lookaheadSimulation.ts";
 
 describe("simulateTargetOutcome", () => {
   beforeEach(() => {

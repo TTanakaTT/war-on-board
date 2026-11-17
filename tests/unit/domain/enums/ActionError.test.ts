@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { ActionError } from "$lib/domain/enums/ActionError";
+import { ActionError } from "#lib/domain/enums/ActionError.ts";
 
 describe("ActionError", () => {
   describe("available values", () => {

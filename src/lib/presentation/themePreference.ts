@@ -1,4 +1,4 @@
-import { browser } from "$app/environment";
+import { browser } from "$app/env";
 
 const THEME_STORAGE_KEY = "war-on-board-theme";
 const DARK_CLASS_NAME = "dark";

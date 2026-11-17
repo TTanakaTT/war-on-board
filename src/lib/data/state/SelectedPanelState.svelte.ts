@@ -1,4 +1,4 @@
-import type { Panel } from "$lib/domain/entities/Panel";
+import type { Panel } from "#lib/domain/entities/Panel.ts";
 
 interface SelectedState {
   panel: Panel | undefined;

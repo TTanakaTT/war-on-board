@@ -1,4 +1,4 @@
-import type { PanelState } from "$lib/domain/enums/PanelState";
+import type { PanelState } from "#lib/domain/enums/PanelState.ts";
 import { Player } from "../enums/Player";
 import type { PanelPosition } from "./PanelPosition";
 

@@ -1,18 +1,18 @@
-import { GameApi } from "$lib/api/GameApi";
-import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
 import type {
   ControllablePlayerSnapshot,
   GameStateHistoryEntry,
   GameStateSnapshot,
-} from "$lib/domain/types/api";
+} from "#lib/domain/types/api.ts";
 import type {
   MatchHistoryEntrySummary,
   MatchHistoryExport,
   MatchHistoryMetadata,
   MatchHistoryMetricPair,
   MatchHistoryPlayerSummary,
-} from "$lib/domain/types/history";
-import type { MatchAiStrengths, MatchControllers } from "$lib/domain/types/match";
+} from "#lib/domain/types/history.ts";
+import type { MatchAiStrengths, MatchControllers } from "#lib/domain/types/match.ts";
 
 const CONTROLLABLE_PLAYERS = [
   "self",

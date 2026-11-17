@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { MatchHistoryExport, MatchHistoryMetricPair } from "$lib/domain/types/history";
-  import type { ControllablePlayerSnapshot } from "$lib/domain/types/api";
-  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
-  import { seatLabel } from "$lib/presentation/matchPresentation";
-  import { m } from "$lib/paraglide/messages";
+  import type { MatchHistoryExport, MatchHistoryMetricPair } from "#lib/domain/types/history.ts";
+  import type { ControllablePlayerSnapshot } from "#lib/domain/types/api.ts";
+  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
+  import { seatLabel } from "#lib/presentation/matchPresentation.ts";
+  import { m } from "#lib/paraglide/messages.js";
 
   const HISTORY_TABLE_HEADER_PLAYERS = [
     "self",

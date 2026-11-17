@@ -1,21 +1,21 @@
-import { GameApi } from "$lib/api/GameApi";
+import { GameApi } from "#lib/api/GameApi.ts";
 import {
   GameApiClient,
   type GameApiCommandInterceptor,
   type GameApiCommandName,
-} from "$lib/api/GameApiClient";
-import { DebugModeRepository } from "$lib/data/repositories/DebugModeRepository";
-import { LayerRepository } from "$lib/data/repositories/LayerRepository";
-import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
-import type { GameStateSnapshot } from "$lib/domain/types/api";
+} from "#lib/api/GameApiClient.ts";
+import { DebugModeRepository } from "#lib/data/repositories/DebugModeRepository.ts";
+import { LayerRepository } from "#lib/data/repositories/LayerRepository.ts";
+import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
+import type { GameStateSnapshot } from "#lib/domain/types/api.ts";
 import type {
   InvariantMatchConditions,
   InvariantViolation,
   InvariantViolationReport,
   RecordedCommand,
-} from "$lib/domain/types/invariant";
-import { InvariantService } from "$lib/services/InvariantService";
-import { MatchService } from "$lib/services/MatchService";
+} from "#lib/domain/types/invariant.ts";
+import { InvariantService } from "#lib/services/InvariantService.ts";
+import { MatchService } from "#lib/services/MatchService.ts";
 
 /** How long CPU automation may run without the turn advancing before it counts as stalled. */
 export const AI_STALL_THRESHOLD_MS = 5000;

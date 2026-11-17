@@ -1,6 +1,6 @@
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import type { Piece } from "$lib/domain/entities/Piece";
-import type { Player } from "$lib/domain/enums/Player";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import type { Piece } from "#lib/domain/entities/Piece.ts";
+import type { Player } from "#lib/domain/enums/Player.ts";
 
 const _pieces = $state<Piece[]>([]);
 

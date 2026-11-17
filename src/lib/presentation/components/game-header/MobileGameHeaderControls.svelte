@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { Player } from "$lib/domain/enums/Player";
-  import { Player as PlayerEnum } from "$lib/domain/enums/Player";
-  import { PieceType } from "$lib/domain/enums/PieceType";
-  import { m } from "$lib/paraglide/messages";
-  import AppButton from "$lib/presentation/components/primitives/AppButton.svelte";
-  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
-  import IconButton from "$lib/presentation/components/primitives/IconButton.svelte";
+  import type { Player } from "#lib/domain/enums/Player.ts";
+  import { Player as PlayerEnum } from "#lib/domain/enums/Player.ts";
+  import { PieceType } from "#lib/domain/enums/PieceType.ts";
+  import { m } from "#lib/paraglide/messages.js";
+  import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
+  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
+  import IconButton from "#lib/presentation/components/primitives/IconButton.svelte";
   import EndTurnButton from "./EndTurnButton.svelte";
   import GeneratePieceButton from "./GeneratePieceButton.svelte";
   import PlayerIdentityBadge from "./PlayerIdentityBadge.svelte";

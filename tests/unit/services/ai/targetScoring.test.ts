@@ -1,15 +1,15 @@
 import { expect, test, describe } from "vitest";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { Piece } from "$lib/domain/entities/Piece";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { Player } from "$lib/domain/enums/Player";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
 import {
   compareScoredTargets,
   getPieceCombatStats,
   selectStrategicTarget,
-} from "$lib/services/ai/targetScoring";
-import type { AiStrengthProfile } from "$lib/services/ai/types";
-import type { GameStateSnapshot, PieceSnapshot } from "$lib/domain/types/api";
+} from "#lib/services/ai/targetScoring.ts";
+import type { AiStrengthProfile } from "#lib/services/ai/types.ts";
+import type { GameStateSnapshot, PieceSnapshot } from "#lib/domain/types/api.ts";
 
 const standardProfile: AiStrengthProfile = {
   moveSelection: "strategic",

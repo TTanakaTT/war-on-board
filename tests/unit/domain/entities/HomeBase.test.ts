@@ -1,7 +1,7 @@
 import { describe, test, expect } from "vitest";
-import { HomeBase } from "$lib/domain/entities/HomeBase";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { Player } from "$lib/domain/enums/Player";
+import { HomeBase } from "#lib/domain/entities/HomeBase.ts";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
 
 describe("HomeBase", () => {
   describe("constructor", () => {

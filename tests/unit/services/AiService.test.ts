@@ -1,9 +1,9 @@
 import { beforeEach, describe, test, expect } from "vitest";
-import { GameApi } from "$lib/api/GameApi";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { AiStrength } from "$lib/domain/enums/AiStrength";
-import { Player } from "$lib/domain/enums/Player";
-import { AiService } from "$lib/services/AiService";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import { AiService } from "#lib/services/AiService.ts";
 
 const supportedStrengths = [
   AiStrength.STRENGTH_1,

@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-  import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
-  import { RangedAttackModeRepository } from "$lib/data/repositories/RangedAttackModeRepository";
-  import { InteractionService } from "$lib/services/InteractionService";
-  import { MatchService } from "$lib/services/MatchService";
-  import { m } from "$lib/paraglide/messages";
-  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
-  import AppButton from "$lib/presentation/components/primitives/AppButton.svelte";
+  import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+  import { SelectedPanelRepository } from "#lib/data/repositories/SelectedPanelRepository.ts";
+  import { RangedAttackModeRepository } from "#lib/data/repositories/RangedAttackModeRepository.ts";
+  import { InteractionService } from "#lib/services/InteractionService.ts";
+  import { MatchService } from "#lib/services/MatchService.ts";
+  import { m } from "#lib/paraglide/messages.js";
+  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
+  import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
 
   let selectedPieceId = $derived(SelectedPanelRepository.getPieceId());
   let selectedPiece = $derived(

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { m } from "$lib/paraglide/messages";
-import { PIECE_TYPE_DISPLAY_ORDER, pieceTypeLabel } from "$lib/presentation/piecePresentation";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { PIECE_TYPE_DISPLAY_ORDER, pieceTypeLabel } from "#lib/presentation/piecePresentation.ts";
 
 describe("piecePresentation", () => {
   test("returns localized labels for each piece type", () => {

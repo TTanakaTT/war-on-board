@@ -1,5 +1,8 @@
-import { HOME_BASE_INIT_CASTLE, PLAYER_INIT_RESOURCE } from "$lib/domain/constants/GameConstants";
-import type { MatchStats } from "$lib/domain/types/matchStats";
+import {
+  HOME_BASE_INIT_CASTLE,
+  PLAYER_INIT_RESOURCE,
+} from "#lib/domain/constants/GameConstants.ts";
+import type { MatchStats } from "#lib/domain/types/matchStats.ts";
 
 function createInitialMatchStats(): MatchStats {
   return {

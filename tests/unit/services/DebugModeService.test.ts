@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { GameApi } from "$lib/api/GameApi";
-import { GameApiClient } from "$lib/api/GameApiClient";
-import { DebugModeRepository } from "$lib/data/repositories/DebugModeRepository";
-import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { AiStrength } from "$lib/domain/enums/AiStrength";
-import { Player } from "$lib/domain/enums/Player";
-import type { PlayerController } from "$lib/domain/types/match";
-import { AI_STALL_THRESHOLD_MS, DebugModeService } from "$lib/services/DebugModeService";
-import { MatchService } from "$lib/services/MatchService";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { GameApiClient } from "#lib/api/GameApiClient.ts";
+import { DebugModeRepository } from "#lib/data/repositories/DebugModeRepository.ts";
+import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import type { PlayerController } from "#lib/domain/types/match.ts";
+import { AI_STALL_THRESHOLD_MS, DebugModeService } from "#lib/services/DebugModeService.ts";
+import { MatchService } from "#lib/services/MatchService.ts";
 
 const LAYER = 4;
 

@@ -1,4 +1,4 @@
-import { gameDialogState, type GameDialogState } from "$lib/data/state/GameDialogState.svelte";
+import { gameDialogState, type GameDialogState } from "#lib/data/state/GameDialogState.svelte.ts";
 
 export class GameDialogRepository {
   static get(): GameDialogState {

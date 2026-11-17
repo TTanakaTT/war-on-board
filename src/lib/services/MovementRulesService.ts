@@ -1,14 +1,14 @@
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { Piece } from "$lib/domain/entities/Piece";
-import type { PieceType } from "$lib/domain/enums/PieceType";
-import { Player } from "$lib/domain/enums/Player";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { PanelsService } from "$lib/services/PanelService";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import type { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { PanelsService } from "#lib/services/PanelService.ts";
 import {
   DEFAULT_MAX_PIECES_PER_PANEL,
   MOVEMENT_HOP_COST,
-} from "$lib/domain/constants/GameConstants";
+} from "#lib/domain/constants/GameConstants.ts";
 
 /**
  * MovementRulesService — pure query service for movement-related rules.

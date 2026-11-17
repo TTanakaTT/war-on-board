@@ -1,19 +1,19 @@
 <script lang="ts">
   import HexagonPanel from "./HexagonPanel.svelte";
-  import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-  import { InteractionService } from "$lib/services/InteractionService";
-  import { LayerRepository } from "$lib/data/repositories/LayerRepository";
+  import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+  import { InteractionService } from "#lib/services/InteractionService.ts";
+  import { LayerRepository } from "#lib/data/repositories/LayerRepository.ts";
   import MoveArrows from "./MoveArrows.svelte";
   import MovingPiecePreview from "./MovingPiecePreview.svelte";
   import TransitPieceTokens from "./TransitPieceTokens.svelte";
   import RangedAttackModeButton from "./RangedAttackModeButton.svelte";
-  import { BoardLayout } from "$lib/presentation/BoardLayout";
-  import { BOARD_PANEL_VERTICAL_PIXEL_OFFSET } from "$lib/presentation/constants/BoardLayoutConstants";
+  import { BoardLayout } from "#lib/presentation/BoardLayout.ts";
+  import { BOARD_PANEL_VERTICAL_PIXEL_OFFSET } from "#lib/presentation/constants/BoardLayoutConstants.ts";
   import {
     DESKTOP_NAVIGATION_BREAKPOINT_PX,
     MOBILE_BOARD_VIEWPORT_GUTTER_PX,
     MOBILE_GAME_HEADER_HEIGHT_PX,
-  } from "$lib/presentation/constants/UiConstants";
+  } from "#lib/presentation/constants/UiConstants.ts";
 
   let layer = $derived(LayerRepository.get());
   let windowWidth = $state(0);

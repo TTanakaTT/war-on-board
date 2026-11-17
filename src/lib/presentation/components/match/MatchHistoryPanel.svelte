@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { MatchHistoryExport } from "$lib/domain/types/history";
-  import type { ControllablePlayerSnapshot } from "$lib/domain/types/api";
-  import { m } from "$lib/paraglide/messages";
-  import { playerDisplayName, seatLabel } from "$lib/presentation/matchPresentation";
-  import AppButton from "$lib/presentation/components/primitives/AppButton.svelte";
-  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
+  import type { MatchHistoryExport } from "#lib/domain/types/history.ts";
+  import type { ControllablePlayerSnapshot } from "#lib/domain/types/api.ts";
+  import { m } from "#lib/paraglide/messages.js";
+  import { playerDisplayName, seatLabel } from "#lib/presentation/matchPresentation.ts";
+  import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
+  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
   import MatchHistoryTable from "./MatchHistoryTable.svelte";
 
   let {

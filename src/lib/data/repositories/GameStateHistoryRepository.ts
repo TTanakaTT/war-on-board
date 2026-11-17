@@ -1,4 +1,4 @@
-import { gameStateHistoryState } from "$lib/data/state/GameStateHistoryState.svelte";
+import { gameStateHistoryState } from "#lib/data/state/GameStateHistoryState.svelte.ts";
 import type {
   GameStateHistoryEntry,
   GameStateSnapshot,
@@ -7,7 +7,7 @@ import type {
   PanelSnapshot,
   PieceSnapshot,
   TurnSnapshot,
-} from "$lib/domain/types/api";
+} from "#lib/domain/types/api.ts";
 
 export class GameStateHistoryRepository {
   static getAll(): GameStateHistoryEntry[] {

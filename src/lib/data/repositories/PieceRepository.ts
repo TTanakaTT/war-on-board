@@ -1,7 +1,7 @@
-import type { Piece } from "$lib/domain/entities/Piece";
-import type { Player } from "$lib/domain/enums/Player";
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { piecesState } from "$lib/data/state/PiecesState.svelte";
+import type { Piece } from "#lib/domain/entities/Piece.ts";
+import type { Player } from "#lib/domain/enums/Player.ts";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { piecesState } from "#lib/data/state/PiecesState.svelte.ts";
 
 export class PiecesRepository {
   static getPiecesByPosition(panelPosition: PanelPosition): Piece[] {

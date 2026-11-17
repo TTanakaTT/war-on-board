@@ -1,9 +1,9 @@
 import { expect, test, describe } from "vitest";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { scoreTarget } from "$lib/services/ai/targetScore";
-import type { AiStrengthProfile } from "$lib/services/ai/types";
-import type { GameStateSnapshot, PieceSnapshot } from "$lib/domain/types/api";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { scoreTarget } from "#lib/services/ai/targetScore.ts";
+import type { AiStrengthProfile } from "#lib/services/ai/types.ts";
+import type { GameStateSnapshot, PieceSnapshot } from "#lib/domain/types/api.ts";
 
 function snapshotPosition(horizontalLayer: number, verticalLayer: number) {
   return { horizontalLayer, verticalLayer };

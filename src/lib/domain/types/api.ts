@@ -1,6 +1,6 @@
-import type { Player } from "$lib/domain/enums/Player";
-import type { ActionError } from "$lib/domain/enums/ActionError";
-import type { GenerationMode } from "$lib/domain/entities/Turn";
+import type { Player } from "#lib/domain/enums/Player.ts";
+import type { ActionError } from "#lib/domain/enums/ActionError.ts";
+import type { GenerationMode } from "#lib/domain/entities/Turn.ts";
 
 /** Discriminated union for action results. */
 export type Result<T = void> = { ok: true; value: T } | { ok: false; error: ActionError };

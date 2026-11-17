@@ -1,9 +1,9 @@
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { Player } from "$lib/domain/enums/Player";
-import type { GameStateSnapshot, PieceSnapshot } from "$lib/domain/types/api";
-import { simulateTargetOutcome } from "$lib/services/ai/lookaheadSimulation";
-import { compareScoredTargets, getSortedScoredTargets } from "$lib/services/ai/targetScoring";
-import type { AiStrengthProfile } from "$lib/services/ai/types";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import type { GameStateSnapshot, PieceSnapshot } from "#lib/domain/types/api.ts";
+import { simulateTargetOutcome } from "#lib/services/ai/lookaheadSimulation.ts";
+import { compareScoredTargets, getSortedScoredTargets } from "#lib/services/ai/targetScoring.ts";
+import type { AiStrengthProfile } from "#lib/services/ai/types.ts";
 
 export function selectLookaheadTarget(
   gameState: GameStateSnapshot,

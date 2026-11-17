@@ -1,5 +1,5 @@
-import type { HomeBase } from "$lib/domain/entities/HomeBase";
-import type { Player } from "$lib/domain/enums/Player";
+import type { HomeBase } from "#lib/domain/entities/HomeBase.ts";
+import type { Player } from "#lib/domain/enums/Player.ts";
 
 const _homeBases = $state<HomeBase[]>([]);
 

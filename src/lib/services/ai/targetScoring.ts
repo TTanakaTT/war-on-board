@@ -1,8 +1,8 @@
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { Player } from "$lib/domain/enums/Player";
-import type { GameStateSnapshot, PieceSnapshot } from "$lib/domain/types/api";
-import { scoreTarget } from "$lib/services/ai/targetScore";
-import type { AiStrengthProfile, ScoredTarget } from "$lib/services/ai/types";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import type { GameStateSnapshot, PieceSnapshot } from "#lib/domain/types/api.ts";
+import { scoreTarget } from "#lib/services/ai/targetScore.ts";
+import type { AiStrengthProfile, ScoredTarget } from "#lib/services/ai/types.ts";
 
 export function selectStrategicTarget(
   gameState: GameStateSnapshot,
@@ -75,4 +75,4 @@ function countLaneLoad(
   }).length;
 }
 
-export { getPieceCombatStats } from "$lib/services/ai/pieceCombatStats";
+export { getPieceCombatStats } from "#lib/services/ai/pieceCombatStats.ts";

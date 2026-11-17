@@ -1,18 +1,24 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { dev } from "$app/environment";
+  import { dev } from "$app/env";
   import { page } from "$app/state";
-  import { cookieDomain, cookieName, getLocale, locales, setLocale } from "$lib/paraglide/runtime";
-  import { m } from "$lib/paraglide/messages";
-  import AppButton from "$lib/presentation/components/primitives/AppButton.svelte";
-  import HorizontalRadioGroup from "$lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
-  import GameInfoDrawerContent from "$lib/presentation/components/match/GameInfoDrawerContent.svelte";
+  import {
+    cookieDomain,
+    cookieName,
+    getLocale,
+    locales,
+    setLocale,
+  } from "#lib/paraglide/runtime.js";
+  import { m } from "#lib/paraglide/messages.js";
+  import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
+  import HorizontalRadioGroup from "#lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
+  import GameInfoDrawerContent from "#lib/presentation/components/match/GameInfoDrawerContent.svelte";
   import {
     clearThemePreference,
     resolveThemePreference,
     setThemePreference,
     themePreferenceValues,
-  } from "$lib/presentation/themePreference";
+  } from "#lib/presentation/themePreference.ts";
 
   type LocaleValue = (typeof locales)[number];
   type ThemePreference = (typeof themePreferenceValues)[number];
@@ -107,7 +113,7 @@
     </section>
 
     {#if dev}
-      {#await import("$lib/presentation/components/debug/DebugModeSettingsSection.svelte") then { default: DebugModeSettingsSection }}
+      {#await import("#lib/presentation/components/debug/DebugModeSettingsSection.svelte") then { default: DebugModeSettingsSection }}
         <DebugModeSettingsSection />
       {/await}
     {/if}

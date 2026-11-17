@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { DebugModeRepository } from "$lib/data/repositories/DebugModeRepository";
-  import HorizontalRadioGroup from "$lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
-  import { saveDebugChecksPreference } from "$lib/presentation/debugMode";
-  import { DebugModeService } from "$lib/services/DebugModeService";
+  import { DebugModeRepository } from "#lib/data/repositories/DebugModeRepository.ts";
+  import HorizontalRadioGroup from "#lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
+  import { saveDebugChecksPreference } from "#lib/presentation/debugMode.ts";
+  import { DebugModeService } from "#lib/services/DebugModeService.ts";
 
   // Dev-build-only text: English literals on purpose, not Paraglide messages (see CLAUDE.md).
   const TITLE = "Invariant checks (dev only)";

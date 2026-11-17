@@ -1,13 +1,13 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { CombatService } from "$lib/services/CombatService";
-import { GameApi } from "$lib/api/GameApi";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { Piece } from "$lib/domain/entities/Piece";
-import { Panel } from "$lib/domain/entities/Panel";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { Player } from "$lib/domain/enums/Player";
+import { CombatService } from "#lib/services/CombatService.ts";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import { Panel } from "#lib/domain/entities/Panel.ts";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
 
 const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
 

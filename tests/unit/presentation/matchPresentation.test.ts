@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { AiStrength } from "$lib/domain/enums/AiStrength";
-import { m } from "$lib/paraglide/messages";
-import { playerDisplayName } from "$lib/presentation/matchPresentation";
+import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+import { m } from "#lib/paraglide/messages.js";
+import { playerDisplayName } from "#lib/presentation/matchPresentation.ts";
 
 describe("matchPresentation", () => {
   describe("playerDisplayName", () => {

@@ -1,12 +1,12 @@
-import { LayerRepository } from "$lib/data/repositories/LayerRepository";
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import type { BoardPoint } from "$lib/domain/types/boardPoint";
+import { LayerRepository } from "#lib/data/repositories/LayerRepository.ts";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import type { BoardPoint } from "#lib/domain/types/boardPoint.ts";
 import {
   BOARD_COLUMN_VERTICAL_OFFSET_RATIO,
   BOARD_HORIZONTAL_MARGIN_RATIO,
   BOARD_PANEL_VERTICAL_PIXEL_OFFSET,
-} from "$lib/presentation/constants/BoardLayoutConstants";
-import { PANEL_HEIGHT, PANEL_MARGIN } from "$lib/presentation/constants/UiConstants";
+} from "#lib/presentation/constants/BoardLayoutConstants.ts";
+import { PANEL_HEIGHT, PANEL_MARGIN } from "#lib/presentation/constants/UiConstants.ts";
 
 export class BoardLayout {
   static readonly HEIGHT = PANEL_HEIGHT;

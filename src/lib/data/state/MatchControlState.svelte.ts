@@ -1,6 +1,6 @@
-import { AiStrength } from "$lib/domain/enums/AiStrength";
-import { DEFAULT_AUTOMATION_TURN_LIMIT } from "$lib/domain/constants/GameConstants";
-import type { MatchControl } from "$lib/domain/types/match";
+import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+import { DEFAULT_AUTOMATION_TURN_LIMIT } from "#lib/domain/constants/GameConstants.ts";
+import type { MatchControl } from "#lib/domain/types/match.ts";
 
 let _matchControl = $state<MatchControl>({
   mode: "human-vs-cpu",

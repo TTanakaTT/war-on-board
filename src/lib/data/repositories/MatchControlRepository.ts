@@ -1,10 +1,10 @@
-import { matchControlState } from "$lib/data/state/MatchControlState.svelte";
+import { matchControlState } from "#lib/data/state/MatchControlState.svelte.ts";
 import type {
   MatchAiStrengths,
   MatchAutomationState,
   MatchControl,
   MatchControllers,
-} from "$lib/domain/types/match";
+} from "#lib/domain/types/match.ts";
 
 export class MatchControlRepository {
   static get(): MatchControl {

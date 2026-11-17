@@ -4,13 +4,13 @@
   import {
     DEFAULT_AUTOMATION_TURN_LIMIT,
     DEFAULT_GAME_LAYER,
-  } from "$lib/domain/constants/GameConstants";
-  import { AiStrength } from "$lib/domain/enums/AiStrength";
-  import type { MatchControllers } from "$lib/domain/types/match";
-  import { m } from "$lib/paraglide/messages";
-  import AppButton from "$lib/presentation/components/primitives/AppButton.svelte";
-  import HorizontalRadioGroup from "$lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
-  import { MatchService } from "$lib/services/MatchService";
+  } from "#lib/domain/constants/GameConstants.ts";
+  import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+  import type { MatchControllers } from "#lib/domain/types/match.ts";
+  import { m } from "#lib/paraglide/messages.js";
+  import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
+  import HorizontalRadioGroup from "#lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
+  import { MatchService } from "#lib/services/MatchService.ts";
 
   type MatchSetupSelection = "human" | "ai-1" | "ai-2" | "ai-3";
 
@@ -107,7 +107,7 @@
       },
     });
 
-    await goto(resolve("/game"));
+    await goto(resolve("game"));
   }
 </script>
 

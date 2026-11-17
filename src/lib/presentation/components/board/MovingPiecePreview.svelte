@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-  import { BoardLayout } from "$lib/presentation/BoardLayout";
-  import { PIECE_PREVIEW_ANIMATION_MS } from "$lib/presentation/constants/PieceTokenConstants";
-  import { getPieceTokenCoordinates } from "$lib/presentation/PieceTokenLayout";
-  import { PieceService } from "$lib/services/PieceService";
+  import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+  import { BoardLayout } from "#lib/presentation/BoardLayout.ts";
+  import { PIECE_PREVIEW_ANIMATION_MS } from "#lib/presentation/constants/PieceTokenConstants.ts";
+  import { getPieceTokenCoordinates } from "#lib/presentation/PieceTokenLayout.ts";
+  import { PieceService } from "#lib/services/PieceService.ts";
   import PieceToken from "./PieceToken.svelte";
 
   type MovingPreview = {

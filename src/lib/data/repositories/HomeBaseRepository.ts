@@ -1,6 +1,6 @@
-import type { HomeBase } from "$lib/domain/entities/HomeBase";
-import type { Player } from "$lib/domain/enums/Player";
-import { homeBaseState } from "$lib/data/state/HomeBaseState.svelte";
+import type { HomeBase } from "#lib/domain/entities/HomeBase.ts";
+import type { Player } from "#lib/domain/enums/Player.ts";
+import { homeBaseState } from "#lib/data/state/HomeBaseState.svelte.ts";
 
 export class HomeBaseRepository {
   static getAll(): HomeBase[] {

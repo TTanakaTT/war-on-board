@@ -1,16 +1,19 @@
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
-import { DebugModeRepository } from "$lib/data/repositories/DebugModeRepository";
-import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import type { InvariantViolationReport, InvariantViolationType } from "$lib/domain/types/invariant";
+import { DebugModeRepository } from "#lib/data/repositories/DebugModeRepository.ts";
+import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import type {
+  InvariantViolationReport,
+  InvariantViolationType,
+} from "#lib/domain/types/invariant.ts";
 import type {
   AutomationStatus,
   AutomationStopReason,
   StartMatchOptions,
-} from "$lib/domain/types/match";
-import { DebugModeService } from "$lib/services/DebugModeService";
-import { MatchService } from "$lib/services/MatchService";
+} from "#lib/domain/types/match.ts";
+import { DebugModeService } from "#lib/services/DebugModeService.ts";
+import { MatchService } from "#lib/services/MatchService.ts";
 
 const DEBUG_CHECKS_STORAGE_KEY = "war-on-board-debug-checks";
 const AUTOMATION_PROGRESS_CHECK_INTERVAL_MS = 1000;
@@ -89,7 +92,7 @@ export function installDebugModeMonitor(): () => void {
   window.__WAR_ON_BOARD_DEBUG__ = {
     async startMatch(options) {
       MatchService.startMatch(options);
-      await goto(resolve("/game"));
+      await goto(resolve("game"));
     },
     getStatus() {
       const automation = MatchControlRepository.get().automation;

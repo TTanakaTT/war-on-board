@@ -1,6 +1,6 @@
-import type { AiStrength } from "$lib/domain/enums/AiStrength";
-import type { HomeBaseSnapshot, ControllablePlayerSnapshot } from "$lib/domain/types/api";
-import type { PlayerController } from "$lib/domain/types/match";
+import type { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+import type { HomeBaseSnapshot, ControllablePlayerSnapshot } from "#lib/domain/types/api.ts";
+import type { PlayerController } from "#lib/domain/types/match.ts";
 
 export interface MatchHistoryMetricPair {
   self: number;

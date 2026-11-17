@@ -1,5 +1,5 @@
-import type { AiStrength } from "$lib/domain/enums/AiStrength";
-import type { Player } from "$lib/domain/enums/Player";
+import type { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+import type { Player } from "#lib/domain/enums/Player.ts";
 
 export type MatchMode = "human-vs-human" | "human-vs-cpu" | "cpu-vs-human" | "cpu-vs-cpu";
 

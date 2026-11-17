@@ -1,8 +1,8 @@
-import { GameApi } from "$lib/api/GameApi";
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { Player } from "$lib/domain/enums/Player";
-import type { GameStateSnapshot } from "$lib/domain/types/api";
-import { scoreBoardState } from "$lib/services/ai/boardEvaluation";
+import { GameApi } from "#lib/api/GameApi.ts";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import type { GameStateSnapshot } from "#lib/domain/types/api.ts";
+import { scoreBoardState } from "#lib/services/ai/boardEvaluation.ts";
 
 export function simulateTargetOutcome(
   gameState: GameStateSnapshot,

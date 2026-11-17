@@ -1,24 +1,24 @@
-import { Piece } from "$lib/domain/entities/Piece";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import type { CombatOutcome } from "$lib/domain/types/api";
-import type { BoardPoint } from "$lib/domain/types/boardPoint";
-import { Player } from "$lib/domain/enums/Player";
-import { Panel } from "$lib/domain/entities/Panel";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { PanelState } from "$lib/domain/enums/PanelState";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { CombatService } from "$lib/services/CombatService";
-import { PanelsService } from "$lib/services/PanelService";
-import { MovementRulesService } from "$lib/services/MovementRulesService";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import type { CombatOutcome } from "#lib/domain/types/api.ts";
+import type { BoardPoint } from "#lib/domain/types/boardPoint.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import { Panel } from "#lib/domain/entities/Panel.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { PanelState } from "#lib/domain/enums/PanelState.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { CombatService } from "#lib/services/CombatService.ts";
+import { PanelsService } from "#lib/services/PanelService.ts";
+import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
 import {
   PASSIVE_RESOURCE_CAP,
   PASSIVE_CASTLE_CAP,
   MOVEMENT_HOP_COST,
   DEFAULT_MAX_PIECES_PER_PANEL,
-} from "$lib/domain/constants/GameConstants";
-import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
+} from "#lib/domain/constants/GameConstants.ts";
+import { MatchStatsRepository } from "#lib/data/repositories/MatchStatsRepository.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
 
 /**
  * What a piece that takes multiple turns per hop does at the end of its owner's turn

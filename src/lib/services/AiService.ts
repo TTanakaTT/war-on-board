@@ -1,14 +1,17 @@
-import { Player } from "$lib/domain/enums/Player";
-import { GameApi } from "$lib/api/GameApi";
-import { GameApiClient } from "$lib/api/GameApiClient";
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { AiStrength } from "$lib/domain/enums/AiStrength";
-import type { PieceSnapshot } from "$lib/domain/types/api";
-import { selectLookaheadTarget } from "$lib/services/ai/lookahead";
-import { selectStrategicPieceType, selectGenerationMode } from "$lib/services/ai/pieceGeneration";
-import { getStrengthProfile } from "$lib/services/ai/profiles";
-import { selectStrategicTarget } from "$lib/services/ai/targetScoring";
-import type { AiStrengthProfile } from "$lib/services/ai/types";
+import { Player } from "#lib/domain/enums/Player.ts";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { GameApiClient } from "#lib/api/GameApiClient.ts";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+import type { PieceSnapshot } from "#lib/domain/types/api.ts";
+import { selectLookaheadTarget } from "#lib/services/ai/lookahead.ts";
+import {
+  selectStrategicPieceType,
+  selectGenerationMode,
+} from "#lib/services/ai/pieceGeneration.ts";
+import { getStrengthProfile } from "#lib/services/ai/profiles.ts";
+import { selectStrategicTarget } from "#lib/services/ai/targetScoring.ts";
+import type { AiStrengthProfile } from "#lib/services/ai/types.ts";
 
 export class AiService {
   /**

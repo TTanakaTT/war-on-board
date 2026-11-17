@@ -1,7 +1,7 @@
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { Player } from "$lib/domain/enums/Player";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { HomeBaseRepository } from "#lib/data/repositories/HomeBaseRepository.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
 
 export class VictoryService {
   /**

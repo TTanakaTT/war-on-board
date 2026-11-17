@@ -1,5 +1,5 @@
-import type { MatchHistoryExport } from "$lib/domain/types/history";
-import { MatchHistoryService } from "$lib/services/MatchHistoryService";
+import type { MatchHistoryExport } from "#lib/domain/types/history.ts";
+import { MatchHistoryService } from "#lib/services/MatchHistoryService.ts";
 
 export class HistoryExportService {
   static getExportData(): MatchHistoryExport {

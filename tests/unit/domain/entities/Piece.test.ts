@@ -1,8 +1,8 @@
 import { describe, test, expect } from "vitest";
-import { Piece } from "$lib/domain/entities/Piece";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { Player } from "$lib/domain/enums/Player";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
 
 const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
 

@@ -1,4 +1,4 @@
-import { GameDialogRepository } from "$lib/data/repositories/GameDialogRepository";
+import { GameDialogRepository } from "#lib/data/repositories/GameDialogRepository.ts";
 
 export class GameDialogService {
   static requestLeaveDialog(): void {

@@ -1,20 +1,20 @@
-import { PASSIVE_CASTLE_CAP, PASSIVE_RESOURCE_CAP } from "$lib/domain/constants/GameConstants";
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import { PASSIVE_CASTLE_CAP, PASSIVE_RESOURCE_CAP } from "#lib/domain/constants/GameConstants.ts";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
 import type {
   GameStateSnapshot,
   PanelPositionSnapshot,
   PanelSnapshot,
   PieceSnapshot,
-} from "$lib/domain/types/api";
+} from "#lib/domain/types/api.ts";
 import {
   findPanel,
   getEnemyHomeDistance,
   getHomeDistance,
   isEnemyHomeBase,
   positionEquals,
-} from "$lib/services/ai/stateUtils";
-import { getPieceCombatStats } from "$lib/services/ai/pieceCombatStats";
-import type { AiStrengthProfile } from "$lib/services/ai/types";
+} from "#lib/services/ai/stateUtils.ts";
+import { getPieceCombatStats } from "#lib/services/ai/pieceCombatStats.ts";
+import type { AiStrengthProfile } from "#lib/services/ai/types.ts";
 
 export function scoreTarget(
   gameState: GameStateSnapshot,
