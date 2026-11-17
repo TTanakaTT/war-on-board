@@ -1,5 +1,6 @@
 import { LayerRepository } from "$lib/data/repositories/LayerRepository";
 import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import type { BoardPoint } from "$lib/domain/types/boardPoint";
 import {
   BOARD_COLUMN_VERTICAL_OFFSET_RATIO,
   BOARD_HORIZONTAL_MARGIN_RATIO,
@@ -66,5 +67,15 @@ export class BoardLayout {
       BOARD_PANEL_VERTICAL_PIXEL_OFFSET;
 
     return { x, y };
+  }
+
+  /** Board coordinates of <point>, interpolated between the centers of its two panels. */
+  static getPointCoordinates(point: BoardPoint) {
+    const from = this.getCoordinates(point.from);
+    const to = this.getCoordinates(point.to);
+    return {
+      x: from.x + (to.x - from.x) * point.progress,
+      y: from.y + (to.y - from.y) * point.progress,
+    };
   }
 }

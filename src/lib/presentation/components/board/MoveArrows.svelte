@@ -1,6 +1,6 @@
 <script lang="ts">
   import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-  import { getPieceTokenOffset } from "$lib/presentation/PieceTokenLayout";
+  import { getPieceTokenCoordinates } from "$lib/presentation/PieceTokenLayout";
   import { BoardLayout } from "$lib/presentation/BoardLayout";
   import { Player } from "$lib/domain/enums/Player";
   import type { Piece } from "$lib/domain/entities/Piece";
@@ -21,14 +21,12 @@
   }
 
   function toArrow(piece: Piece, target: PanelPosition, isRangedAttack: boolean): Arrow {
-    const sourcePieces = PiecesRepository.getPiecesByPosition(piece.panelPosition);
-    const pieceIndex = sourcePieces.findIndex((sourcePiece) => sourcePiece.id === piece.id);
-    const start = BoardLayout.getCoordinates(piece.panelPosition);
+    const start = getPieceTokenCoordinates(piece);
     const end = BoardLayout.getCoordinates(target);
 
     return {
       key: `${piece.id}-${isRangedAttack ? "ranged" : "move"}`,
-      startX: start.x + getPieceTokenOffset(pieceIndex, sourcePieces.length),
+      startX: start.x,
       startY: start.y,
       endX: end.x,
       endY: end.y,

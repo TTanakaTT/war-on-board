@@ -1,6 +1,7 @@
 import type { PieceType } from "$lib/domain/enums/PieceType";
 import type { Player } from "$lib/domain/enums/Player";
 import type { PanelPosition } from "./PanelPosition";
+import { MOVEMENT_HOP_COST } from "$lib/domain/constants/GameConstants";
 export class Piece {
   id: number;
   panelPosition: PanelPosition;
@@ -12,6 +13,16 @@ export class Piece {
    * resolves in place via PieceService.resolveRangedAttacks.
    */
   rangedAttackTargetPosition?: PanelPosition;
+  /**
+   * Set while this piece is between panels: it has left `panelPosition` toward the
+   * adjacent `transitPosition` but has not arrived yet (see `takesMultipleTurnsPerHop`).
+   * The piece still belongs to `panelPosition` — it defends that panel, applies its
+   * passive effect there and counts there for the capacity invariant — while its own
+   * side also treats `transitPosition` as taken (see
+   * MovementRulesService.endOfTurnOccupancy). `movementPoints` holds the progress made
+   * along the hop.
+   */
+  transitPosition?: PanelPosition;
   player: Player;
   pieceType: PieceType;
   /** HP may become fractional after wall-overflow damage. */
@@ -27,8 +38,27 @@ export class Piece {
    * Banked movement points. Accrues by `pieceType.config.movement` each turn
    * (capped — see PieceService.computeAccruedMovementPoints) and is spent
    * when the piece advances a panel. Not scaled by merge/stackCount.
+   *
+   * For a piece that takes multiple turns per hop (see `takesMultipleTurnsPerHop`),
+   * this is instead the progress toward its current hop or attack: reset to 0 when it
+   * is given an order, advanced by `movement` at the end of each of its owner's turns
+   * (see PieceService.finalizePlayerMoves), and never banked while idle.
    */
   movementPoints: number;
+
+  /**
+   * Whether one hop takes this piece more than one turn (movement below
+   * MOVEMENT_HOP_COST). Such a piece moves between panels over several turns (see
+   * `transitPosition`) and winds an attack up over several turns.
+   */
+  get takesMultipleTurnsPerHop(): boolean {
+    return this.pieceType.config.movement < MOVEMENT_HOP_COST;
+  }
+
+  /** Whether this piece is between `panelPosition` and `transitPosition`. */
+  get isInTransit(): boolean {
+    return this.transitPosition !== undefined;
+  }
 
   /**
    * Base attack power against pieces (raw pieceType.config value).
@@ -72,6 +102,7 @@ export class Piece {
     initialPosition,
     targetPosition,
     rangedAttackTargetPosition,
+    transitPosition,
     player,
     pieceType,
     hp,
@@ -84,6 +115,7 @@ export class Piece {
     panelPosition: PanelPosition;
     targetPosition?: PanelPosition;
     rangedAttackTargetPosition?: PanelPosition;
+    transitPosition?: PanelPosition;
     player: Player;
     pieceType: PieceType;
     hp?: number;
@@ -96,6 +128,7 @@ export class Piece {
     this.initialPosition = initialPosition || panelPosition;
     this.targetPosition = targetPosition;
     this.rangedAttackTargetPosition = rangedAttackTargetPosition;
+    this.transitPosition = transitPosition;
     this.player = player;
     this.pieceType = pieceType;
     this.stackCount = stackCount ?? 1;

@@ -13,6 +13,7 @@
   import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
   import { m } from "$lib/paraglide/messages";
   import { BoardLayout } from "$lib/presentation/BoardLayout";
+  import { getPanelRowPieces } from "$lib/presentation/PieceTokenLayout";
   import Icon from "$lib/presentation/components/primitives/Icon.svelte";
   import HexagonPanelSvg from "./HexagonPanelSvg.svelte";
   import PieceToken from "./PieceToken.svelte";
@@ -38,6 +39,8 @@
 
   let selectedPieceId = $derived(SelectedPanelRepository.getPieceId());
   let pieces = $derived(PiecesRepository.getPiecesByPosition(panelPosition));
+  // Pieces in transit belong to this panel but are drawn between panels (TransitPieceTokens).
+  let rowPieces = $derived(getPanelRowPieces(panelPosition));
 
   let panel = $derived(PanelsService.find(panelPosition));
   let player = $derived(panel?.player);
@@ -215,7 +218,7 @@
 
     <div class="pointer-events-none z-1 flex items-center justify-center">
       <div class="flex flex-row gap-2">
-        {#each pieces as piece (piece.id)}
+        {#each rowPieces as piece (piece.id)}
           <button
             class="pointer-events-auto relative flex flex-col items-center {piece.targetPosition
               ? 'opacity-40'

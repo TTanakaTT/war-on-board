@@ -87,8 +87,8 @@ export class GenerationService {
   /**
    * Capacity rule for spawning a piece of `pieceType` on `position` (limit: `maxPieces`).
    *
-   * - Mergeable type with a same-type piece of `player` already on the panel: always fits,
-   *   because the new piece merges into it right after generation.
+   * - Mergeable type with a same-type piece of `player` already on the panel (and not in
+   *   transit): always fits, because the new piece merges into it right after generation.
    * - Otherwise both must stay within the limit:
    *   - the player's pieces currently on the panel + 1, and
    *   - the projected end-of-turn stack count including the new piece staying on the panel
@@ -105,7 +105,7 @@ export class GenerationService {
     );
     if (
       pieceType?.config.mergeable &&
-      ownPiecesAtPanel.some((piece) => piece.pieceType === pieceType)
+      ownPiecesAtPanel.some((piece) => piece.pieceType === pieceType && !piece.isInTransit)
     ) {
       return true;
     }
