@@ -73,6 +73,14 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  *   - **Rook**: increases the panel's castle by 1 (capped by PASSIVE_CASTLE_CAP;
  *     never reduces existing values above the cap, e.g. home base castle = 10).
  *
+ * A unit whose `movement` is below MOVEMENT_HOP_COST (Heavy) takes several turns per hop
+ * (see `Piece.takesMultipleTurnsPerHop`). While it moves it is **in transit** between its
+ * panel and the adjacent panel it is moving into (`Piece.transitPosition`): it still belongs
+ * to the panel it left — it defends that panel and applies its passive effect there — and
+ * its own side treats the panel it is moving into as taken as well (see
+ * `MovementRulesService.endOfTurnOccupancy`). It winds an attack up over several turns on its
+ * own panel instead.
+ *
  * ## Combat rules (resolved inside `endTurn`)
  *
  * ### Attack legality
@@ -125,11 +133,16 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  *
  * ## Turn flow (executed by `endTurn`)
  *
- *   1. Finalize current player's moves (combat resolution for all pending moves).
+ *   1. Finalize current player's moves (combat resolution for all pending moves). A unit that
+ *      takes several turns per hop advances its progress instead: it goes into transit,
+ *      keeps moving, arrives at the panel it is moving into, or winds up / makes an attack
+ *      (see `PieceService.finalizePlayerMoves`).
  *   2. Refresh panel ownership based on piece positions.
  *   3. Check victory (home base capture).
  *   4. Switch to next player.
- *   5. Reset initial positions + apply passive gains + accrue movement for the next player.
+ *   5. Reset initial positions + apply passive gains + accrue movement for the next player
+ *      (a unit that takes several turns per hop does not accrue — its movement points are
+ *      its hop progress).
  *   6. Add resources (sum of owned panels' resource values).
  *
  * ## Resource system
