@@ -1,5 +1,6 @@
 import { matchControlState } from "#lib/data/state/MatchControlState.svelte.ts";
 import type {
+  MatchAiSeeds,
   MatchAiStrengths,
   MatchAutomationState,
   MatchControl,
@@ -14,6 +15,7 @@ export class MatchControlRepository {
       mode: matchControl.mode,
       controllers: this.cloneControllers(matchControl.controllers),
       aiStrengths: this.cloneAiStrengths(matchControl.aiStrengths),
+      aiSeeds: this.cloneAiSeeds(matchControl.aiSeeds),
       automation: this.cloneAutomation(matchControl.automation),
     };
   }
@@ -23,6 +25,7 @@ export class MatchControlRepository {
       mode: matchControl.mode,
       controllers: this.cloneControllers(matchControl.controllers),
       aiStrengths: this.cloneAiStrengths(matchControl.aiStrengths),
+      aiSeeds: this.cloneAiSeeds(matchControl.aiSeeds),
       automation: this.cloneAutomation(matchControl.automation),
     });
   }
@@ -38,6 +41,13 @@ export class MatchControlRepository {
     return {
       self: aiStrengths.self,
       opponent: aiStrengths.opponent,
+    };
+  }
+
+  private static cloneAiSeeds(aiSeeds: MatchAiSeeds): MatchAiSeeds {
+    return {
+      self: aiSeeds.self,
+      opponent: aiSeeds.opponent,
     };
   }
 

@@ -11,6 +11,7 @@ import { AI_STALL_THRESHOLD_MS, DebugModeService } from "#lib/services/DebugMode
 import { MatchService } from "#lib/services/MatchService.ts";
 
 const LAYER = 4;
+const AI_SEEDS = { self: 12345, opponent: 67890 };
 
 function startMatch(controller: PlayerController = "human"): void {
   MatchService.startMatch({
@@ -18,6 +19,7 @@ function startMatch(controller: PlayerController = "human"): void {
     layer: LAYER,
     automationTurnLimit: 10,
     aiStrengths: { self: AiStrength.STRENGTH_1, opponent: AiStrength.STRENGTH_1 },
+    aiSeeds: AI_SEEDS,
   });
 }
 
@@ -78,6 +80,7 @@ describe("DebugModeService", () => {
         layer: LAYER,
         controllers: { self: "human", opponent: "human" },
         aiStrengths: { self: AiStrength.STRENGTH_1, opponent: AiStrength.STRENGTH_1 },
+        aiSeeds: AI_SEEDS,
       });
     });
 

@@ -4,6 +4,7 @@ import type { GenerationMode } from "#lib/domain/entities/Turn.ts";
 import { Player } from "#lib/domain/enums/Player.ts";
 import { PieceType } from "#lib/domain/enums/PieceType.ts";
 import type { GameStateSnapshot } from "#lib/domain/types/api.ts";
+import { shuffle, type RandomSource } from "#lib/services/ai/random.ts";
 import { findHomeBase, getOpponentPlayer, toPlayerSnapshot } from "#lib/services/ai/stateUtils.ts";
 import type { AiStrengthProfile, PieceTypeCounts } from "#lib/services/ai/types.ts";
 
@@ -13,6 +14,7 @@ export function selectStrategicPieceType(
   currentResources: number,
   preferredOrder: PieceType[],
   profile: AiStrengthProfile,
+  random: RandomSource,
 ): PieceType | null {
   const affordablePieceTypes = getAffordablePieceTypes(player, currentResources, preferredOrder);
   const pieceTypeCounts = countPieceTypes(gameState, player);
@@ -37,16 +39,12 @@ export function selectStrategicPieceType(
     return PieceType.ROOK;
   }
 
-  return availablePieceTypes.sort((left, right) => {
-    const countDiff =
+  // Shuffle before the stable sort so types with the same count are picked uniformly.
+  return shuffle(availablePieceTypes, random).sort(
+    (left, right) =>
       pieceTypeCounts[String(left) as keyof PieceTypeCounts] -
-      pieceTypeCounts[String(right) as keyof PieceTypeCounts];
-    if (countDiff !== 0) {
-      return countDiff;
-    }
-
-    return preferredOrder.indexOf(left) - preferredOrder.indexOf(right);
-  })[0];
+      pieceTypeCounts[String(right) as keyof PieceTypeCounts],
+  )[0];
 }
 
 export function selectGenerationMode(

@@ -11,6 +11,7 @@ export interface MatchHistoryPlayerSummary {
   player: ControllablePlayerSnapshot;
   controller: PlayerController;
   aiStrength: AiStrength;
+  aiSeed: number;
 }
 
 export interface MatchHistoryMetadata {

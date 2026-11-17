@@ -3,11 +3,8 @@ import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
 import { Piece } from "#lib/domain/entities/Piece.ts";
 import { PieceType } from "#lib/domain/enums/PieceType.ts";
 import { Player } from "#lib/domain/enums/Player.ts";
-import {
-  compareScoredTargets,
-  getPieceCombatStats,
-  selectStrategicTarget,
-} from "#lib/services/ai/targetScoring.ts";
+import { createSeededRandom } from "#lib/services/ai/random.ts";
+import { getPieceCombatStats, selectStrategicTarget } from "#lib/services/ai/targetScoring.ts";
 import type { AiStrengthProfile } from "#lib/services/ai/types.ts";
 import type { GameStateSnapshot, PieceSnapshot } from "#lib/domain/types/api.ts";
 
@@ -161,6 +158,7 @@ describe("selectStrategicTarget", () => {
       piece,
       [fallbackTarget, winningTarget],
       standardProfile,
+      createSeededRandom(1),
     );
 
     expect(selectedTarget.equals(winningTarget)).toBe(true);
@@ -195,27 +193,9 @@ describe("selectStrategicTarget", () => {
       piece,
       [advanceTarget, stayTarget],
       homeSideGrowthProfile,
+      createSeededRandom(1),
     );
 
     expect(selectedTarget.equals(stayTarget)).toBe(true);
-  });
-});
-
-describe("compareScoredTargets", () => {
-  test("breaks ties toward the opponent side for self", () => {
-    const leftTarget = {
-      score: 10,
-      target: new PanelPosition({ horizontalLayer: 0, verticalLayer: 0 }),
-      laneLoad: 0,
-      laneShift: 0,
-    };
-    const rightTarget = {
-      score: 10,
-      target: new PanelPosition({ horizontalLayer: 1, verticalLayer: 0 }),
-      laneLoad: 0,
-      laneShift: 0,
-    };
-
-    expect(compareScoredTargets(leftTarget, rightTarget, Player.SELF)).toBeGreaterThan(0);
   });
 });

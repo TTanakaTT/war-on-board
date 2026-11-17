@@ -18,6 +18,10 @@ describe("HistoryExportService", () => {
         self: AiStrength.STRENGTH_2,
         opponent: AiStrength.STRENGTH_2,
       },
+      aiSeeds: {
+        self: 12345,
+        opponent: 67890,
+      },
       automation: {
         status: "idle",
         automatedTurns: 0,
@@ -47,11 +51,13 @@ describe("HistoryExportService", () => {
             player: "self",
             controller: "cpu",
             aiStrength: AiStrength.STRENGTH_2,
+            aiSeed: 12345,
           },
           opponent: {
             player: "opponent",
             controller: "cpu",
             aiStrength: AiStrength.STRENGTH_2,
+            aiSeed: 67890,
           },
         },
       },

@@ -1,9 +1,13 @@
 import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
-import { Player } from "#lib/domain/enums/Player.ts";
+import type { Player } from "#lib/domain/enums/Player.ts";
 import type { GameStateSnapshot, PieceSnapshot } from "#lib/domain/types/api.ts";
 import { simulateTargetOutcome } from "#lib/services/ai/lookaheadSimulation.ts";
-import { compareScoredTargets, getSortedScoredTargets } from "#lib/services/ai/targetScoring.ts";
-import type { AiStrengthProfile } from "#lib/services/ai/types.ts";
+import type { RandomSource } from "#lib/services/ai/random.ts";
+import {
+  getSortedScoredTargets,
+  sortByScoreWithRandomTies,
+} from "#lib/services/ai/targetScoring.ts";
+import type { AiStrengthProfile, ScoredTarget } from "#lib/services/ai/types.ts";
 
 export function selectLookaheadTarget(
   gameState: GameStateSnapshot,
@@ -11,23 +15,20 @@ export function selectLookaheadTarget(
   targets: PanelPosition[],
   player: Player,
   profile: AiStrengthProfile,
+  random: RandomSource,
 ): PanelPosition {
-  const topCandidates = getSortedScoredTargets(gameState, piece, targets, profile).slice(
+  const topCandidates = getSortedScoredTargets(gameState, piece, targets, profile, random).slice(
     0,
     profile.lookaheadCandidateCount,
   );
 
-  const lookaheadTargets = topCandidates.map((candidate) => ({
+  const lookaheadTargets: ScoredTarget[] = topCandidates.map((candidate) => ({
     target: candidate.target,
     score:
       candidate.score +
       simulateTargetOutcome(gameState, player, piece.id, candidate.target) *
         profile.lookaheadWeight,
-    laneLoad: candidate.laneLoad,
-    laneShift: candidate.laneShift,
   }));
 
-  lookaheadTargets.sort((left, right) => compareScoredTargets(left, right, player));
-
-  return lookaheadTargets[0]?.target ?? targets[0];
+  return sortByScoreWithRandomTies(lookaheadTargets, random)[0]?.target ?? targets[0];
 }
