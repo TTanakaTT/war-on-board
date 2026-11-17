@@ -131,6 +131,39 @@ describe("InvariantService.check", () => {
     ]);
   });
 
+  test.each(["self", "opponent"] as const)(
+    "unmerged-pieces: leaves out a piece in transit (%s)",
+    (player) => {
+      const snapshot = withPieces(initialSnapshot(), [
+        createPiece({ id: 1, player, pieceType: "heavy" }),
+        createPiece({
+          id: 2,
+          player,
+          pieceType: "heavy",
+          targetPosition: NEXT_TO_CENTER,
+          transitPosition: NEXT_TO_CENTER,
+          movementPoints: 0.5,
+        }),
+      ]);
+
+      expect(InvariantService.check(snapshot)).toEqual([]);
+    },
+  );
+
+  test("piece-off-board: reports a transit position outside the board", () => {
+    const snapshot = withPieces(initialSnapshot(), [
+      createPiece({
+        id: 1,
+        pieceType: "heavy",
+        transitPosition: { horizontalLayer: 99, verticalLayer: 99 },
+      }),
+    ]);
+
+    expect(summarize(InvariantService.check(snapshot))).toEqual([
+      { type: "piece-off-board", key: "piece-off-board:1:transitPosition" },
+    ]);
+  });
+
   test("negative-resources: reports a player with negative resources", () => {
     const snapshot = initialSnapshot();
     const negative: GameStateSnapshot = {

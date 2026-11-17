@@ -121,6 +121,42 @@ describe("GenerationService", () => {
       expect(GenerationService.findGenerationPanel(Player.SELF, PieceType.INFANTRY)).toBeNull();
     });
 
+    describe.each([Player.SELF, Player.OPPONENT])(
+      "same-type piece in transit on a full panel (%s)",
+      (player) => {
+        const side = player === Player.SELF ? -1 : 1;
+        const homeBase = pos(3 * side, 0);
+        const nextToHomeBase = pos(2 * side, 0);
+
+        function addHeavyAndRookAtHomeBase(heavyInTransit: boolean): void {
+          PiecesRepository.add(
+            new Piece({
+              id: 1,
+              panelPosition: homeBase,
+              player,
+              pieceType: PieceType.HEAVY,
+              targetPosition: heavyInTransit ? nextToHomeBase : undefined,
+              transitPosition: heavyInTransit ? nextToHomeBase : undefined,
+              movementPoints: heavyInTransit ? 0.25 : 0,
+            }),
+          );
+          PiecesRepository.add(
+            new Piece({ id: 2, panelPosition: homeBase, player, pieceType: PieceType.ROOK }),
+          );
+        }
+
+        test("does not let a new piece merge into a same-type piece that is in transit", () => {
+          addHeavyAndRookAtHomeBase(true);
+          expect(GenerationService.findGenerationPanel(player, PieceType.HEAVY)).toBeNull();
+        });
+
+        test("lets a new piece merge into a same-type piece that is not in transit", () => {
+          addHeavyAndRookAtHomeBase(false);
+          expect(GenerationService.findGenerationPanel(player, PieceType.HEAVY)).toEqual(homeBase);
+        });
+      },
+    );
+
     test("prefers higher |horizontalLayer| in rear mode (closer to home)", () => {
       const turn = TurnRepository.get();
       TurnRepository.set({

@@ -12,6 +12,7 @@ import {
   PASSIVE_RESOURCE_CAP,
   PASSIVE_CASTLE_CAP,
   HOME_BASE_INIT_CASTLE,
+  DEFAULT_MAX_PIECES_PER_PANEL,
 } from "$lib/domain/constants/GameConstants";
 
 const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
@@ -1146,6 +1147,302 @@ describe("PieceService", () => {
       PieceService.mergeAllPiecesForPlayer(Player.SELF);
 
       expect(PiecesRepository.getPiecesByPosition(pos(0, 0))).toHaveLength(2);
+    });
+  });
+
+  describe.each([Player.SELF, Player.OPPONENT])("slow pieces (%s)", (player) => {
+    const opponent = player === Player.SELF ? Player.OPPONENT : Player.SELF;
+    const origin = pos(0, 0);
+    const hop = pos(0, 1);
+    const beyond = pos(0, 2);
+    const maxPieces = DEFAULT_MAX_PIECES_PER_PANEL;
+
+    const findPiece = (id: number) => PiecesRepository.getAll().find((piece) => piece.id === id);
+
+    function addHeavy(
+      overrides: Partial<ConstructorParameters<typeof Piece>[0]> = {},
+      id: number = 1,
+    ): Piece {
+      const heavy = makePiece({
+        id,
+        panelPosition: origin,
+        player,
+        pieceType: PieceType.HEAVY,
+        movementPoints: 0,
+        ...overrides,
+      });
+      PiecesRepository.add(heavy);
+      return heavy;
+    }
+
+    function addEnemy(id: number, pieceType: PieceType, at: PanelPosition): void {
+      PiecesRepository.add(makePiece({ id, panelPosition: at, player: opponent, pieceType }));
+    }
+
+    /** Fills <position> with two non-mergeable pieces of the slow piece's owner. */
+    function fillPanel(position: PanelPosition, firstId: number): void {
+      PiecesRepository.add(
+        makePiece({ id: firstId, panelPosition: position, player, pieceType: PieceType.ROOK }),
+      );
+      PiecesRepository.add(
+        makePiece({ id: firstId + 1, panelPosition: position, player, pieceType: PieceType.NOBLE }),
+      );
+    }
+
+    describe("planGradualStep", () => {
+      test("idle: no order", () => {
+        expect(PieceService.planGradualStep(addHeavy(), maxPieces)).toEqual({ kind: "idle" });
+      });
+
+      test("stay: ordered to its own panel", () => {
+        const heavy = addHeavy({ targetPosition: origin });
+        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "stay" });
+      });
+
+      test("windUp: the next hop has an enemy and the attack is not ready yet", () => {
+        addEnemy(10, PieceType.NOBLE, hop);
+        const heavy = addHeavy({ targetPosition: hop });
+        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "windUp" });
+      });
+
+      test("startTransit: leaves for a free next hop", () => {
+        const heavy = addHeavy({ targetPosition: beyond });
+        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({
+          kind: "startTransit",
+          hop,
+        });
+      });
+
+      test("continueTransit: in transit and the hop is not complete this turn", () => {
+        const heavy = addHeavy({
+          targetPosition: beyond,
+          transitPosition: hop,
+          movementPoints: 0.25,
+        });
+        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "continueTransit" });
+      });
+
+      test("blocked: the next hop has no room", () => {
+        fillPanel(hop, 10);
+        const heavy = addHeavy({ targetPosition: beyond });
+        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "blocked" });
+      });
+
+      test("enter: the hop completes this turn into a panel without enemies", () => {
+        const heavy = addHeavy({
+          targetPosition: beyond,
+          transitPosition: hop,
+          movementPoints: 0.5,
+        });
+        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "enter", hop });
+      });
+
+      test("attack: the attack or hop completes this turn into a panel with an enemy", () => {
+        addEnemy(10, PieceType.NOBLE, hop);
+        const heavy = addHeavy({ targetPosition: hop, movementPoints: 0.5 });
+        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "attack", hop });
+      });
+    });
+
+    describe("finalizePlayerMoves", () => {
+      test("a slow piece leaving for the next hop goes into transit", () => {
+        addHeavy({ targetPosition: beyond });
+
+        PieceService.finalizePlayerMoves(player);
+
+        const heavy = findPiece(1)!;
+        expect(heavy.panelPosition.equals(origin)).toBe(true);
+        expect(heavy.transitPosition?.equals(hop)).toBe(true);
+        expect(heavy.targetPosition?.equals(beyond)).toBe(true);
+        expect(heavy.movementPoints).toBe(0.5);
+      });
+
+      test("a slow piece in transit keeps moving while the hop is not complete", () => {
+        addHeavy({ targetPosition: beyond, transitPosition: hop, movementPoints: 0.25 });
+
+        PieceService.finalizePlayerMoves(player);
+
+        const heavy = findPiece(1)!;
+        expect(heavy.panelPosition.equals(origin)).toBe(true);
+        expect(heavy.transitPosition?.equals(hop)).toBe(true);
+        expect(heavy.movementPoints).toBe(0.75);
+      });
+
+      test("a slow piece arrives at its final destination", () => {
+        addHeavy({ targetPosition: hop, transitPosition: hop, movementPoints: 0.5 });
+
+        PieceService.finalizePlayerMoves(player);
+
+        const heavy = findPiece(1)!;
+        expect(heavy.panelPosition.equals(hop)).toBe(true);
+        expect(heavy.transitPosition).toBeUndefined();
+        expect(heavy.targetPosition).toBeUndefined();
+      });
+
+      test("a slow piece arriving at an intermediate panel keeps its order", () => {
+        addHeavy({ targetPosition: beyond, transitPosition: hop, movementPoints: 0.5 });
+
+        PieceService.finalizePlayerMoves(player);
+
+        const heavy = findPiece(1)!;
+        expect(heavy.panelPosition.equals(hop)).toBe(true);
+        expect(heavy.initialPosition.equals(hop)).toBe(true);
+        expect(heavy.transitPosition).toBeUndefined();
+        expect(heavy.targetPosition?.equals(beyond)).toBe(true);
+        expect(heavy.movementPoints).toBe(0);
+      });
+
+      test("a slow piece whose hop the enemy entered attacks on arrival and enters when it wins", () => {
+        addEnemy(10, PieceType.NOBLE, hop);
+        addHeavy({ targetPosition: hop, transitPosition: hop, movementPoints: 0.5 });
+
+        PieceService.finalizePlayerMoves(player);
+
+        expect(findPiece(10)).toBeUndefined();
+        const heavy = findPiece(1)!;
+        expect(heavy.panelPosition.equals(hop)).toBe(true);
+        expect(heavy.transitPosition).toBeUndefined();
+      });
+
+      test("a slow piece whose hop the enemy entered returns to its panel and drops its order when it loses", () => {
+        addEnemy(10, PieceType.INFANTRY, hop);
+        addHeavy({ targetPosition: beyond, transitPosition: hop, movementPoints: 0.5 });
+
+        PieceService.finalizePlayerMoves(player);
+
+        expect(findPiece(10)).toBeDefined();
+        const heavy = findPiece(1)!;
+        expect(heavy.panelPosition.equals(origin)).toBe(true);
+        expect(heavy.transitPosition).toBeUndefined();
+        expect(heavy.targetPosition).toBeUndefined();
+        expect(heavy.hp).toBeLessThan(heavy.maxHp);
+      });
+
+      test("a slow piece winds an attack up for a turn, then attacks", () => {
+        addEnemy(10, PieceType.NOBLE, hop);
+        addHeavy({ targetPosition: hop });
+
+        PieceService.finalizePlayerMoves(player);
+        const windingUp = findPiece(1)!;
+        expect(windingUp.panelPosition.equals(origin)).toBe(true);
+        expect(windingUp.transitPosition).toBeUndefined();
+        expect(windingUp.targetPosition?.equals(hop)).toBe(true);
+        expect(windingUp.movementPoints).toBe(0.5);
+        expect(findPiece(10)).toBeDefined();
+
+        PieceService.finalizePlayerMoves(player);
+        expect(findPiece(10)).toBeUndefined();
+        expect(findPiece(1)!.panelPosition.equals(hop)).toBe(true);
+      });
+
+      test("a slow piece whose next hop has no room drops its order", () => {
+        fillPanel(hop, 10);
+        addHeavy({ targetPosition: beyond });
+
+        PieceService.finalizePlayerMoves(player);
+
+        const heavy = findPiece(1)!;
+        expect(heavy.panelPosition.equals(origin)).toBe(true);
+        expect(heavy.transitPosition).toBeUndefined();
+        expect(heavy.targetPosition).toBeUndefined();
+        expect(heavy.movementPoints).toBe(0);
+      });
+    });
+
+    test("mergePiecesAtPosition leaves a piece in transit out of the merge", () => {
+      addHeavy({ targetPosition: hop, transitPosition: hop, movementPoints: 0.5 }, 1);
+      addHeavy({}, 2);
+
+      PieceService.mergePiecesAtPosition(origin);
+
+      expect(findPiece(1)?.stackCount).toBe(1);
+      expect(findPiece(2)?.stackCount).toBe(1);
+    });
+
+    test("accrueMovementForPlayer leaves the movement points of a slow piece unchanged", () => {
+      addHeavy({ targetPosition: hop, movementPoints: 0.5 }, 1);
+      PiecesRepository.add(
+        makePiece({
+          id: 2,
+          panelPosition: pos(1, 0),
+          player,
+          pieceType: PieceType.INFANTRY,
+          movementPoints: 0,
+        }),
+      );
+
+      PieceService.accrueMovementForPlayer(player);
+
+      expect(findPiece(1)!.movementPoints).toBe(0.5);
+      expect(findPiece(2)!.movementPoints).toBe(1);
+    });
+
+    describe("currentBoardPoint", () => {
+      test("is on the panel for a piece not in transit", () => {
+        expect(PieceService.currentBoardPoint(addHeavy())).toEqual({
+          from: origin,
+          to: origin,
+          progress: 0,
+        });
+      });
+
+      test("is part of the way to the hop panel for a piece in transit", () => {
+        const heavy = addHeavy({ targetPosition: hop, transitPosition: hop, movementPoints: 0.5 });
+        expect(PieceService.currentBoardPoint(heavy)).toEqual({
+          from: origin,
+          to: hop,
+          progress: 0.5,
+        });
+      });
+    });
+
+    describe("previewEndOfTurnPoint", () => {
+      test("is on the own panel for a slow piece without an order", () => {
+        expect(PieceService.previewEndOfTurnPoint(addHeavy())).toEqual({
+          from: origin,
+          to: origin,
+          progress: 0,
+        });
+      });
+
+      test("is part of the way to the hop panel for a slow piece going into transit", () => {
+        const heavy = addHeavy({ targetPosition: beyond });
+        expect(PieceService.previewEndOfTurnPoint(heavy)).toEqual({
+          from: origin,
+          to: hop,
+          progress: 0.5,
+        });
+      });
+
+      test("is on the hop panel for a slow piece completing its hop", () => {
+        const heavy = addHeavy({
+          targetPosition: beyond,
+          transitPosition: hop,
+          movementPoints: 0.5,
+        });
+        expect(PieceService.previewEndOfTurnPoint(heavy)).toEqual({
+          from: hop,
+          to: hop,
+          progress: 0,
+        });
+      });
+
+      test("is on the panel the travel stops at for a piece that hops once per turn", () => {
+        const infantry = makePiece({
+          id: 2,
+          panelPosition: origin,
+          player,
+          pieceType: PieceType.INFANTRY,
+          targetPosition: hop,
+          movementPoints: 1,
+        });
+        PiecesRepository.add(infantry);
+        expect(PieceService.previewEndOfTurnPoint(infantry)).toEqual({
+          from: hop,
+          to: hop,
+          progress: 0,
+        });
+      });
     });
   });
 });

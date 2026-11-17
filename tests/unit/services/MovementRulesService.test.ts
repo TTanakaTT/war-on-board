@@ -15,7 +15,12 @@ function addPiece(
   id: number,
   position: PanelPosition,
   player: Player,
-  opts: { pieceType?: PieceType; targetPosition?: PanelPosition } = {},
+  opts: {
+    pieceType?: PieceType;
+    targetPosition?: PanelPosition;
+    transitPosition?: PanelPosition;
+    movementPoints?: number;
+  } = {},
 ): Piece {
   const piece = new Piece({
     id,
@@ -23,6 +28,8 @@ function addPiece(
     player,
     pieceType: opts.pieceType ?? PieceType.INFANTRY,
     targetPosition: opts.targetPosition,
+    transitPosition: opts.transitPosition,
+    movementPoints: opts.movementPoints,
   });
   PiecesRepository.add(piece);
   return piece;
@@ -287,19 +294,267 @@ describe("MovementRulesService", () => {
 
       expect(MovementRulesService.canCancelMove(pos(0, 0), Player.SELF, piece.id)).toBe(true);
     });
+  });
 
-    test("blocks cancel unconditionally for a movement<1 piece with a pending target, even within capacity", () => {
-      // Synthetic movement<1 piece type (future Heavy-like unit) — committed actions can
-      // never be cancelled, regardless of capacity headroom.
-      const slowPieceType = {
-        config: { ...PieceType.INFANTRY.config, movement: 0.5 },
-      } as unknown as PieceType;
-      const piece = addPiece(200, pos(0, 0), Player.SELF, {
-        pieceType: slowPieceType,
-        targetPosition: pos(1, 0),
+  describe.each([Player.SELF, Player.OPPONENT])("slow pieces (%s)", (player) => {
+    const opponent = player === Player.SELF ? Player.OPPONENT : Player.SELF;
+    const origin = pos(0, 0);
+    const hop = pos(0, 1);
+    const beyond = pos(0, 2);
+
+    const findPiece = (id: number) => PiecesRepository.getAll().find((piece) => piece.id === id)!;
+
+    function addHeavy(
+      opts: {
+        targetPosition?: PanelPosition;
+        transitPosition?: PanelPosition;
+        movementPoints?: number;
+      } = {},
+    ): Piece {
+      return addPiece(1, origin, player, {
+        pieceType: PieceType.HEAVY,
+        movementPoints: 0,
+        ...opts,
+      });
+    }
+
+    /** Fills <position> with two non-mergeable pieces of <player>, using ids from <firstId>. */
+    function fillPanel(position: PanelPosition, firstId: number): void {
+      addPiece(firstId, position, player, { pieceType: PieceType.ROOK });
+      addPiece(firstId + 1, position, player, { pieceType: PieceType.NOBLE });
+    }
+
+    describe("endOfTurnOccupancy", () => {
+      test("a piece without an order takes up its own panel", () => {
+        const heavy = addHeavy();
+        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([origin]);
       });
 
-      expect(MovementRulesService.canCancelMove(pos(0, 0), Player.SELF, piece.id)).toBe(false);
+      test("a piece ordered to its own panel takes up its own panel", () => {
+        const heavy = addHeavy({ targetPosition: origin });
+        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([origin]);
+      });
+
+      test("a piece whose next hop has an enemy takes up its own panel", () => {
+        addPiece(10, hop, opponent);
+        const heavy = addHeavy({ targetPosition: beyond });
+        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([origin]);
+      });
+
+      test("a piece that reaches its next hop this turn takes up only the hop panel", () => {
+        const heavy = addHeavy({
+          targetPosition: beyond,
+          transitPosition: hop,
+          movementPoints: 0.5,
+        });
+        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([hop]);
+      });
+
+      test("a piece that starts its transit this turn takes up its own panel and the hop panel", () => {
+        const heavy = addHeavy({ targetPosition: beyond });
+        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([origin, hop]);
+      });
+
+      test("a piece that stays in transit this turn takes up its own panel and the hop panel", () => {
+        // Progress that does not reach MOVEMENT_HOP_COST even after this turn's advance.
+        const heavy = addHeavy({
+          targetPosition: beyond,
+          transitPosition: hop,
+          movementPoints: 0.25,
+        });
+        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([origin, hop]);
+      });
+
+      test("a piece that hops once per turn takes up its target, or its own panel when attacking", () => {
+        const mover = addPiece(2, origin, player, { targetPosition: hop });
+        expect(MovementRulesService.endOfTurnOccupancy(mover)).toEqual([hop]);
+
+        addPiece(10, pos(1, 0), opponent);
+        const attacker = addPiece(3, origin, player, { targetPosition: pos(1, 0) });
+        expect(MovementRulesService.endOfTurnOccupancy(attacker)).toEqual([origin]);
+      });
+    });
+
+    describe("gradualHop", () => {
+      test("is undefined without an order", () => {
+        expect(MovementRulesService.gradualHop(addHeavy())).toBeUndefined();
+      });
+
+      test("is the own panel when ordered to stay", () => {
+        expect(MovementRulesService.gradualHop(addHeavy({ targetPosition: origin }))).toEqual(
+          origin,
+        );
+      });
+
+      test("is the first step toward a distant target", () => {
+        const heavy = addHeavy({ targetPosition: beyond });
+        expect(MovementRulesService.gradualHop(heavy)?.equals(hop)).toBe(true);
+      });
+
+      test("is the panel being moved into while in transit, whatever the final target", () => {
+        const heavy = addHeavy({
+          targetPosition: pos(1, 0),
+          transitPosition: hop,
+          movementPoints: 0.5,
+        });
+        expect(MovementRulesService.gradualHop(heavy)?.equals(hop)).toBe(true);
+      });
+    });
+
+    describe("completesHopThisTurn", () => {
+      test("is false when this turn's progress stays below MOVEMENT_HOP_COST", () => {
+        expect(MovementRulesService.completesHopThisTurn(addHeavy({ movementPoints: 0 }))).toBe(
+          false,
+        );
+      });
+
+      test("is true when this turn's progress reaches MOVEMENT_HOP_COST", () => {
+        expect(MovementRulesService.completesHopThisTurn(addHeavy({ movementPoints: 0.5 }))).toBe(
+          true,
+        );
+      });
+    });
+
+    describe("isOrderLocked", () => {
+      test("is true for a slow piece that has started winding up an attack", () => {
+        addPiece(10, hop, opponent);
+        const heavy = addHeavy({ targetPosition: hop, movementPoints: 0.5 });
+        expect(MovementRulesService.isOrderLocked(heavy)).toBe(true);
+      });
+
+      test("is false for a slow piece given an order this turn", () => {
+        const heavy = addHeavy({ targetPosition: hop, movementPoints: 0 });
+        expect(MovementRulesService.isOrderLocked(heavy)).toBe(false);
+      });
+
+      test("is false for a slow piece in transit", () => {
+        const heavy = addHeavy({ targetPosition: hop, transitPosition: hop, movementPoints: 0.5 });
+        expect(MovementRulesService.isOrderLocked(heavy)).toBe(false);
+      });
+
+      test("is false for a slow piece without an order", () => {
+        expect(MovementRulesService.isOrderLocked(addHeavy({ movementPoints: 0.5 }))).toBe(false);
+      });
+
+      test("is false for a piece that hops once per turn", () => {
+        const piece = addPiece(2, origin, player, { targetPosition: hop, movementPoints: 1 });
+        expect(MovementRulesService.isOrderLocked(piece)).toBe(false);
+      });
+    });
+
+    describe("withOrder", () => {
+      test("sets the target and restarts the progress of a slow piece on its panel", () => {
+        const heavy = addHeavy({ targetPosition: hop, movementPoints: 0.5 });
+        const ordered = MovementRulesService.withOrder(heavy, beyond);
+
+        expect(ordered.targetPosition?.equals(beyond)).toBe(true);
+        expect(ordered.movementPoints).toBe(0);
+        expect(heavy.targetPosition?.equals(hop)).toBe(true);
+      });
+
+      test("keeps the hop in progress of a slow piece in transit", () => {
+        const heavy = addHeavy({ targetPosition: hop, transitPosition: hop, movementPoints: 0.5 });
+        const ordered = MovementRulesService.withOrder(heavy, beyond);
+
+        expect(ordered.targetPosition?.equals(beyond)).toBe(true);
+        expect(ordered.transitPosition?.equals(hop)).toBe(true);
+        expect(ordered.movementPoints).toBe(0.5);
+      });
+
+      test("keeps the banked movement points of a piece that hops once per turn", () => {
+        const piece = addPiece(2, origin, player, { movementPoints: 1 });
+        expect(MovementRulesService.withOrder(piece, hop).movementPoints).toBe(1);
+      });
+    });
+
+    describe("fitsAtEndOfTurn", () => {
+      test("is true when every panel the piece takes up has room", () => {
+        const heavy = addHeavy({ targetPosition: beyond });
+        expect(MovementRulesService.fitsAtEndOfTurn(heavy, 2)).toBe(true);
+      });
+
+      test("is false when the hop panel a slow piece starts moving into is full", () => {
+        fillPanel(hop, 10);
+        const heavy = addHeavy({ targetPosition: beyond });
+        expect(MovementRulesService.fitsAtEndOfTurn(heavy, 2)).toBe(false);
+      });
+
+      test("is false when the own panel a slow piece stays on is full", () => {
+        fillPanel(origin, 10);
+        const heavy = addHeavy({ targetPosition: beyond });
+        expect(MovementRulesService.fitsAtEndOfTurn(heavy, 2)).toBe(false);
+      });
+    });
+
+    describe("canMoveTo", () => {
+      test("is false for a piece winding up an attack", () => {
+        addPiece(10, hop, opponent);
+        addHeavy({ targetPosition: hop, movementPoints: 0.5 });
+
+        expect(MovementRulesService.canMoveTo(origin, player, 1)).toBe(false);
+        expect(MovementRulesService.canMoveTo(hop, player, 1)).toBe(false);
+      });
+
+      test("an attack is refused when the attacker's own panel has no room for it to stay", () => {
+        addPiece(10, hop, opponent);
+        const attacker = addPiece(2, origin, player);
+        addPiece(3, origin, player, { pieceType: PieceType.ROOK });
+        addPiece(4, pos(1, 0), player, { pieceType: PieceType.NOBLE, targetPosition: origin });
+
+        expect(MovementRulesService.canMoveTo(hop, player, attacker.id)).toBe(false);
+        // Moving away to a free friendly panel releases the own panel instead.
+        expect(MovementRulesService.canMoveTo(pos(-1, 0), player, attacker.id)).toBe(true);
+      });
+
+      test("an attack is allowed when the attacker's own panel has room for it to stay", () => {
+        addPiece(10, hop, opponent);
+        const attacker = addPiece(2, origin, player);
+
+        expect(MovementRulesService.canMoveTo(hop, player, attacker.id)).toBe(true);
+      });
+
+      test("a slow piece is refused when the hop it would start this turn has no room", () => {
+        fillPanel(hop, 10);
+        addHeavy();
+
+        expect(MovementRulesService.canMoveTo(beyond, player, 1)).toBe(false);
+      });
+
+      test("a slow piece is allowed when the hop it would start this turn has room", () => {
+        addHeavy();
+
+        expect(MovementRulesService.canMoveTo(beyond, player, 1)).toBe(true);
+      });
+    });
+
+    describe("canCancelMove", () => {
+      test("is false for a piece winding up an attack", () => {
+        addPiece(10, hop, opponent);
+        addHeavy({ targetPosition: hop, movementPoints: 0.5 });
+
+        expect(MovementRulesService.canCancelMove(origin, player, 1)).toBe(false);
+      });
+
+      test("is false for a piece in transit already headed only for the panel it is moving into", () => {
+        addHeavy({ targetPosition: hop, transitPosition: hop, movementPoints: 0.5 });
+
+        expect(MovementRulesService.canCancelMove(origin, player, 1)).toBe(false);
+      });
+
+      test("is true for a piece in transit headed farther than the panel it is moving into", () => {
+        // Its own panel being full does not matter: cancelling stops it at the hop panel.
+        fillPanel(origin, 10);
+        addHeavy({ targetPosition: beyond, transitPosition: hop, movementPoints: 0.5 });
+
+        expect(MovementRulesService.canCancelMove(origin, player, 1)).toBe(true);
+      });
+
+      test("is true for a slow piece given an order this turn", () => {
+        addHeavy({ targetPosition: hop, movementPoints: 0 });
+
+        expect(MovementRulesService.canCancelMove(origin, player, 1)).toBe(true);
+        expect(findPiece(1).targetPosition?.equals(hop)).toBe(true);
+      });
     });
   });
 
