@@ -126,8 +126,37 @@ export class PieceService {
       stackCount: selectedPiece.stackCount,
       maxHp: selectedPiece.maxHp,
       movementPoints: selectedPiece.movementPoints - MOVEMENT_HOP_COST,
+      orderSequence: selectedPiece.orderSequence,
     });
     PiecesRepository.update(newPiece);
+  }
+
+  /**
+   * Compare two pieces by order sequence (see Piece.orderSequence): lower numbers first,
+   * pieces without one after those with one, ties broken by lower ID.
+   */
+  private static compareOrderSequence(a: Piece, b: Piece): number {
+    const aSeq = a.orderSequence ?? Number.POSITIVE_INFINITY;
+    const bSeq = b.orderSequence ?? Number.POSITIVE_INFINITY;
+    if (aSeq !== bSeq) return aSeq < bSeq ? -1 : 1;
+    return a.id - b.id;
+  }
+
+  /**
+   * Count of <pieces> after merging, as in MovementRulesService.projectedFriendlyStackCount:
+   * every mergeable type counts once, every non-mergeable piece counts on its own.
+   */
+  private static mergedStackCount(pieces: Piece[]): number {
+    const mergeableTypes = new Set<string>();
+    let count = 0;
+    for (const piece of pieces) {
+      if (piece.pieceType.config.mergeable) {
+        mergeableTypes.add(String(piece.pieceType));
+      } else {
+        count += 1;
+      }
+    }
+    return count + mergeableTypes.size;
   }
 
   /**
@@ -365,16 +394,30 @@ export class PieceService {
    *      proportional piece damage against the entire defender group.
    *   3. If there was no wall phase and defenders are present, attacker and defender groups
    *      exchange simultaneous proportional damage.
-   *   4. Surviving attackers enter only when no enemy pieces remain and the wall is gone.
+   *   4. Surviving attackers may enter only when no enemy pieces remain and the wall is gone.
+   *   5. When combat occurred (wall or pieces), they enter one at a time in order sequence
+   *      (see compareOrderSequence), each only if the attackers that entered in this
+   *      resolution, itself included, still number at most <maxPieces> after merging (see
+   *      mergedStackCount). A piece that does not fit stays at its origin like a failed
+   *      attacker; later pieces are still checked, so one that merges with an entered piece
+   *      may still enter. Only pieces entered in this resolution are counted: the panel held
+   *      none of the attacker's pieces before the attack.
+   *   6. Without combat (a plain move into a panel with no enemy pieces or wall), every
+   *      piece enters: its capacity was already guaranteed by the projection checked when
+   *      the order was given, and counting pieces still on the panel here would wrongly
+   *      block a piece taking the place of one that leaves later in this same turn.
    *
-   * Damage is never resolved by selecting a single front-line defender. Group damage is
-   * distributed across all recipients in proportion to their current HP.
+   * Damage is never resolved by selecting a single front-line defender, and does not depend
+   * on order sequence: every attacker fights simultaneously. Group damage is distributed
+   * across all recipients in proportion to their current HP.
    *
+   * @param maxPieces - The attacker's maxPiecesPerPanel.
    * @returns CombatOutcome if wall or piece combat occurred, null if the target was empty.
    */
   private static resolveTargetPanel(
     attackers: Piece[],
     targetPosition: PanelPosition,
+    maxPieces: number,
   ): CombatOutcome | null {
     const targetPanel = PanelRepository.find(targetPosition);
     const attackerPlayer = attackers[0].player;
@@ -424,18 +467,22 @@ export class PieceService {
       currentPanel.player === Player.UNKNOWN ||
       currentPanel.castle <= 0;
     const canEnter = remainingEnemies.length === 0 && noWall;
+    const hadAnyCombat = hadWallCombat || hasCombat;
 
-    for (const atk of attackers) {
+    const entered: Piece[] = [];
+    for (const atk of [...attackers].sort((a, b) => this.compareOrderSequence(a, b))) {
       if (deadIds.has(atk.id)) continue;
       const current = PiecesRepository.getAll().find((p) => p.id === atk.id);
       if (!current) continue;
 
-      if (canEnter) {
+      const fits = !hadAnyCombat || this.mergedStackCount([...entered, current]) <= maxPieces;
+      if (canEnter && fits) {
         this.move(targetPosition, current);
+        entered.push(current);
       } else {
         // Reaching this branch means an attack was actually attempted (wall or piece combat
-        // occurred) but didn't fully succeed — it still costs a movement point, same as a
-        // successful move, regardless of outcome.
+        // occurred) but didn't fully succeed, or succeeded with the panel already full — it
+        // still costs a movement point, same as a successful move, regardless of outcome.
         PiecesRepository.update(
           new Piece({
             ...current,
@@ -458,7 +505,7 @@ export class PieceService {
       );
     }
 
-    if (!hadWallCombat && !hasCombat) return null;
+    if (!hadAnyCombat) return null;
 
     return {
       targetPosition: {
@@ -520,16 +567,21 @@ export class PieceService {
    * this turn and always cancels the pending distant order afterward, regardless
    * of outcome:
    *   - An enemy-occupied (or enemy-walled) obstacle is engaged exactly like a
-   *     direct target, via resolveTargetPanel (attack/wall combat, entering only
-   *     if it's cleared).
+   *     direct target, in the same group as every other piece engaging that panel
+   *     (attack/wall combat, entering only if it's cleared and there is room).
    *   - A friendly panel already at capacity is entered (and later merged by
    *     mergeAllPiecesForPlayer) if this specific piece would still fit once
    *     merge-consolidation is accounted for (MovementRulesService.canMoveTo);
    *     otherwise the piece stays put, unable to proceed at all.
    *
-   * Pieces that reach engagement range of their actual final target are grouped
-   * by that target panel and resolved with simultaneous multi-unit combat,
-   * exactly as for an already-adjacent piece.
+   * Pieces that reach engagement range of their actual final target are engaged
+   * exactly as an already-adjacent piece. Every engaging piece — adjacent to its
+   * target, arriving in range this turn, attacking an enemy obstacle, or a slow
+   * piece completing a hop into its final target or an attack — is grouped by the
+   * panel it engages, and each panel is resolved once by resolveTargetPanel: the
+   * group fights simultaneously, and after capturing an enemy panel its pieces
+   * enter in order sequence (Piece.orderSequence) until the panel is full, the
+   * rest staying at their origin with their order cleared.
    *
    * A piece whose banked movementPoints haven't yet reached MOVEMENT_HOP_COST is skipped
    * entirely — its pending target and points are left untouched, to be resolved on a later
@@ -559,8 +611,9 @@ export class PieceService {
         !p.takesMultipleTurnsPerHop && p.targetPosition && p.movementPoints >= MOVEMENT_HOP_COST,
     );
 
+    // Pieces engaging a panel: moving into or attacking their target, or attacking an enemy
+    // obstacle in their way. Grouped by panel below so each panel is resolved once.
     const engagements: { piece: Piece; target: PanelPosition }[] = [];
-    const enemyObstacleGroups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
     const friendlyObstacleEncounters: { piece: Piece; obstaclePosition: PanelPosition }[] = [];
 
     for (const piece of piecesWithMoves) {
@@ -590,13 +643,8 @@ export class PieceService {
 
       if (obstaclePosition) {
         if (MovementRulesService.hasEnemyPresence(obstaclePosition, player)) {
-          const key = `${obstaclePosition.horizontalLayer},${obstaclePosition.verticalLayer}`;
-          const group = enemyObstacleGroups.get(key);
-          if (group) {
-            group.attackers.push(current);
-          } else {
-            enemyObstacleGroups.set(key, { attackers: [current], target: obstaclePosition });
-          }
+          // Resolving it always clears the distant order, whether or not the piece enters.
+          engagements.push({ piece: current, target: obstaclePosition });
         } else {
           friendlyObstacleEncounters.push({ piece: current, obstaclePosition });
         }
@@ -625,7 +673,8 @@ export class PieceService {
 
     const outcomes: CombatOutcome[] = [];
 
-    // Engagements, grouped by target panel.
+    // Engagements, grouped by target panel: every piece engaging a panel fights there
+    // together and enters in one order sequence.
     const groups = new Map<string, { attackers: Piece[]; target: PanelPosition }>();
     for (const { piece, target } of engagements) {
       const key = `${target.horizontalLayer},${target.verticalLayer}`;
@@ -637,15 +686,11 @@ export class PieceService {
       }
     }
     for (const { attackers, target } of groups.values()) {
-      const outcome = this.resolveTargetPanel(attackers, target);
+      const outcome = this.resolveTargetPanel(attackers, target, maxPieces);
       if (outcome) outcomes.push(outcome);
     }
 
-    // Transit obstacles: always resolved (and the distant order cancelled) this turn.
-    for (const { attackers, target } of enemyObstacleGroups.values()) {
-      const outcome = this.resolveTargetPanel(attackers, target);
-      if (outcome) outcomes.push(outcome);
-    }
+    // Friendly transit obstacles: always resolved (and the distant order cancelled) this turn.
     for (const { piece, obstaclePosition } of friendlyObstacleEncounters) {
       if (MovementRulesService.canMoveTo(obstaclePosition, player, piece.id, maxPieces)) {
         this.move(obstaclePosition, piece);

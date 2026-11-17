@@ -83,6 +83,7 @@ function snapshotFromRepositories(): GameStateSnapshot {
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
       movementPoints: piece.movementPoints,
+      orderSequence: piece.orderSequence,
     })),
     turn: {
       num: turn.num,
@@ -3634,6 +3635,160 @@ describe.each([Player.SELF, Player.OPPONENT])("gradual movement (%s)", (player) 
     PiecesRepository.update(new Piece({ ...findPiece(2), panelPosition: pos(0, 0) }));
 
     expect(InvariantService.check(GameApi.getGameState())).toEqual([]);
+  });
+});
+
+describe.each([Player.SELF, Player.OPPONENT])("order sequence (%s)", (player) => {
+  const opponent = player === Player.SELF ? Player.OPPONENT : Player.SELF;
+  const at = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
+  const findPiece = (id: number) => PiecesRepository.getAll().find((piece) => piece.id === id)!;
+
+  function startGameOnTurnOf(): void {
+    GameApi.initializeGame({ layer: 4 });
+    TurnRepository.set({ ...TurnRepository.get(), player });
+  }
+
+  function addPiece(
+    id: number,
+    owner: Player,
+    position: PanelPosition,
+    overrides: Partial<ConstructorParameters<typeof Piece>[0]> = {},
+  ): void {
+    PiecesRepository.add(
+      new Piece({
+        id,
+        panelPosition: position,
+        initialPosition: position,
+        player: owner,
+        pieceType: PieceType.ROOK,
+        ...overrides,
+      }),
+    );
+  }
+
+  describe("GameApi.assignMove", () => {
+    test("sets 1 when no piece has an order sequence yet", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0));
+
+      expectActionSuccessWithSnapshot(GameApi.assignMove(player, 1, at(0, 1)));
+
+      expect(findPiece(1).orderSequence).toBe(1);
+    });
+
+    test("sets the highest order sequence among both players' pieces + 1", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0), { orderSequence: 3 });
+      addPiece(2, opponent, at(1, 2), { orderSequence: 7 });
+      addPiece(3, player, at(-1, 2));
+
+      expect(GameApi.assignMove(player, 3, at(-1, 1)).ok).toBe(true);
+
+      expect(findPiece(3).orderSequence).toBe(8);
+    });
+
+    test("gives a new order sequence when the piece is ordered again, even to the same target", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0));
+      addPiece(2, player, at(0, 2));
+
+      GameApi.assignMove(player, 1, at(0, 1));
+      GameApi.assignMove(player, 2, at(0, 3));
+      GameApi.assignMove(player, 1, at(0, 1));
+
+      expect(findPiece(2).orderSequence).toBe(2);
+      expect(findPiece(1).orderSequence).toBe(3);
+    });
+
+    test("leaves the order sequence unchanged when the order fails", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0), { orderSequence: 4 });
+
+      const result = GameApi.assignMove(player, 1, at(99, 99));
+
+      expect(result.ok).toBe(false);
+      expect(findPiece(1).orderSequence).toBe(4);
+    });
+  });
+
+  describe("GameApi.cancelMove", () => {
+    test("keeps the order sequence", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0));
+      GameApi.assignMove(player, 1, at(0, 1));
+
+      expectActionSuccessWithSnapshot(GameApi.cancelMove(player, 1));
+
+      const piece = findPiece(1);
+      expect(piece.targetPosition).toBeUndefined();
+      expect(piece.orderSequence).toBe(1);
+    });
+  });
+
+  describe("snapshots", () => {
+    test("saves and restores the order sequence", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0), { targetPosition: at(0, 1), orderSequence: 5 });
+      const snapshot = GameApi.getGameState();
+      expect(snapshot.pieces[0].orderSequence).toBe(5);
+
+      GameApi.initializeGame({ layer: 2 });
+      expectActionSuccessWithSnapshot(GameApi.loadGameState(snapshot));
+
+      expect(findPiece(1).orderSequence).toBe(5);
+    });
+
+    test("loads a snapshot without an order sequence", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0));
+      const snapshot = JSON.parse(JSON.stringify(GameApi.getGameState())) as GameStateSnapshot;
+      expect("orderSequence" in snapshot.pieces[0]).toBe(false);
+
+      expectActionSuccessWithSnapshot(GameApi.loadGameState(snapshot));
+
+      expect(findPiece(1).orderSequence).toBeUndefined();
+    });
+
+    test.each([0, -1, 1.5, Number.NaN])(
+      "rejects an order sequence that is not an integer of 1 or more (%s)",
+      (orderSequence) => {
+        startGameOnTurnOf();
+        addPiece(1, player, at(0, 0));
+        const snapshot = GameApi.getGameState();
+
+        const result = GameApi.loadGameState({
+          ...snapshot,
+          pieces: snapshot.pieces.map((piece) => ({ ...piece, orderSequence })),
+        });
+
+        expect(result).toEqual({ ok: false, error: ActionError.INVALID_GAME_STATE });
+      },
+    );
+  });
+
+  describe("GameApi.endTurn", () => {
+    test("non-mergeable attackers capturing a panel never exceed its capacity", () => {
+      startGameOnTurnOf();
+      const target = at(0, 1);
+      const targetPanel = PanelRepository.find(target)!;
+      PanelRepository.update(new Panel({ ...targetPanel, player: opponent, castle: 0 }));
+      addPiece(10, opponent, target, { pieceType: PieceType.NOBLE, hp: 1 });
+      const origins = [at(0, 0), at(-1, 1), at(1, 1)];
+      origins.forEach((origin, index) => addPiece(index + 1, player, origin));
+      for (const id of [1, 2, 3]) {
+        expect(GameApi.assignMove(player, id, target).ok).toBe(true);
+      }
+
+      expectTurnEndSuccessWithSnapshot(GameApi.endTurn(player));
+
+      expect(PiecesRepository.getPiecesByPosition(target)).toHaveLength(2);
+      expect(findPiece(3).panelPosition.equals(origins[2])).toBe(true);
+      expect(
+        InvariantService.check(GameApi.getGameState()).filter(
+          (violation) => violation.type === "piece-capacity-exceeded",
+        ),
+      ).toEqual([]);
+    });
   });
 });
 

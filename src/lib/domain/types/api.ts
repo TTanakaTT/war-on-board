@@ -40,6 +40,7 @@ export interface PieceSnapshot {
   stackCount: number;
   maxHp: number;
   movementPoints: number;
+  orderSequence?: number;
 }
 
 export interface HomeBaseSnapshot {
