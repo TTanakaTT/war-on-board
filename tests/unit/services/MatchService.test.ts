@@ -126,6 +126,48 @@ describe("MatchService", () => {
     });
   });
 
+  describe("aiSeeds", () => {
+    const cpuVsCpuOptions = {
+      controllers: { self: "cpu", opponent: "cpu" },
+      layer: 4,
+      automationTurnLimit: 3,
+      aiStrengths: { self: AiStrength.STRENGTH_1, opponent: AiStrength.STRENGTH_3 },
+    } as const;
+
+    test("stores the given seeds in the match control", () => {
+      MatchService.startMatch({ ...cpuVsCpuOptions, aiSeeds: { self: 12345, opponent: 67890 } });
+
+      expect(MatchControlRepository.get().aiSeeds).toEqual({ self: 12345, opponent: 67890 });
+    });
+
+    test("creates a 32-bit unsigned integer seed for each player when none are given", () => {
+      MatchService.startMatch(cpuVsCpuOptions);
+
+      const { aiSeeds } = MatchControlRepository.get();
+      for (const seed of [aiSeeds.self, aiSeeds.opponent]) {
+        expect(Number.isInteger(seed)).toBe(true);
+        expect(seed).toBeGreaterThanOrEqual(0);
+        expect(seed).toBeLessThan(2 ** 32);
+      }
+    });
+
+    test("replays the same cpu-vs-cpu match from the same seeds", async () => {
+      const playMatch = async () => {
+        MatchService.startMatch({ ...cpuVsCpuOptions, aiSeeds: { self: 1, opponent: 2 } });
+        await vi.runAllTimersAsync();
+        return GameApi.getGameState();
+      };
+
+      const firstBoard = await playMatch();
+      const secondBoard = await playMatch();
+
+      expect(MatchControlRepository.get().automation.automatedTurns).toBe(
+        cpuVsCpuOptions.automationTurnLimit,
+      );
+      expect(secondBoard).toEqual(firstBoard);
+    });
+  });
+
   describe("runAutomatedTurnsIfNeeded", () => {
     test("runs the opponent cpu response after a human ends the turn", async () => {
       MatchService.startMatch({

@@ -14,7 +14,9 @@ import { buildInvariantIssue, INVARIANT_ISSUE_OUTPUT_DIR } from "./invariantIssu
 const MATCH_TIMEOUT_MS = 10 * 60_000;
 const STATUS_POLLING_MS = 500;
 
-// The AI has no randomness, so each pairing plays the same match every time.
+// The CPU picks among equally scored moves with a seeded random source, and every match
+// starts with new seeds (no aiSeeds passed), so each run plays out differently.
+// The seeds go into the violation report so a detected match can be replayed.
 // The first player stays at the first strength; the second player tries every strength.
 const strengths = Object.values(AiStrength);
 const matches: StartMatchOptions[] = strengths.map((opponentStrength) => ({

@@ -5,6 +5,7 @@ import { DEFAULT_AUTOMATION_TURN_LIMIT } from "#lib/domain/constants/GameConstan
 import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
 import { Player } from "#lib/domain/enums/Player.ts";
 import type {
+  MatchAiSeeds,
   MatchAutomationState,
   MatchAiStrengths,
   MatchControl,
@@ -14,18 +15,30 @@ import type {
   StartMatchOptions,
 } from "#lib/domain/types/match.ts";
 import { AiService } from "#lib/services/AiService.ts";
+import {
+  createRandomSeed,
+  createSeededRandom,
+  type RandomSource,
+} from "#lib/services/ai/random.ts";
 import { GameDialogService } from "#lib/services/GameDialogService.ts";
 
 const AUTOMATION_STEP_DELAY_MS = 120;
 
 export class MatchService {
   private static automationRunToken = 0;
+  /** Each player's CPU random source, rebuilt from MatchControl.aiSeeds on every match start. */
+  private static aiRandomSources: Partial<Record<string, RandomSource>> = {};
 
   static startMatch(options: StartMatchOptions): void {
     this.cancelScheduledAutomation();
     GameDialogService.reset();
     GameApiClient.initializeGame({ layer: options.layer });
-    MatchControlRepository.set(this.createMatchControl(options));
+    const matchControl = this.createMatchControl(options);
+    MatchControlRepository.set(matchControl);
+    this.aiRandomSources = {
+      [String(Player.SELF)]: createSeededRandom(matchControl.aiSeeds.self),
+      [String(Player.OPPONENT)]: createSeededRandom(matchControl.aiSeeds.opponent),
+    };
     this.runAutomatedTurnsIfNeeded();
   }
 
@@ -87,6 +100,9 @@ export class MatchService {
         opponent: options.controllers.opponent,
       },
       aiStrengths: this.normalizeAiStrengths(options.controllers, options.aiStrengths),
+      aiSeeds: options.aiSeeds
+        ? { ...options.aiSeeds }
+        : { self: createRandomSeed(), opponent: createRandomSeed() },
       automation: {
         status: "idle",
         automatedTurns: 0,
@@ -118,6 +134,19 @@ export class MatchService {
     controllers: MatchControllers,
   ): PlayerController {
     return player === Player.SELF ? controllers.self : controllers.opponent;
+  }
+
+  /** Falls back to the stored seed when the match did not go through startMatch. */
+  private static getAiRandomSource(player: Player, aiSeeds: MatchAiSeeds): RandomSource {
+    const key = String(player);
+    const existing = this.aiRandomSources[key];
+    if (existing) {
+      return existing;
+    }
+
+    const created = createSeededRandom(player === Player.SELF ? aiSeeds.self : aiSeeds.opponent);
+    this.aiRandomSources[key] = created;
+    return created;
   }
 
   private static getAiStrengthForPlayer(player: Player, aiStrengths: MatchAiStrengths): AiStrength {
@@ -181,7 +210,11 @@ export class MatchService {
       currentTurn.player,
       matchControl.aiStrengths,
     );
-    AiService.doAiTurn(currentTurn.player, currentAiStrength);
+    AiService.doAiTurn(
+      currentTurn.player,
+      currentAiStrength,
+      this.getAiRandomSource(currentTurn.player, matchControl.aiSeeds),
+    );
     const postTurn = TurnRepository.get();
 
     if (postTurn.num > currentTurn.num) {

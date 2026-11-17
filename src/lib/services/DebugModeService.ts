@@ -187,6 +187,7 @@ export class DebugModeService {
       layer: LayerRepository.get(),
       controllers: { ...matchControl.controllers },
       aiStrengths: { ...matchControl.aiStrengths },
+      aiSeeds: { ...matchControl.aiSeeds },
     };
   }
 }

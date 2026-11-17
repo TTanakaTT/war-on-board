@@ -37,8 +37,6 @@ export interface PieceCombatStats {
 export interface ScoredTarget {
   score: number;
   target: PanelPosition;
-  laneLoad: number;
-  laneShift: number;
 }
 
 export interface PieceTypeCounts {

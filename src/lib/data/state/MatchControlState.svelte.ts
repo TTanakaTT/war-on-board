@@ -12,6 +12,11 @@ let _matchControl = $state<MatchControl>({
     self: AiStrength.STRENGTH_1,
     opponent: AiStrength.STRENGTH_1,
   },
+  // Never used in practice: the match screen always goes through MatchService.startMatch.
+  aiSeeds: {
+    self: 0,
+    opponent: 0,
+  },
   automation: {
     status: "idle",
     automatedTurns: 0,

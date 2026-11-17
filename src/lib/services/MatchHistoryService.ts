@@ -12,7 +12,7 @@ import type {
   MatchHistoryMetricPair,
   MatchHistoryPlayerSummary,
 } from "#lib/domain/types/history.ts";
-import type { MatchAiStrengths, MatchControllers } from "#lib/domain/types/match.ts";
+import type { MatchAiSeeds, MatchAiStrengths, MatchControllers } from "#lib/domain/types/match.ts";
 
 const CONTROLLABLE_PLAYERS = [
   "self",
@@ -29,6 +29,7 @@ export class MatchHistoryService {
         historyEntries,
         matchControl.controllers,
         matchControl.aiStrengths,
+        matchControl.aiSeeds,
       ),
       entries: historyEntries.map((entry) => this.buildEntrySummary(entry)),
     };
@@ -38,6 +39,7 @@ export class MatchHistoryService {
     historyEntries: GameStateHistoryEntry[],
     controllers: MatchControllers,
     aiStrengths: MatchAiStrengths,
+    aiSeeds: MatchAiSeeds,
   ): MatchHistoryMetadata {
     const latestSnapshot = historyEntries.at(-1)?.snapshot;
 
@@ -46,8 +48,8 @@ export class MatchHistoryService {
       layer: latestSnapshot?.layer ?? 0,
       homeBases: latestSnapshot?.homeBases ?? [],
       players: {
-        self: this.buildPlayerSummary("self", controllers, aiStrengths),
-        opponent: this.buildPlayerSummary("opponent", controllers, aiStrengths),
+        self: this.buildPlayerSummary("self", controllers, aiStrengths, aiSeeds),
+        opponent: this.buildPlayerSummary("opponent", controllers, aiStrengths, aiSeeds),
       },
     };
   }
@@ -56,11 +58,13 @@ export class MatchHistoryService {
     player: ControllablePlayerSnapshot,
     controllers: MatchControllers,
     aiStrengths: MatchAiStrengths,
+    aiSeeds: MatchAiSeeds,
   ): MatchHistoryPlayerSummary {
     return {
       player,
       controller: controllers[player],
       aiStrength: aiStrengths[player],
+      aiSeed: aiSeeds[player],
     };
   }
 
