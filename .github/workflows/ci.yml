@@ -13,6 +13,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Builds the Docker image in the background while the steps below run, so
+      # the job does not take longer. The "Docker build" step waits for it.
+      - name: Start Docker build
+        run: |
+          {
+            status=0
+            docker build . > "$RUNNER_TEMP/docker-build.log" 2>&1 || status=$?
+            echo "$status" > "$RUNNER_TEMP/docker-build.status.tmp"
+            mv "$RUNNER_TEMP/docker-build.status.tmp" "$RUNNER_TEMP/docker-build.status"
+          } < /dev/null > /dev/null 2>&1 &
+
       - name: Install pnpm
         uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         with:
@@ -38,3 +49,10 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+      - name: Docker build
+        timeout-minutes: 10
+        run: |
+          while [ ! -f "$RUNNER_TEMP/docker-build.status" ]; do sleep 5; done
+          cat "$RUNNER_TEMP/docker-build.log"
+          exit "$(cat "$RUNNER_TEMP/docker-build.status")"

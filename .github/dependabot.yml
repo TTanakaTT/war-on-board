@@ -1,6 +1,7 @@
-# Opens version-update pull requests. Patch and minor updates are auto-merged
-# once CI passes (see workflows/dependabot-auto-merge.yml); a human reviews and
-# merges major updates. The cooldown skips releases younger than 7 days to
+# Opens version-update pull requests. Patch and minor updates, and Docker
+# base image digest updates, are auto-merged once CI passes (see
+# workflows/dependabot-auto-merge.yml); a human reviews and merges major
+# updates. The cooldown skips releases younger than 7 days to
 # avoid picking up a compromised version right after it is published. Keep it
 # in sync with `minimumReleaseAge` in pnpm-workspace.yaml, which also covers
 # transitive dependencies.
@@ -45,3 +46,22 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: daily
+      time: "05:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 1
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore
+      include: scope
+    # Bump the Node major by hand, together with `node-version` in the
+    # workflows. An open major update would also replace the digest updates of
+    # the current major, since Dependabot opens one pull request per image.
+    ignore:
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
