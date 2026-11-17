@@ -18,13 +18,13 @@
     "test:simulation": "playwright test --config playwright.simulation.config.ts"
   },
   "dependencies": {
-    "material-symbols": "^0.45.10",
     "svelte": "^5.57.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@inlang/paraglide-js": "^3.2.1",
     "@inlang/plugin-message-format": "^4.6.0",
+    "@material-symbols/svg-400": "^0.48.3",
     "@playwright/test": "^1.65.0",
     "@sveltejs/adapter-static": "^4.0.1",
     "@sveltejs/kit": "^3.2.0",

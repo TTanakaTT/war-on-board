@@ -1,8 +1,8 @@
 /**
- * Shape descriptors for piece icons with no material-symbols equivalent
+ * Shape descriptors for piece icons with no Material Symbols equivalent
  * (see docs/adr/0001-piece-token-custom-svg-icons.md). Rendered by
  * `Icon.svelte` inside a 24x24 viewBox `<svg>`, styled to match
- * material-symbols outlined: `currentColor` stroke, no fill except small
+ * Material Symbols outlined: `currentColor` stroke, no fill except small
  * solid accents. Structured (rather than raw markup) so no `{@html}` is
  * needed to render them.
  *

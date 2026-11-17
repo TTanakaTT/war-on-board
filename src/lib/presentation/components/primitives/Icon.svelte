@@ -1,14 +1,16 @@
 <script lang="ts">
   import type { TransitionConfig } from "svelte/transition";
   import { CUSTOM_PIECE_ICONS, type IconShape } from "#lib/presentation/constants/CustomIcons.ts";
+  import {
+    MATERIAL_ICON_PATHS,
+    MATERIAL_ICON_VIEW_BOX,
+  } from "#lib/presentation/constants/MaterialIcons.ts";
 
   type TransitionFunc = (node: Element, params: Record<string, unknown>) => TransitionConfig;
 
   interface Props {
     icon: string;
     size?: number;
-    fill?: boolean;
-    weight?: number;
     additionalClass?: string;
     transition?: TransitionFunc;
     transitionParams?: Record<string, unknown>;
@@ -17,18 +19,15 @@
   let {
     icon = "",
     size = 48,
-    fill = false,
-    weight = 400,
     additionalClass = "",
     transition: transitionFn,
     transitionParams = {},
   }: Props = $props();
 
-  let font = $derived(`font-variation-settings: 'FILL' ${fill ? 1 : 0}, 'wght' ${weight};`);
-  let styleAttr = $derived(`font-size:${size}px;`);
-  // Piece types with no material-symbols equivalent (e.g. archer, siege) use a
-  // custom SVG asset instead, consistently across every UI context — see CustomIcons.ts.
+  // Piece types with no Material Symbols equivalent (e.g. archer, siege) use a
+  // custom shape instead, consistently across every UI context — see CustomIcons.ts.
   let customIconShapes = $derived(CUSTOM_PIECE_ICONS[icon]);
+  let materialIconPath = $derived(MATERIAL_ICON_PATHS[icon]);
 </script>
 
 {#snippet customIcon(shapes: IconShape[])}
@@ -60,43 +59,32 @@
   {/each}
 {/snippet}
 
+{#snippet svgIcon(svgClass: string)}
+  {#if customIconShapes}
+    <svg class={svgClass} viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      {@render customIcon(customIconShapes)}
+    </svg>
+  {:else if materialIconPath}
+    <svg
+      class={svgClass}
+      viewBox={MATERIAL_ICON_VIEW_BOX}
+      width={size}
+      height={size}
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d={materialIconPath} />
+    </svg>
+  {/if}
+{/snippet}
+
 {#if transitionFn}
   <span
     class="flex shrink-0 items-center justify-center {additionalClass}"
     transition:transitionFn|global={transitionParams}
   >
-    {#if customIconShapes}
-      <svg
-        viewBox="0 0 24 24"
-        width={size}
-        height={size}
-        role="img"
-        aria-hidden="true"
-        style={styleAttr}
-      >
-        {@render customIcon(customIconShapes)}
-      </svg>
-    {:else}
-      <span class="material-symbols-outlined" style="{font} {styleAttr}">{icon}</span>
-    {/if}
+    {@render svgIcon("")}
   </span>
-{:else if customIconShapes}
-  <svg
-    class="inline-block shrink-0 {additionalClass}"
-    viewBox="0 0 24 24"
-    width={size}
-    height={size}
-    role="img"
-    aria-hidden="true"
-    style={styleAttr}
-  >
-    {@render customIcon(customIconShapes)}
-  </svg>
 {:else}
-  <span
-    class="material-symbols-outlined inline-block shrink-0 {additionalClass}"
-    style="{font} {styleAttr}"
-  >
-    {icon}
-  </span>
+  {@render svgIcon(`inline-block shrink-0 ${additionalClass}`)}
 {/if}

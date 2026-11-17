@@ -56,7 +56,7 @@
     >
       <span class="inline-flex items-center gap-1.5 font-semibold">
         {#if isWinningPlayer("self")}
-          <Icon icon="emoji_events" size={18} />
+          <Icon icon="trophy" size={18} />
         {/if}
         {historySeatLabel("self")}
       </span>
@@ -72,7 +72,7 @@
     >
       <span class="inline-flex items-center gap-1.5 font-semibold">
         {#if isWinningPlayer("opponent")}
-          <Icon icon="emoji_events" size={18} />
+          <Icon icon="trophy" size={18} />
         {/if}
         {historySeatLabel("opponent")}
       </span>
