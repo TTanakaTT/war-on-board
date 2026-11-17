@@ -1445,4 +1445,186 @@ describe("PieceService", () => {
       });
     });
   });
+
+  describe.each([Player.SELF, Player.OPPONENT])(
+    "finalizePlayerMoves: entering a captured panel in order sequence (%s)",
+    (player) => {
+      const opponent = player === Player.SELF ? Player.OPPONENT : Player.SELF;
+      // Has six neighbors on the layer-4 board, enough attackers to exceed the capacity.
+      const target = pos(0, 1);
+
+      const findPiece = (id: number) => PiecesRepository.getAll().find((piece) => piece.id === id)!;
+      const neighborsOf = (position: PanelPosition) =>
+        PanelRepository.getAll()
+          .map((panel) => panel.panelPosition)
+          .filter((candidate) => candidate.isAdjacent(position));
+
+      function addAttacker(
+        id: number,
+        pieceType: PieceType,
+        at: PanelPosition,
+        orderSequence: number | undefined,
+        overrides: Partial<ConstructorParameters<typeof Piece>[0]> = {},
+      ): void {
+        PiecesRepository.add(
+          makePiece({
+            id,
+            panelPosition: at,
+            targetPosition: target,
+            player,
+            pieceType,
+            orderSequence,
+            ...overrides,
+          }),
+        );
+      }
+
+      /** An enemy that dies to any attack here and never strikes back. */
+      function addEnemyNoble(id: number, at: PanelPosition): void {
+        PiecesRepository.add(
+          makePiece({ id, panelPosition: at, player: opponent, pieceType: PieceType.NOBLE }),
+        );
+      }
+
+      function expectStayedAfterFailedAttack(id: number, origin: PanelPosition): void {
+        const piece = findPiece(id);
+        expect(piece.panelPosition.equals(origin)).toBe(true);
+        expect(piece.targetPosition).toBeUndefined();
+        expect(piece.movementPoints).toBe(0);
+      }
+
+      test("non-mergeable attackers beyond the capacity stay at their origin after winning", () => {
+        const [n1, n2, n3] = neighborsOf(target);
+        addEnemyNoble(10, target);
+        addAttacker(1, PieceType.ROOK, n1, 1);
+        addAttacker(2, PieceType.ROOK, n2, 2);
+        addAttacker(3, PieceType.ROOK, n3, 3);
+
+        const outcomes = PieceService.finalizePlayerMoves(player);
+
+        expect(outcomes).toHaveLength(1);
+        expect(outcomes[0].entered).toBe(true);
+        expect(findPiece(1).panelPosition.equals(target)).toBe(true);
+        expect(findPiece(2).panelPosition.equals(target)).toBe(true);
+        expectStayedAfterFailedAttack(3, n3);
+      });
+
+      test("the order sequence, not the piece ID, decides which attackers enter", () => {
+        const [n1, n2, n3] = neighborsOf(target);
+        addEnemyNoble(10, target);
+        addAttacker(1, PieceType.ROOK, n1, 3);
+        addAttacker(2, PieceType.ROOK, n2, 2);
+        addAttacker(3, PieceType.ROOK, n3, 1);
+
+        PieceService.finalizePlayerMoves(player);
+
+        expect(findPiece(3).panelPosition.equals(target)).toBe(true);
+        expect(findPiece(2).panelPosition.equals(target)).toBe(true);
+        expectStayedAfterFailedAttack(1, n1);
+      });
+
+      test("a later attacker that merges with one that entered still enters after one that did not fit", () => {
+        const [n1, n2, n3, n4] = neighborsOf(target);
+        addEnemyNoble(10, target);
+        addAttacker(1, PieceType.INFANTRY, n1, 1);
+        addAttacker(2, PieceType.CAVALRY, n2, 2);
+        addAttacker(3, PieceType.ROOK, n3, 3);
+        addAttacker(4, PieceType.INFANTRY, n4, 4);
+
+        PieceService.finalizePlayerMoves(player);
+
+        expect(findPiece(1).panelPosition.equals(target)).toBe(true);
+        expect(findPiece(2).panelPosition.equals(target)).toBe(true);
+        expect(findPiece(4).panelPosition.equals(target)).toBe(true);
+        expectStayedAfterFailedAttack(3, n3);
+      });
+
+      test("adjacent attackers and a piece stopped by the same panel on its way fight once and enter in order sequence", () => {
+        const obstacle = pos(-2, 0);
+        const travelerOrigin = pos(-3, 0);
+        const [n1, n2] = neighborsOf(obstacle).filter(
+          (candidate) => !candidate.equals(travelerOrigin),
+        );
+        addEnemyNoble(10, obstacle);
+        addAttacker(1, PieceType.ROOK, n1, 2, { targetPosition: obstacle });
+        addAttacker(2, PieceType.ROOK, n2, 3, { targetPosition: obstacle });
+        // On its way to (0,0), first stopped by the enemy at (-2,0).
+        addAttacker(3, PieceType.ROOK, travelerOrigin, 1);
+
+        const outcomes = PieceService.finalizePlayerMoves(player);
+
+        expect(outcomes).toHaveLength(1);
+        expect(findPiece(3).panelPosition.equals(obstacle)).toBe(true);
+        expect(findPiece(3).targetPosition).toBeUndefined();
+        expect(findPiece(1).panelPosition.equals(obstacle)).toBe(true);
+        expectStayedAfterFailedAttack(2, n2);
+      });
+
+      test.each([
+        { heavySequence: 1, entering: [1, 2], staying: 3 },
+        { heavySequence: 3, entering: [2, 3], staying: 1 },
+      ])(
+        "a slow piece completing its attack enters in order sequence ($heavySequence)",
+        ({ heavySequence, entering, staying }) => {
+          const neighbors = neighborsOf(target);
+          addEnemyNoble(10, target);
+          addAttacker(1, PieceType.HEAVY, neighbors[0], heavySequence, { movementPoints: 0.5 });
+          const rookSequences = heavySequence === 1 ? [2, 3] : [1, 2];
+          addAttacker(2, PieceType.ROOK, neighbors[1], rookSequences[0]);
+          addAttacker(3, PieceType.ROOK, neighbors[2], rookSequences[1]);
+
+          const outcomes = PieceService.finalizePlayerMoves(player);
+
+          expect(outcomes).toHaveLength(1);
+          for (const id of entering) {
+            expect(findPiece(id).panelPosition.equals(target)).toBe(true);
+          }
+          const stayed = findPiece(staying);
+          expect(stayed.panelPosition.equals(neighbors[staying - 1])).toBe(true);
+          expect(stayed.targetPosition).toBeUndefined();
+          expect(stayed.transitPosition).toBeUndefined();
+        },
+      );
+
+      test.each([
+        { label: "the panel being left first", leavingFirst: true },
+        { label: "the panel being entered first", leavingFirst: false },
+      ])(
+        "a plain move into a panel another piece is leaving is never blocked ($label)",
+        ({ leavingFirst }) => {
+          // P holds A and B; A leaves for Q while C moves into P.
+          const panelP = target;
+          const [panelQ, panelR] = neighborsOf(panelP);
+          const leaving = makePiece({
+            id: 1,
+            panelPosition: panelP,
+            targetPosition: panelQ,
+            player,
+            pieceType: PieceType.ROOK,
+          });
+          const staying = makePiece({
+            id: 2,
+            panelPosition: panelP,
+            player,
+            pieceType: PieceType.ROOK,
+          });
+          const entering = makePiece({
+            id: 3,
+            panelPosition: panelR,
+            targetPosition: panelP,
+            player,
+            pieceType: PieceType.ROOK,
+          });
+          const order = leavingFirst ? [leaving, staying, entering] : [entering, leaving, staying];
+          for (const piece of order) PiecesRepository.add(piece);
+
+          PieceService.finalizePlayerMoves(player);
+
+          expect(findPiece(1).panelPosition.equals(panelQ)).toBe(true);
+          expect(findPiece(3).panelPosition.equals(panelP)).toBe(true);
+          expect(findPiece(3).targetPosition).toBeUndefined();
+        },
+      );
+    },
+  );
 });

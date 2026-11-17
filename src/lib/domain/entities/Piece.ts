@@ -45,6 +45,13 @@ export class Piece {
    * (see PieceService.finalizePlayerMoves), and never banked while idle.
    */
   movementPoints: number;
+  /**
+   * Order sequence: when this piece was given its current move order, numbered across both
+   * sides (see GameApi.assignMove). Set only by assignMove and kept through resolution,
+   * cancellation and merging. When attackers capture a panel, lower numbers enter first
+   * (see PieceService.resolveTargetPanel). Undefined for a piece never given an order.
+   */
+  orderSequence?: number;
 
   /**
    * Whether one hop takes this piece more than one turn (movement below
@@ -109,6 +116,7 @@ export class Piece {
     stackCount,
     maxHp,
     movementPoints,
+    orderSequence,
   }: {
     id?: number;
     initialPosition?: PanelPosition;
@@ -122,6 +130,7 @@ export class Piece {
     stackCount?: number;
     maxHp?: number;
     movementPoints?: number;
+    orderSequence?: number;
   }) {
     this.id = id ?? 0;
     this.panelPosition = panelPosition;
@@ -135,6 +144,7 @@ export class Piece {
     this.maxHp = maxHp ?? pieceType.config.maxHp * this.stackCount;
     this.hp = hp ?? this.maxHp;
     this.movementPoints = movementPoints ?? pieceType.config.movement;
+    this.orderSequence = orderSequence;
   }
 
   equals(other: Piece): boolean {

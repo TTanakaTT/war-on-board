@@ -83,6 +83,7 @@ function snapshotFromRepositories(): GameStateSnapshot {
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
       movementPoints: piece.movementPoints,
+      orderSequence: piece.orderSequence,
     })),
     turn: {
       num: turn.num,
@@ -3637,6 +3638,160 @@ describe.each([Player.SELF, Player.OPPONENT])("gradual movement (%s)", (player) 
   });
 });
 
+describe.each([Player.SELF, Player.OPPONENT])("order sequence (%s)", (player) => {
+  const opponent = player === Player.SELF ? Player.OPPONENT : Player.SELF;
+  const at = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
+  const findPiece = (id: number) => PiecesRepository.getAll().find((piece) => piece.id === id)!;
+
+  function startGameOnTurnOf(): void {
+    GameApi.initializeGame({ layer: 4 });
+    TurnRepository.set({ ...TurnRepository.get(), player });
+  }
+
+  function addPiece(
+    id: number,
+    owner: Player,
+    position: PanelPosition,
+    overrides: Partial<ConstructorParameters<typeof Piece>[0]> = {},
+  ): void {
+    PiecesRepository.add(
+      new Piece({
+        id,
+        panelPosition: position,
+        initialPosition: position,
+        player: owner,
+        pieceType: PieceType.ROOK,
+        ...overrides,
+      }),
+    );
+  }
+
+  describe("GameApi.assignMove", () => {
+    test("sets 1 when no piece has an order sequence yet", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0));
+
+      expectActionSuccessWithSnapshot(GameApi.assignMove(player, 1, at(0, 1)));
+
+      expect(findPiece(1).orderSequence).toBe(1);
+    });
+
+    test("sets the highest order sequence among both players' pieces + 1", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0), { orderSequence: 3 });
+      addPiece(2, opponent, at(1, 2), { orderSequence: 7 });
+      addPiece(3, player, at(-1, 2));
+
+      expect(GameApi.assignMove(player, 3, at(-1, 1)).ok).toBe(true);
+
+      expect(findPiece(3).orderSequence).toBe(8);
+    });
+
+    test("gives a new order sequence when the piece is ordered again, even to the same target", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0));
+      addPiece(2, player, at(0, 2));
+
+      GameApi.assignMove(player, 1, at(0, 1));
+      GameApi.assignMove(player, 2, at(0, 3));
+      GameApi.assignMove(player, 1, at(0, 1));
+
+      expect(findPiece(2).orderSequence).toBe(2);
+      expect(findPiece(1).orderSequence).toBe(3);
+    });
+
+    test("leaves the order sequence unchanged when the order fails", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0), { orderSequence: 4 });
+
+      const result = GameApi.assignMove(player, 1, at(99, 99));
+
+      expect(result.ok).toBe(false);
+      expect(findPiece(1).orderSequence).toBe(4);
+    });
+  });
+
+  describe("GameApi.cancelMove", () => {
+    test("keeps the order sequence", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0));
+      GameApi.assignMove(player, 1, at(0, 1));
+
+      expectActionSuccessWithSnapshot(GameApi.cancelMove(player, 1));
+
+      const piece = findPiece(1);
+      expect(piece.targetPosition).toBeUndefined();
+      expect(piece.orderSequence).toBe(1);
+    });
+  });
+
+  describe("snapshots", () => {
+    test("saves and restores the order sequence", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0), { targetPosition: at(0, 1), orderSequence: 5 });
+      const snapshot = GameApi.getGameState();
+      expect(snapshot.pieces[0].orderSequence).toBe(5);
+
+      GameApi.initializeGame({ layer: 2 });
+      expectActionSuccessWithSnapshot(GameApi.loadGameState(snapshot));
+
+      expect(findPiece(1).orderSequence).toBe(5);
+    });
+
+    test("loads a snapshot without an order sequence", () => {
+      startGameOnTurnOf();
+      addPiece(1, player, at(0, 0));
+      const snapshot = JSON.parse(JSON.stringify(GameApi.getGameState())) as GameStateSnapshot;
+      expect("orderSequence" in snapshot.pieces[0]).toBe(false);
+
+      expectActionSuccessWithSnapshot(GameApi.loadGameState(snapshot));
+
+      expect(findPiece(1).orderSequence).toBeUndefined();
+    });
+
+    test.each([0, -1, 1.5, Number.NaN])(
+      "rejects an order sequence that is not an integer of 1 or more (%s)",
+      (orderSequence) => {
+        startGameOnTurnOf();
+        addPiece(1, player, at(0, 0));
+        const snapshot = GameApi.getGameState();
+
+        const result = GameApi.loadGameState({
+          ...snapshot,
+          pieces: snapshot.pieces.map((piece) => ({ ...piece, orderSequence })),
+        });
+
+        expect(result).toEqual({ ok: false, error: ActionError.INVALID_GAME_STATE });
+      },
+    );
+  });
+
+  describe("GameApi.endTurn", () => {
+    test("non-mergeable attackers capturing a panel never exceed its capacity", () => {
+      startGameOnTurnOf();
+      const target = at(0, 1);
+      const targetPanel = PanelRepository.find(target)!;
+      PanelRepository.update(new Panel({ ...targetPanel, player: opponent, castle: 0 }));
+      addPiece(10, opponent, target, { pieceType: PieceType.NOBLE, hp: 1 });
+      const origins = [at(0, 0), at(-1, 1), at(1, 1)];
+      origins.forEach((origin, index) => addPiece(index + 1, player, origin));
+      for (const id of [1, 2, 3]) {
+        expect(GameApi.assignMove(player, id, target).ok).toBe(true);
+      }
+
+      expectTurnEndSuccessWithSnapshot(GameApi.endTurn(player));
+
+      expect(PiecesRepository.getPiecesByPosition(target)).toHaveLength(2);
+      expect(findPiece(3).panelPosition.equals(origins[2])).toBe(true);
+      expect(
+        InvariantService.check(GameApi.getGameState()).filter(
+          (violation) => violation.type === "piece-capacity-exceeded",
+        ),
+      ).toEqual([]);
+    });
+  });
+});
+
 describe("regression #93", () => {
   test("a cavalry is not generated on the panel a waiting heavy still occupies", () => {
     const snapshot: GameStateSnapshot = JSON.parse(ISSUE_93_BEFORE_END_TURN);
@@ -3663,3 +3818,29 @@ describe("regression #93", () => {
 });
 
 const ISSUE_93_BEFORE_END_TURN = `{"panels":[{"panelPosition":{"horizontalLayer":-4,"verticalLayer":0},"panelState":"occupied","player":"self","resource":5,"castle":10},{"panelPosition":{"horizontalLayer":-3,"verticalLayer":0},"panelState":"occupied","player":"self","resource":5,"castle":0},{"panelPosition":{"horizontalLayer":-3,"verticalLayer":1},"panelState":"unoccupied","player":"opponent","resource":1,"castle":0},{"panelPosition":{"horizontalLayer":-2,"verticalLayer":0},"panelState":"unoccupied","player":"self","resource":1,"castle":0},{"panelPosition":{"horizontalLayer":-2,"verticalLayer":1},"panelState":"occupied","player":"opponent","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":-2,"verticalLayer":2},"panelState":"unoccupied","player":"self","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":-1,"verticalLayer":0},"panelState":"unoccupied","player":"self","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":-1,"verticalLayer":1},"panelState":"unoccupied","player":"opponent","resource":2,"castle":0},{"panelPosition":{"horizontalLayer":-1,"verticalLayer":2},"panelState":"unoccupied","player":"self","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":-1,"verticalLayer":3},"panelState":"occupied","player":"self","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":0,"verticalLayer":0},"panelState":"unoccupied","player":"opponent","resource":0,"castle":1},{"panelPosition":{"horizontalLayer":0,"verticalLayer":1},"panelState":"unoccupied","player":"self","resource":2,"castle":0},{"panelPosition":{"horizontalLayer":0,"verticalLayer":2},"panelState":"unoccupied","player":"self","resource":1,"castle":0},{"panelPosition":{"horizontalLayer":0,"verticalLayer":3},"panelState":"occupied","player":"self","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":0,"verticalLayer":4},"panelState":"unoccupied","player":"self","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":1,"verticalLayer":0},"panelState":"unoccupied","player":"opponent","resource":1,"castle":2},{"panelPosition":{"horizontalLayer":1,"verticalLayer":1},"panelState":"unoccupied","player":"self","resource":2,"castle":0},{"panelPosition":{"horizontalLayer":1,"verticalLayer":2},"panelState":"unoccupied","player":"self","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":1,"verticalLayer":3},"panelState":"unoccupied","player":"self","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":2,"verticalLayer":0},"panelState":"occupied","player":"self","resource":3,"castle":0},{"panelPosition":{"horizontalLayer":2,"verticalLayer":1},"panelState":"unoccupied","player":"opponent","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":2,"verticalLayer":2},"panelState":"unoccupied","player":"self","resource":0,"castle":1},{"panelPosition":{"horizontalLayer":3,"verticalLayer":0},"panelState":"occupied","player":"self","resource":3,"castle":1},{"panelPosition":{"horizontalLayer":3,"verticalLayer":1},"panelState":"unoccupied","player":"self","resource":0,"castle":5},{"panelPosition":{"horizontalLayer":4,"verticalLayer":0},"panelState":"occupied","player":"opponent","resource":5,"castle":0}],"pieces":[{"id":4,"panelPosition":{"horizontalLayer":-2,"verticalLayer":1},"initialPosition":{"horizontalLayer":-2,"verticalLayer":1},"player":"opponent","pieceType":"infantry","hp":14.75,"stackCount":3,"maxHp":30,"movementPoints":0},{"id":5,"panelPosition":{"horizontalLayer":3,"verticalLayer":0},"initialPosition":{"horizontalLayer":3,"verticalLayer":0},"targetPosition":{"horizontalLayer":2,"verticalLayer":1},"player":"self","pieceType":"rook","hp":10,"stackCount":1,"maxHp":10,"movementPoints":1},{"id":7,"panelPosition":{"horizontalLayer":-1,"verticalLayer":3},"initialPosition":{"horizontalLayer":-1,"verticalLayer":3},"targetPosition":{"horizontalLayer":0,"verticalLayer":3},"player":"self","pieceType":"infantry","hp":19,"stackCount":2,"maxHp":20,"movementPoints":1},{"id":9,"panelPosition":{"horizontalLayer":2,"verticalLayer":0},"initialPosition":{"horizontalLayer":2,"verticalLayer":0},"targetPosition":{"horizontalLayer":2,"verticalLayer":1},"player":"self","pieceType":"archer","hp":37,"stackCount":7,"maxHp":56,"movementPoints":1},{"id":12,"panelPosition":{"horizontalLayer":-4,"verticalLayer":0},"initialPosition":{"horizontalLayer":-4,"verticalLayer":0},"targetPosition":{"horizontalLayer":-3,"verticalLayer":1},"player":"self","pieceType":"noble","hp":5,"stackCount":1,"maxHp":5,"movementPoints":1},{"id":18,"panelPosition":{"horizontalLayer":4,"verticalLayer":0},"initialPosition":{"horizontalLayer":4,"verticalLayer":0},"targetPosition":{"horizontalLayer":3,"verticalLayer":0},"player":"opponent","pieceType":"heavy","hp":80,"stackCount":4,"maxHp":80,"movementPoints":0.5},{"id":19,"panelPosition":{"horizontalLayer":0,"verticalLayer":3},"initialPosition":{"horizontalLayer":0,"verticalLayer":3},"targetPosition":{"horizontalLayer":-1,"verticalLayer":3},"player":"self","pieceType":"infantry","hp":29,"stackCount":3,"maxHp":30,"movementPoints":1},{"id":20,"panelPosition":{"horizontalLayer":4,"verticalLayer":0},"initialPosition":{"horizontalLayer":4,"verticalLayer":0},"player":"opponent","pieceType":"noble","hp":3,"stackCount":1,"maxHp":5,"movementPoints":0},{"id":22,"panelPosition":{"horizontalLayer":-3,"verticalLayer":0},"initialPosition":{"horizontalLayer":-3,"verticalLayer":0},"targetPosition":{"horizontalLayer":-3,"verticalLayer":1},"player":"self","pieceType":"heavy","hp":20,"stackCount":1,"maxHp":20,"movementPoints":0.5},{"id":23,"panelPosition":{"horizontalLayer":-4,"verticalLayer":0},"initialPosition":{"horizontalLayer":-4,"verticalLayer":0},"targetPosition":{"horizontalLayer":-3,"verticalLayer":0},"player":"self","pieceType":"rook","hp":10,"stackCount":1,"maxHp":10,"movementPoints":1},{"id":24,"panelPosition":{"horizontalLayer":-3,"verticalLayer":0},"initialPosition":{"horizontalLayer":-3,"verticalLayer":0},"player":"self","pieceType":"cavalry","hp":12,"stackCount":1,"maxHp":12,"movementPoints":2}],"turn":{"num":20,"player":"self","resources":{"self":12,"opponent":4},"maxPiecesPerPanel":{"self":2,"opponent":2},"generationMode":{"self":"front","opponent":"front"},"winner":null},"homeBases":[{"player":"self","panelPosition":{"horizontalLayer":-4,"verticalLayer":0}},{"player":"opponent","panelPosition":{"horizontalLayer":4,"verticalLayer":0}}],"layer":5}`;
+
+describe("regression #102", () => {
+  test("only the attackers that fit enter the captured panel, in order sequence", () => {
+    // Heavy#26, cavalry#31 and infantry#34 capture (1,2) together: three stacks for a
+    // capacity of two. The snapshot predates order sequences, so piece ID decides the order.
+    const snapshot: GameStateSnapshot = JSON.parse(ISSUE_102_BEFORE_END_TURN);
+    expect(GameApi.loadGameState(snapshot).ok).toBe(true);
+
+    expectTurnEndSuccessWithSnapshot(GameApi.endTurn(Player.SELF));
+
+    const idsAt = (horizontalLayer: number, verticalLayer: number) =>
+      PiecesRepository.getPiecesByPosition(new PanelPosition({ horizontalLayer, verticalLayer }))
+        .filter((piece) => piece.player === Player.SELF)
+        .map((piece) => piece.id)
+        .sort((a, b) => a - b);
+    expect(idsAt(1, 2)).toEqual([26, 31]);
+    expect(idsAt(0, 3)).toEqual([22, 34]);
+    expect(
+      InvariantService.check(GameApi.getGameState()).filter(
+        (violation) => violation.type === "piece-capacity-exceeded",
+      ),
+    ).toEqual([]);
+  });
+});
+
+const ISSUE_102_BEFORE_END_TURN = `{"panels":[{"panelPosition":{"horizontalLayer":-4,"verticalLayer":0},"panelState":"occupied","player":"self","resource":5,"castle":10},{"panelPosition":{"horizontalLayer":-3,"verticalLayer":0},"panelState":"occupied","player":"self","resource":5,"castle":1},{"panelPosition":{"horizontalLayer":-3,"verticalLayer":1},"panelState":"unoccupied","player":"self","resource":1,"castle":2},{"panelPosition":{"horizontalLayer":-2,"verticalLayer":0},"panelState":"unoccupied","player":"self","resource":1,"castle":1},{"panelPosition":{"horizontalLayer":-2,"verticalLayer":1},"panelState":"occupied","player":"self","resource":3,"castle":2},{"panelPosition":{"horizontalLayer":-2,"verticalLayer":2},"panelState":"unoccupied","player":"self","resource":1,"castle":0},{"panelPosition":{"horizontalLayer":-1,"verticalLayer":0},"panelState":"occupied","player":"self","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":-1,"verticalLayer":1},"panelState":"occupied","player":"self","resource":5,"castle":1},{"panelPosition":{"horizontalLayer":-1,"verticalLayer":2},"panelState":"occupied","player":"self","resource":4,"castle":0},{"panelPosition":{"horizontalLayer":-1,"verticalLayer":3},"panelState":"unoccupied","player":"self","resource":2,"castle":0},{"panelPosition":{"horizontalLayer":0,"verticalLayer":0},"panelState":"unoccupied","player":"self","resource":0,"castle":0},{"panelPosition":{"horizontalLayer":0,"verticalLayer":1},"panelState":"occupied","player":"self","resource":3,"castle":1},{"panelPosition":{"horizontalLayer":0,"verticalLayer":2},"panelState":"occupied","player":"self","resource":4,"castle":0},{"panelPosition":{"horizontalLayer":0,"verticalLayer":3},"panelState":"occupied","player":"self","resource":1,"castle":1},{"panelPosition":{"horizontalLayer":0,"verticalLayer":4},"panelState":"unoccupied","player":"self","resource":2,"castle":0},{"panelPosition":{"horizontalLayer":1,"verticalLayer":0},"panelState":"unoccupied","player":"opponent","resource":1,"castle":0},{"panelPosition":{"horizontalLayer":1,"verticalLayer":1},"panelState":"unoccupied","player":"opponent","resource":3,"castle":0},{"panelPosition":{"horizontalLayer":1,"verticalLayer":2},"panelState":"occupied","player":"opponent","resource":2,"castle":0},{"panelPosition":{"horizontalLayer":1,"verticalLayer":3},"panelState":"occupied","player":"self","resource":3,"castle":1},{"panelPosition":{"horizontalLayer":2,"verticalLayer":0},"panelState":"unoccupied","player":"opponent","resource":3,"castle":0},{"panelPosition":{"horizontalLayer":2,"verticalLayer":1},"panelState":"occupied","player":"opponent","resource":1,"castle":3},{"panelPosition":{"horizontalLayer":2,"verticalLayer":2},"panelState":"occupied","player":"opponent","resource":2,"castle":0},{"panelPosition":{"horizontalLayer":3,"verticalLayer":0},"panelState":"unoccupied","player":"opponent","resource":5,"castle":5},{"panelPosition":{"horizontalLayer":3,"verticalLayer":1},"panelState":"occupied","player":"opponent","resource":2,"castle":1},{"panelPosition":{"horizontalLayer":4,"verticalLayer":0},"panelState":"occupied","player":"opponent","resource":5,"castle":8}],"pieces":[{"id":22,"panelPosition":{"horizontalLayer":1,"verticalLayer":3},"initialPosition":{"horizontalLayer":1,"verticalLayer":3},"targetPosition":{"horizontalLayer":0,"verticalLayer":3},"player":"self","pieceType":"rook","hp":2.647058823529412,"stackCount":1,"maxHp":10,"movementPoints":1},{"id":26,"panelPosition":{"horizontalLayer":0,"verticalLayer":2},"initialPosition":{"horizontalLayer":0,"verticalLayer":2},"targetPosition":{"horizontalLayer":1,"verticalLayer":2},"player":"self","pieceType":"heavy","hp":40,"stackCount":2,"maxHp":40,"movementPoints":0.5},{"id":30,"panelPosition":{"horizontalLayer":2,"verticalLayer":1},"initialPosition":{"horizontalLayer":2,"verticalLayer":1},"targetPosition":{"horizontalLayer":1,"verticalLayer":2},"transitPosition":{"horizontalLayer":1,"verticalLayer":2},"player":"opponent","pieceType":"heavy","hp":40,"stackCount":2,"maxHp":40,"movementPoints":0.5},{"id":31,"panelPosition":{"horizontalLayer":1,"verticalLayer":3},"initialPosition":{"horizontalLayer":1,"verticalLayer":3},"targetPosition":{"horizontalLayer":1,"verticalLayer":2},"player":"self","pieceType":"cavalry","hp":6.3529411764705905,"stackCount":2,"maxHp":24,"movementPoints":2},{"id":34,"panelPosition":{"horizontalLayer":0,"verticalLayer":3},"initialPosition":{"horizontalLayer":0,"verticalLayer":3},"targetPosition":{"horizontalLayer":1,"verticalLayer":2},"player":"self","pieceType":"infantry","hp":38,"stackCount":5,"maxHp":50,"movementPoints":1},{"id":35,"panelPosition":{"horizontalLayer":-1,"verticalLayer":2},"initialPosition":{"horizontalLayer":-1,"verticalLayer":2},"targetPosition":{"horizontalLayer":0,"verticalLayer":2},"player":"self","pieceType":"noble","hp":5,"stackCount":1,"maxHp":5,"movementPoints":1},{"id":36,"panelPosition":{"horizontalLayer":1,"verticalLayer":2},"initialPosition":{"horizontalLayer":1,"verticalLayer":2},"player":"opponent","pieceType":"siege","hp":20,"stackCount":1,"maxHp":30,"movementPoints":0},{"id":37,"panelPosition":{"horizontalLayer":2,"verticalLayer":2},"initialPosition":{"horizontalLayer":2,"verticalLayer":2},"player":"opponent","pieceType":"archer","hp":46,"stackCount":8,"maxHp":64,"movementPoints":0},{"id":38,"panelPosition":{"horizontalLayer":-1,"verticalLayer":0},"initialPosition":{"horizontalLayer":-1,"verticalLayer":0},"targetPosition":{"horizontalLayer":0,"verticalLayer":1},"player":"self","pieceType":"archer","hp":40,"stackCount":7,"maxHp":56,"movementPoints":1},{"id":39,"panelPosition":{"horizontalLayer":0,"verticalLayer":1},"initialPosition":{"horizontalLayer":0,"verticalLayer":1},"targetPosition":{"horizontalLayer":1,"verticalLayer":1},"player":"self","pieceType":"rook","hp":10,"stackCount":1,"maxHp":10,"movementPoints":1},{"id":40,"panelPosition":{"horizontalLayer":3,"verticalLayer":1},"initialPosition":{"horizontalLayer":3,"verticalLayer":1},"player":"opponent","pieceType":"rook","hp":10,"stackCount":1,"maxHp":10,"movementPoints":0},{"id":41,"panelPosition":{"horizontalLayer":2,"verticalLayer":1},"initialPosition":{"horizontalLayer":2,"verticalLayer":1},"player":"opponent","pieceType":"rook","hp":10,"stackCount":1,"maxHp":10,"movementPoints":0},{"id":42,"panelPosition":{"horizontalLayer":-4,"verticalLayer":0},"initialPosition":{"horizontalLayer":-4,"verticalLayer":0},"targetPosition":{"horizontalLayer":-3,"verticalLayer":0},"player":"self","pieceType":"siege","hp":30,"stackCount":1,"maxHp":30,"movementPoints":1},{"id":43,"panelPosition":{"horizontalLayer":3,"verticalLayer":1},"initialPosition":{"horizontalLayer":3,"verticalLayer":1},"player":"opponent","pieceType":"infantry","hp":70,"stackCount":7,"maxHp":70,"movementPoints":0},{"id":44,"panelPosition":{"horizontalLayer":-2,"verticalLayer":1},"initialPosition":{"horizontalLayer":-2,"verticalLayer":1},"targetPosition":{"horizontalLayer":-1,"verticalLayer":2},"player":"self","pieceType":"infantry","hp":10,"stackCount":1,"maxHp":10,"movementPoints":1},{"id":45,"panelPosition":{"horizontalLayer":-3,"verticalLayer":0},"initialPosition":{"horizontalLayer":-3,"verticalLayer":0},"targetPosition":{"horizontalLayer":-2,"verticalLayer":1},"player":"self","pieceType":"noble","hp":5,"stackCount":1,"maxHp":5,"movementPoints":1},{"id":46,"panelPosition":{"horizontalLayer":4,"verticalLayer":0},"initialPosition":{"horizontalLayer":4,"verticalLayer":0},"player":"opponent","pieceType":"noble","hp":5,"stackCount":1,"maxHp":5,"movementPoints":1},{"id":47,"panelPosition":{"horizontalLayer":4,"verticalLayer":0},"initialPosition":{"horizontalLayer":4,"verticalLayer":0},"player":"opponent","pieceType":"cavalry","hp":12,"stackCount":1,"maxHp":12,"movementPoints":2},{"id":48,"panelPosition":{"horizontalLayer":-1,"verticalLayer":1},"initialPosition":{"horizontalLayer":-1,"verticalLayer":1},"player":"self","pieceType":"archer","hp":8,"stackCount":1,"maxHp":8,"movementPoints":1},{"id":49,"panelPosition":{"horizontalLayer":-1,"verticalLayer":1},"initialPosition":{"horizontalLayer":-1,"verticalLayer":1},"player":"self","pieceType":"cavalry","hp":12,"stackCount":1,"maxHp":12,"movementPoints":2},{"id":50,"panelPosition":{"horizontalLayer":-3,"verticalLayer":0},"initialPosition":{"horizontalLayer":-3,"verticalLayer":0},"player":"self","pieceType":"heavy","hp":20,"stackCount":1,"maxHp":20,"movementPoints":0.5}],"turn":{"num":32,"player":"self","resources":{"self":1,"opponent":0},"maxPiecesPerPanel":{"self":2,"opponent":2},"generationMode":{"self":"front","opponent":"rear"},"winner":null},"homeBases":[{"player":"self","panelPosition":{"horizontalLayer":-4,"verticalLayer":0}},{"player":"opponent","panelPosition":{"horizontalLayer":4,"verticalLayer":0}}],"layer":5}`;

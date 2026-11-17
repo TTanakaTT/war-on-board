@@ -122,6 +122,13 @@ import { ActionError } from "$lib/domain/enums/ActionError";
  *   - Castle value is 0.
  * Otherwise attackers stay at their origin with `targetPosition` cleared.
  *
+ * When they may enter, surviving attackers enter one at a time in order sequence
+ * (`Piece.orderSequence`, lowest first; pieces without one after those with one; ties by
+ * piece ID). A piece that would push the attackers on the panel (counted after merging)
+ * above `maxPiecesPerPanel` does not enter: it stays at its origin with `targetPosition`
+ * cleared, like a failed attack. Later pieces that still fit (e.g. by merging with one
+ * that entered) still enter.
+ *
  * ### Ranged attacks (see `assignRangedAttack`)
  * A piece whose `attackRange` reaches farther than adjacent may fire at a target beyond
  * melee range without moving there (see `PieceService.resolveRangedAttacks`, run inside
@@ -267,6 +274,10 @@ export class GameApi {
    * - Sets `piece.targetPosition` to `target`.
    * - For a piece that takes multiple turns per hop and is not in transit, resets
    *   `movementPoints` (its hop progress) to 0.
+   * - Sets `piece.orderSequence` to the highest `orderSequence` among all pieces on the
+   *   board (both players) + 1, or 1 when no piece has one — every order, including a
+   *   re-order to the same target, goes to the back of the order sequence. No other
+   *   action changes `orderSequence`.
    *
    * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
    * PIECE_NOT_OWNED, INSUFFICIENT_MOVEMENT_POINTS, TARGET_NOT_REACHABLE.
@@ -311,7 +322,12 @@ export class GameApi {
       return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
     }
 
-    PiecesRepository.update(MovementRulesService.withOrder(piece, target));
+    PiecesRepository.update(
+      new Piece({
+        ...MovementRulesService.withOrder(piece, target),
+        orderSequence: this.nextOrderSequence(),
+      }),
+    );
     return { ok: true, value: { gameState: this.getGameState() } };
   }
 
@@ -911,6 +927,7 @@ export class GameApi {
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
       movementPoints: piece.movementPoints,
+      orderSequence: piece.orderSequence,
     };
   }
 
@@ -932,7 +949,16 @@ export class GameApi {
       stackCount: piece.stackCount,
       maxHp: piece.maxHp,
       movementPoints: piece.movementPoints,
+      orderSequence: piece.orderSequence,
     });
+  }
+
+  /** The order sequence for the next move order: one past the highest on the board, or 1. */
+  private static nextOrderSequence(): number {
+    return (
+      PiecesRepository.getAll().reduce((max, piece) => Math.max(max, piece.orderSequence ?? 0), 0) +
+      1
+    );
   }
 
   private static snapshotHomeBase(homeBase: HomeBase): HomeBaseSnapshot {
@@ -1031,6 +1057,11 @@ export class GameApi {
       if (!Number.isFinite(piece.maxHp) || piece.maxHp < 0) return false;
       if (!Number.isInteger(piece.stackCount) || piece.stackCount < 1) return false;
       if (!Number.isFinite(piece.movementPoints) || piece.movementPoints < 0) return false;
+      if (
+        piece.orderSequence !== undefined &&
+        (!Number.isInteger(piece.orderSequence) || piece.orderSequence < 1)
+      )
+        return false;
       if (piece.hp > piece.maxHp) return false;
     }
 
