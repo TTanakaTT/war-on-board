@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
 
 const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
 

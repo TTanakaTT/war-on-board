@@ -1,20 +1,20 @@
-import { Panel } from "$lib/domain/entities/Panel";
-import { Piece } from "$lib/domain/entities/Piece";
-import { PanelState } from "$lib/domain/enums/PanelState";
-import { Player } from "$lib/domain/enums/Player";
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import type { PieceType } from "$lib/domain/enums/PieceType";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
-import { PieceService } from "$lib/services/PieceService";
-import { MovementRulesService } from "$lib/services/MovementRulesService";
+import { Panel } from "#lib/domain/entities/Panel.ts";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import { PanelState } from "#lib/domain/enums/PanelState.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import type { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import { HomeBaseRepository } from "#lib/data/repositories/HomeBaseRepository.ts";
+import { PieceService } from "#lib/services/PieceService.ts";
+import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
 import {
   RESOURCE_THRESHOLD_FOR_GENERATION,
   DEFAULT_MAX_PIECES_PER_PANEL,
-} from "$lib/domain/constants/GameConstants";
-import { PieceType as PieceTypeClass } from "$lib/domain/enums/PieceType";
+} from "#lib/domain/constants/GameConstants.ts";
+import { PieceType as PieceTypeClass } from "#lib/domain/enums/PieceType.ts";
 
 /**
  * GenerationService — unit generation logic.

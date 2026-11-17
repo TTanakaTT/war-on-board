@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-  import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
-  import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-  import { getPieceTokenCoordinates } from "$lib/presentation/PieceTokenLayout";
-  import { InteractionService } from "$lib/services/InteractionService";
+  import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+  import { SelectedPanelRepository } from "#lib/data/repositories/SelectedPanelRepository.ts";
+  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+  import { getPieceTokenCoordinates } from "#lib/presentation/PieceTokenLayout.ts";
+  import { InteractionService } from "#lib/services/InteractionService.ts";
   import PieceToken from "./PieceToken.svelte";
 
   // Pieces between two panels (see Piece.transitPosition), drawn part of the way along the

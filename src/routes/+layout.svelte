@@ -1,16 +1,16 @@
 <script lang="ts">
   import "../app.css";
-  import { browser, dev } from "$app/environment";
+  import { browser, dev } from "$app/env";
   import { page } from "$app/state";
-  import AppDrawer from "$lib/presentation/components/shell/AppDrawer.svelte";
-  import AppHeader from "$lib/presentation/components/shell/AppHeader.svelte";
+  import AppDrawer from "#lib/presentation/components/shell/AppDrawer.svelte";
+  import AppHeader from "#lib/presentation/components/shell/AppHeader.svelte";
   import {
     DEFAULT_DRAWER_WIDTH_UNITS,
     DESKTOP_NAVIGATION_BREAKPOINT_PX,
     DRAWER_WIDTH_TRANSITION_MS,
     EXPANDED_GAME_DRAWER_WIDTH_UNITS,
-  } from "$lib/presentation/constants/UiConstants";
-  import { initializeThemePreference } from "$lib/presentation/themePreference";
+  } from "#lib/presentation/constants/UiConstants.ts";
+  import { initializeThemePreference } from "#lib/presentation/themePreference.ts";
   import { tick } from "svelte";
   import type { Snippet } from "svelte";
 
@@ -181,7 +181,7 @@
 </main>
 
 {#if dev}
-  {#await import("$lib/presentation/components/debug/DebugModeOverlay.svelte") then { default: DebugModeOverlay }}
+  {#await import("#lib/presentation/components/debug/DebugModeOverlay.svelte") then { default: DebugModeOverlay }}
     <DebugModeOverlay />
   {/await}
 {/if}

@@ -1,15 +1,15 @@
 <script lang="ts">
-  import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
-  import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
-  import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-  import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-  import type { PieceType } from "$lib/domain/enums/PieceType";
-  import { Player } from "$lib/domain/enums/Player";
-  import type { MatchStatsPieceKey } from "$lib/domain/types/matchStats";
-  import { m } from "$lib/paraglide/messages";
-  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
-  import { PIECE_TYPE_DISPLAY_ORDER, pieceTypeLabel } from "$lib/presentation/piecePresentation";
-  import { playerDisplayName, playerInfoOrder } from "$lib/presentation/matchPresentation";
+  import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
+  import { MatchStatsRepository } from "#lib/data/repositories/MatchStatsRepository.ts";
+  import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+  import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+  import type { PieceType } from "#lib/domain/enums/PieceType.ts";
+  import { Player } from "#lib/domain/enums/Player.ts";
+  import type { MatchStatsPieceKey } from "#lib/domain/types/matchStats.ts";
+  import { m } from "#lib/paraglide/messages.js";
+  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
+  import { PIECE_TYPE_DISPLAY_ORDER, pieceTypeLabel } from "#lib/presentation/piecePresentation.ts";
+  import { playerDisplayName, playerInfoOrder } from "#lib/presentation/matchPresentation.ts";
 
   type PieceCounter = {
     pieceType: PieceType;

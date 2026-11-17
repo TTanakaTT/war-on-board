@@ -1,12 +1,12 @@
 import { beforeEach, describe, test, expect } from "vitest";
-import { GameApi } from "$lib/api/GameApi";
-import { VictoryService } from "$lib/services/VictoryService";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
-import { Panel } from "$lib/domain/entities/Panel";
-import { PanelState } from "$lib/domain/enums/PanelState";
-import { Player } from "$lib/domain/enums/Player";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { VictoryService } from "#lib/services/VictoryService.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import { HomeBaseRepository } from "#lib/data/repositories/HomeBaseRepository.ts";
+import { Panel } from "#lib/domain/entities/Panel.ts";
+import { PanelState } from "#lib/domain/enums/PanelState.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
 
 describe("VictoryService", () => {
   beforeEach(() => {

@@ -1,19 +1,19 @@
 import { beforeEach, describe, test, expect } from "vitest";
-import { GameApi } from "$lib/api/GameApi";
-import { PieceService } from "$lib/services/PieceService";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { Piece } from "$lib/domain/entities/Piece";
-import { Panel } from "$lib/domain/entities/Panel";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { Player } from "$lib/domain/enums/Player";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { PieceService } from "#lib/services/PieceService.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import { Panel } from "#lib/domain/entities/Panel.ts";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
 import {
   PASSIVE_RESOURCE_CAP,
   PASSIVE_CASTLE_CAP,
   HOME_BASE_INIT_CASTLE,
   DEFAULT_MAX_PIECES_PER_PANEL,
-} from "$lib/domain/constants/GameConstants";
+} from "#lib/domain/constants/GameConstants.ts";
 
 const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
 

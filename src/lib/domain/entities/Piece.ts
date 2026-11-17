@@ -1,7 +1,7 @@
-import type { PieceType } from "$lib/domain/enums/PieceType";
-import type { Player } from "$lib/domain/enums/Player";
+import type { PieceType } from "#lib/domain/enums/PieceType.ts";
+import type { Player } from "#lib/domain/enums/Player.ts";
 import type { PanelPosition } from "./PanelPosition";
-import { MOVEMENT_HOP_COST } from "$lib/domain/constants/GameConstants";
+import { MOVEMENT_HOP_COST } from "#lib/domain/constants/GameConstants.ts";
 export class Piece {
   id: number;
   panelPosition: PanelPosition;

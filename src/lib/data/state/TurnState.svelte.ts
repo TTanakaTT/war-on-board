@@ -1,5 +1,5 @@
-import type { Turn } from "$lib/domain/entities/Turn";
-import { Player } from "$lib/domain/enums/Player";
+import type { Turn } from "#lib/domain/entities/Turn.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
 
 let _turn = $state<Turn>({
   num: 1,

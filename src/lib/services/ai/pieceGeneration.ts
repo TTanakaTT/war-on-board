@@ -1,11 +1,11 @@
-import { GameApi } from "$lib/api/GameApi";
-import { AI_SUPPORT_PIECE_CAP } from "$lib/domain/constants/GameConstants";
-import type { GenerationMode } from "$lib/domain/entities/Turn";
-import { Player } from "$lib/domain/enums/Player";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import type { GameStateSnapshot } from "$lib/domain/types/api";
-import { findHomeBase, getOpponentPlayer, toPlayerSnapshot } from "$lib/services/ai/stateUtils";
-import type { AiStrengthProfile, PieceTypeCounts } from "$lib/services/ai/types";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { AI_SUPPORT_PIECE_CAP } from "#lib/domain/constants/GameConstants.ts";
+import type { GenerationMode } from "#lib/domain/entities/Turn.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import type { GameStateSnapshot } from "#lib/domain/types/api.ts";
+import { findHomeBase, getOpponentPlayer, toPlayerSnapshot } from "#lib/services/ai/stateUtils.ts";
+import type { AiStrengthProfile, PieceTypeCounts } from "#lib/services/ai/types.ts";
 
 export function selectStrategicPieceType(
   gameState: GameStateSnapshot,

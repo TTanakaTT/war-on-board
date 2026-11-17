@@ -1,13 +1,13 @@
-import { matchStatsState } from "$lib/data/state/MatchStatsState.svelte";
-import type { PieceType } from "$lib/domain/enums/PieceType";
-import { Player } from "$lib/domain/enums/Player";
+import { matchStatsState } from "#lib/data/state/MatchStatsState.svelte.ts";
+import type { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
 import type {
   MatchStats,
   MatchStatsPieceKey,
   MatchStatsPlayerKey,
   PieceTypeMatchStats,
   PlayerMatchStats,
-} from "$lib/domain/types/matchStats";
+} from "#lib/domain/types/matchStats.ts";
 
 export class MatchStatsRepository {
   static get(): MatchStats {

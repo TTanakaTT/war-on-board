@@ -1,4 +1,4 @@
-import { Panel } from "$lib/domain/entities/Panel";
+import { Panel } from "#lib/domain/entities/Panel.ts";
 
 const _panels = $state<Panel[]>([]);
 

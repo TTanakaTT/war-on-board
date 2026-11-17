@@ -1,6 +1,6 @@
-import { PieceType } from "$lib/domain/enums/PieceType";
-import type { PieceSnapshot } from "$lib/domain/types/api";
-import type { PieceCombatStats } from "$lib/services/ai/types";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import type { PieceSnapshot } from "#lib/domain/types/api.ts";
+import type { PieceCombatStats } from "#lib/services/ai/types.ts";
 
 const SNAPSHOT_PIECE_TYPES: Record<PieceSnapshot["pieceType"], PieceType> = {
   infantry: PieceType.INFANTRY,

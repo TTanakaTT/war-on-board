@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BoardLayout } from "$lib/presentation/BoardLayout";
+  import { BoardLayout } from "#lib/presentation/BoardLayout.ts";
 
   type Props = {
     polygonClass: string;

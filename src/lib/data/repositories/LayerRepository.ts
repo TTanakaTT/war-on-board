@@ -1,4 +1,4 @@
-import { layerState } from "$lib/data/state/LayerState.svelte";
+import { layerState } from "#lib/data/state/LayerState.svelte.ts";
 
 export class LayerRepository {
   static get(): number {

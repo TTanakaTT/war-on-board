@@ -1,18 +1,18 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { page } from "$app/state";
-  import { GameApiClient } from "$lib/api/GameApiClient";
-  import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
-  import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-  import { m } from "$lib/paraglide/messages";
-  import DesktopGameHeaderControls from "$lib/presentation/components/game-header/DesktopGameHeaderControls.svelte";
-  import MobileGameHeaderControls from "$lib/presentation/components/game-header/MobileGameHeaderControls.svelte";
-  import IconButton from "$lib/presentation/components/primitives/IconButton.svelte";
-  import { DESKTOP_NAVIGATION_BREAKPOINT_PX } from "$lib/presentation/constants/UiConstants";
-  import { playerDisplayName } from "$lib/presentation/matchPresentation";
-  import { PIECE_TYPE_DISPLAY_ORDER } from "$lib/presentation/piecePresentation";
-  import { GameDialogService } from "$lib/services/GameDialogService";
-  import { MatchService } from "$lib/services/MatchService";
+  import { GameApiClient } from "#lib/api/GameApiClient.ts";
+  import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
+  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+  import { m } from "#lib/paraglide/messages.js";
+  import DesktopGameHeaderControls from "#lib/presentation/components/game-header/DesktopGameHeaderControls.svelte";
+  import MobileGameHeaderControls from "#lib/presentation/components/game-header/MobileGameHeaderControls.svelte";
+  import IconButton from "#lib/presentation/components/primitives/IconButton.svelte";
+  import { DESKTOP_NAVIGATION_BREAKPOINT_PX } from "#lib/presentation/constants/UiConstants.ts";
+  import { playerDisplayName } from "#lib/presentation/matchPresentation.ts";
+  import { PIECE_TYPE_DISPLAY_ORDER } from "#lib/presentation/piecePresentation.ts";
+  import { GameDialogService } from "#lib/services/GameDialogService.ts";
+  import { MatchService } from "#lib/services/MatchService.ts";
 
   let {
     open,

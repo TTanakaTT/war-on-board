@@ -1,13 +1,13 @@
-import { Panel } from "$lib/domain/entities/Panel";
-import { PanelState } from "$lib/domain/enums/PanelState";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { Player } from "$lib/domain/enums/Player";
+import { Panel } from "#lib/domain/entities/Panel.ts";
+import { PanelState } from "#lib/domain/enums/PanelState.ts";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
 import {
   HOME_BASE_INIT_RESOURCE,
   HOME_BASE_INIT_CASTLE,
-} from "$lib/domain/constants/GameConstants";
+} from "#lib/domain/constants/GameConstants.ts";
 
 export class PanelsService {
   static initialize(layer: number): Panel[] {

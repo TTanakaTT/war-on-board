@@ -1,6 +1,6 @@
-import { dev } from "$app/environment";
-import { GameApi } from "$lib/api/GameApi";
-import type { GameActionResult, Result, TurnEndResult } from "$lib/domain/types/api";
+import { dev } from "$app/env";
+import { GameApi } from "#lib/api/GameApi.ts";
+import type { GameActionResult, Result, TurnEndResult } from "#lib/domain/types/api.ts";
 
 export type GameApiCommandName =
   | "initializeGame"

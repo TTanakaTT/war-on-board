@@ -1,4 +1,4 @@
-import type { Player } from "$lib/domain/enums/Player";
+import type { Player } from "#lib/domain/enums/Player.ts";
 
 export type GenerationMode = "front" | "rear";
 

@@ -1,5 +1,5 @@
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import type { PieceType } from "$lib/domain/enums/PieceType";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import type { PieceType } from "#lib/domain/enums/PieceType.ts";
 
 export type MoveSelectionStrategy = "strategic" | "lookahead";
 export type GenerationModeSelectionStrategy = "frontline" | "adaptive-defense";

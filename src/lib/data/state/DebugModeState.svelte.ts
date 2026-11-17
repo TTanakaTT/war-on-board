@@ -1,4 +1,4 @@
-import type { InvariantViolationReport } from "$lib/domain/types/invariant";
+import type { InvariantViolationReport } from "#lib/domain/types/invariant.ts";
 
 export interface DebugModeState {
   checksEnabled: boolean;

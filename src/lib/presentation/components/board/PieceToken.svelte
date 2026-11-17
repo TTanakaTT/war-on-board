@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Piece } from "$lib/domain/entities/Piece";
-  import { Player } from "$lib/domain/enums/Player";
-  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
+  import type { Piece } from "#lib/domain/entities/Piece.ts";
+  import { Player } from "#lib/domain/enums/Player.ts";
+  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
   import { slide } from "svelte/transition";
 
   interface Props {

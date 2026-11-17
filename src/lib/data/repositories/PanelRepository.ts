@@ -1,6 +1,6 @@
-import type { Panel } from "$lib/domain/entities/Panel";
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { panelsState } from "$lib/data/state/PanelsState.svelte";
+import type { Panel } from "#lib/domain/entities/Panel.ts";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { panelsState } from "#lib/data/state/PanelsState.svelte.ts";
 
 export class PanelRepository {
   static getAll(): Panel[] {

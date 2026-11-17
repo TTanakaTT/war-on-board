@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { GameApiClient } from "$lib/api/GameApiClient";
-  import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-  import { m } from "$lib/paraglide/messages";
-  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
-  import { InteractionService } from "$lib/services/InteractionService";
-  import { MatchService } from "$lib/services/MatchService";
+  import { GameApiClient } from "#lib/api/GameApiClient.ts";
+  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+  import { m } from "#lib/paraglide/messages.js";
+  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
+  import { InteractionService } from "#lib/services/InteractionService.ts";
+  import { MatchService } from "#lib/services/MatchService.ts";
 
   let { compact = false, additionalClass = "" }: { compact?: boolean; additionalClass?: string } =
     $props();

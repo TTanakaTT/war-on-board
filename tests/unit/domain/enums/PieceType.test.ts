@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { PieceType } from "$lib/domain/enums/PieceType";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
 
 describe("PieceType", () => {
   describe("available values", () => {

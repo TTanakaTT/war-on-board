@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { GameApi } from "$lib/api/GameApi";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { Piece } from "$lib/domain/entities/Piece";
-import { PanelState } from "$lib/domain/enums/PanelState";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { Player } from "$lib/domain/enums/Player";
-import { InteractionService } from "$lib/services/InteractionService";
-import { PanelsService } from "$lib/services/PanelService";
-import { RangedAttackModeRepository } from "$lib/data/repositories/RangedAttackModeRepository";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { SelectedPanelRepository } from "#lib/data/repositories/SelectedPanelRepository.ts";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import { PanelState } from "#lib/domain/enums/PanelState.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import { InteractionService } from "#lib/services/InteractionService.ts";
+import { PanelsService } from "#lib/services/PanelService.ts";
+import { RangedAttackModeRepository } from "#lib/data/repositories/RangedAttackModeRepository.ts";
 
 const pos = (horizontalLayer: number, verticalLayer: number) =>
   new PanelPosition({ horizontalLayer, verticalLayer });

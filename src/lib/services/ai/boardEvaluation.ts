@@ -1,6 +1,6 @@
-import { Player } from "$lib/domain/enums/Player";
-import type { GameStateSnapshot, PieceSnapshot } from "$lib/domain/types/api";
-import { findPanel } from "$lib/services/ai/stateUtils";
+import { Player } from "#lib/domain/enums/Player.ts";
+import type { GameStateSnapshot, PieceSnapshot } from "#lib/domain/types/api.ts";
+import { findPanel } from "#lib/services/ai/stateUtils.ts";
 
 export function scoreBoardState(gameState: GameStateSnapshot, player: Player): number {
   const playerId = String(player);

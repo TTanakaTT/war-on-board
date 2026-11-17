@@ -1,8 +1,12 @@
-import type { PlayerSnapshot } from "$lib/domain/types/api";
-import { AiStrength } from "$lib/domain/enums/AiStrength";
-import { Player } from "$lib/domain/enums/Player";
-import type { MatchAiStrengths, MatchControllers, PlayerController } from "$lib/domain/types/match";
-import { m } from "$lib/paraglide/messages";
+import type { PlayerSnapshot } from "#lib/domain/types/api.ts";
+import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import type {
+  MatchAiStrengths,
+  MatchControllers,
+  PlayerController,
+} from "#lib/domain/types/match.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 type ControllablePlayerId = keyof MatchControllers;
 

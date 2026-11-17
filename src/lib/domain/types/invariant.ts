@@ -1,5 +1,5 @@
-import type { GameStateSnapshot } from "$lib/domain/types/api";
-import type { MatchAiStrengths, MatchControllers } from "$lib/domain/types/match";
+import type { GameStateSnapshot } from "#lib/domain/types/api.ts";
+import type { MatchAiStrengths, MatchControllers } from "#lib/domain/types/match.ts";
 
 /** Board-state invariants checked by InvariantService against a single snapshot. */
 export type StateInvariantViolationType =

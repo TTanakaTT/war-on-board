@@ -1,11 +1,9 @@
 {
-  "extends": "./.svelte-kit/tsconfig.json",
+  "extends": "$app/tsconfig",
   "compilerOptions": {
-    "allowJs": true,
-    "resolveJsonModule": true,
     "strict": true,
-    "skipLibCheck": true,
-    "types": ["svelte"]
+    "types": ["$app/types", "svelte"]
   },
-  "exclude": ["node_modules", "src/lib/paraglide", "project.inlang"]
+  "exclude": ["node_modules", "src/lib/paraglide", "project.inlang"],
+  "include": ["src", "vite.config.ts", "playwright.config.ts", "tests"]
 }

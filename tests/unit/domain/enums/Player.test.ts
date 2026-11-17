@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { Player } from "$lib/domain/enums/Player";
+import { Player } from "#lib/domain/enums/Player.ts";
 
 describe("Player", () => {
   describe("available values", () => {

@@ -1,5 +1,5 @@
-import type { Panel } from "$lib/domain/entities/Panel";
-import { selectedPanelState } from "$lib/data/state/SelectedPanelState.svelte";
+import type { Panel } from "#lib/domain/entities/Panel.ts";
+import { selectedPanelState } from "#lib/data/state/SelectedPanelState.svelte.ts";
 
 export class SelectedPanelRepository {
   static get(): Panel | undefined {

@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { GameApi } from "$lib/api/GameApi";
+import { GameApi } from "#lib/api/GameApi.ts";
 import type {
   GameStateSnapshot,
   PanelPositionSnapshot,
   PieceSnapshot,
-} from "$lib/domain/types/api";
-import type { InvariantViolation } from "$lib/domain/types/invariant";
-import { InvariantService } from "$lib/services/InvariantService";
+} from "#lib/domain/types/api.ts";
+import type { InvariantViolation } from "#lib/domain/types/invariant.ts";
+import { InvariantService } from "#lib/services/InvariantService.ts";
 
 const CENTER: PanelPositionSnapshot = { horizontalLayer: 0, verticalLayer: 0 };
 const NEXT_TO_CENTER: PanelPositionSnapshot = { horizontalLayer: 0, verticalLayer: 1 };

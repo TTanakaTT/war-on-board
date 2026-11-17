@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { PanelState } from "$lib/domain/enums/PanelState";
+import { PanelState } from "#lib/domain/enums/PanelState.ts";
 
 describe("PanelState", () => {
   describe("available values", () => {

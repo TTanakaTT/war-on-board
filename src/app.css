@@ -1,4 +1,3 @@
-@import "material-symbols/index.css";
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));

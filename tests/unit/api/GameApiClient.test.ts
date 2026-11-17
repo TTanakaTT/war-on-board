@@ -3,11 +3,11 @@ import {
   createGameApiClient,
   type GameApiCommandDelegate,
   type GameApiLogEntry,
-} from "$lib/api/GameApiClient";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { ActionError } from "$lib/domain/enums/ActionError";
-import { Player } from "$lib/domain/enums/Player";
-import type { GameStateSnapshot, Result, TurnEndResult } from "$lib/domain/types/api";
+} from "#lib/api/GameApiClient.ts";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { ActionError } from "#lib/domain/enums/ActionError.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import type { GameStateSnapshot, Result, TurnEndResult } from "#lib/domain/types/api.ts";
 
 function createGameStateSnapshot(): GameStateSnapshot {
   return {

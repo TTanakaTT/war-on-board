@@ -1,11 +1,11 @@
-import { Player } from "$lib/domain/enums/Player";
+import { Player } from "#lib/domain/enums/Player.ts";
 import type {
   GameStateSnapshot,
   HomeBaseSnapshot,
   PanelPositionSnapshot,
   PanelSnapshot,
   PieceSnapshot,
-} from "$lib/domain/types/api";
+} from "#lib/domain/types/api.ts";
 
 type PositionLike = PanelPositionSnapshot | { horizontalLayer: number; verticalLayer: number };
 

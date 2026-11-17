@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { GameApi } from "$lib/api/GameApi";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { MatchControlRepository } from "$lib/data/repositories/MatchControlRepository";
-import { AiStrength } from "$lib/domain/enums/AiStrength";
-import { Player } from "$lib/domain/enums/Player";
-import { MatchService } from "$lib/services/MatchService";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
+import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import { MatchService } from "#lib/services/MatchService.ts";
 
 describe("MatchService", () => {
   beforeEach(() => {

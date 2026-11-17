@@ -1,17 +1,17 @@
-import { Panel } from "$lib/domain/entities/Panel";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { PanelState } from "$lib/domain/enums/PanelState";
-import type { Piece } from "$lib/domain/entities/Piece";
-import { PanelsService } from "$lib/services/PanelService";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { SelectedPanelRepository } from "$lib/data/repositories/SelectedPanelRepository";
-import { RangedAttackModeRepository } from "$lib/data/repositories/RangedAttackModeRepository";
-import { MovementRulesService } from "$lib/services/MovementRulesService";
-import { DEFAULT_MAX_PIECES_PER_PANEL } from "$lib/domain/constants/GameConstants";
-import { GameApiClient } from "$lib/api/GameApiClient";
-import { MatchService } from "$lib/services/MatchService";
+import { Panel } from "#lib/domain/entities/Panel.ts";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { PanelState } from "#lib/domain/enums/PanelState.ts";
+import type { Piece } from "#lib/domain/entities/Piece.ts";
+import { PanelsService } from "#lib/services/PanelService.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import { SelectedPanelRepository } from "#lib/data/repositories/SelectedPanelRepository.ts";
+import { RangedAttackModeRepository } from "#lib/data/repositories/RangedAttackModeRepository.ts";
+import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
+import { DEFAULT_MAX_PIECES_PER_PANEL } from "#lib/domain/constants/GameConstants.ts";
+import { GameApiClient } from "#lib/api/GameApiClient.ts";
+import { MatchService } from "#lib/services/MatchService.ts";
 
 /**
  * InteractionService — handles user/AI interaction with the board.

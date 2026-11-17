@@ -1,9 +1,9 @@
-import type { Piece } from "$lib/domain/entities/Piece";
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { BoardLayout } from "$lib/presentation/BoardLayout";
-import { PIECE_TOKEN_CENTER_SPACING } from "$lib/presentation/constants/PieceTokenConstants";
-import { PieceService } from "$lib/services/PieceService";
+import type { Piece } from "#lib/domain/entities/Piece.ts";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { BoardLayout } from "#lib/presentation/BoardLayout.ts";
+import { PIECE_TOKEN_CENTER_SPACING } from "#lib/presentation/constants/PieceTokenConstants.ts";
+import { PieceService } from "#lib/services/PieceService.ts";
 
 export function getPieceTokenOffset(index: number, count: number): number {
   return (index - (count - 1) / 2) * PIECE_TOKEN_CENTER_SPACING;

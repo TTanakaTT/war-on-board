@@ -1,16 +1,16 @@
 import { beforeEach, describe, test, expect } from "vitest";
-import { GameApi } from "$lib/api/GameApi";
-import { GenerationService } from "$lib/services/GenerationService";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { Panel } from "$lib/domain/entities/Panel";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { Piece } from "$lib/domain/entities/Piece";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { Player } from "$lib/domain/enums/Player";
-import { ActionError } from "$lib/domain/enums/ActionError";
-import { InvariantService } from "$lib/services/InvariantService";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { GenerationService } from "#lib/services/GenerationService.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import { Panel } from "#lib/domain/entities/Panel.ts";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import { ActionError } from "#lib/domain/enums/ActionError.ts";
+import { InvariantService } from "#lib/services/InvariantService.ts";
 import type {
   ControllablePlayerSnapshot,
   GameStateSnapshot,
@@ -18,11 +18,11 @@ import type {
   PanelStateSnapshot,
   PieceTypeSnapshot,
   PlayerSnapshot,
-} from "$lib/domain/types/api";
+} from "#lib/domain/types/api.ts";
 import {
   RESOURCE_THRESHOLD_FOR_GENERATION,
   DEFAULT_MAX_PIECES_PER_PANEL,
-} from "$lib/domain/constants/GameConstants";
+} from "#lib/domain/constants/GameConstants.ts";
 
 const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
 

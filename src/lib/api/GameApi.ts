@@ -1,7 +1,7 @@
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import type { PieceType } from "$lib/domain/enums/PieceType";
-import type { Player } from "$lib/domain/enums/Player";
-import type { GenerationMode } from "$lib/domain/entities/Turn";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import type { PieceType } from "#lib/domain/enums/PieceType.ts";
+import type { Player } from "#lib/domain/enums/Player.ts";
+import type { GenerationMode } from "#lib/domain/entities/Turn.ts";
 import type {
   ControllablePlayerSnapshot,
   GameActionResult,
@@ -17,32 +17,32 @@ import type {
   Result,
   TurnSnapshot,
   TurnEndResult,
-} from "$lib/domain/types/api";
-import { PanelPosition as PanelPositionClass } from "$lib/domain/entities/PanelPosition";
-import { Piece } from "$lib/domain/entities/Piece";
-import { Panel } from "$lib/domain/entities/Panel";
-import { HomeBase } from "$lib/domain/entities/HomeBase";
-import { Player as PlayerClass } from "$lib/domain/enums/Player";
-import { PanelState } from "$lib/domain/enums/PanelState";
-import { PieceType as PieceTypeClass } from "$lib/domain/enums/PieceType";
-import { PanelsService } from "$lib/services/PanelService";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
-import { GameStateHistoryRepository } from "$lib/data/repositories/GameStateHistoryRepository";
-import { LayerRepository } from "$lib/data/repositories/LayerRepository";
-import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
-import { MovementRulesService } from "$lib/services/MovementRulesService";
-import { PieceService } from "$lib/services/PieceService";
-import { VictoryService } from "$lib/services/VictoryService";
-import { GenerationService } from "$lib/services/GenerationService";
+} from "#lib/domain/types/api.ts";
+import { PanelPosition as PanelPositionClass } from "#lib/domain/entities/PanelPosition.ts";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import { Panel } from "#lib/domain/entities/Panel.ts";
+import { HomeBase } from "#lib/domain/entities/HomeBase.ts";
+import { Player as PlayerClass } from "#lib/domain/enums/Player.ts";
+import { PanelState } from "#lib/domain/enums/PanelState.ts";
+import { PieceType as PieceTypeClass } from "#lib/domain/enums/PieceType.ts";
+import { PanelsService } from "#lib/services/PanelService.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import { HomeBaseRepository } from "#lib/data/repositories/HomeBaseRepository.ts";
+import { GameStateHistoryRepository } from "#lib/data/repositories/GameStateHistoryRepository.ts";
+import { LayerRepository } from "#lib/data/repositories/LayerRepository.ts";
+import { MatchStatsRepository } from "#lib/data/repositories/MatchStatsRepository.ts";
+import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
+import { PieceService } from "#lib/services/PieceService.ts";
+import { VictoryService } from "#lib/services/VictoryService.ts";
+import { GenerationService } from "#lib/services/GenerationService.ts";
 import {
   PLAYER_INIT_RESOURCE,
   DEFAULT_MAX_PIECES_PER_PANEL,
   MOVEMENT_HOP_COST,
-} from "$lib/domain/constants/GameConstants";
-import { ActionError } from "$lib/domain/enums/ActionError";
+} from "#lib/domain/constants/GameConstants.ts";
+import { ActionError } from "#lib/domain/enums/ActionError.ts";
 
 /**
  * GameApi — the sole entry point for all game-state-changing operations.

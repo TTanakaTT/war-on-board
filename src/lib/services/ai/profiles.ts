@@ -1,6 +1,6 @@
-import { AiStrength } from "$lib/domain/enums/AiStrength";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import type { AiStrengthProfile } from "$lib/services/ai/types";
+import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import type { AiStrengthProfile } from "#lib/services/ai/types.ts";
 
 const DEFAULT_PREFERRED_PIECE_ORDER = [
   PieceType.ROOK,

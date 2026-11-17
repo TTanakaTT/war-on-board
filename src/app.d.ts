@@ -11,7 +11,7 @@ declare global {
 
   interface Window {
     /** Present only in dev builds while the debug mode overlay is mounted. */
-    __WAR_ON_BOARD_DEBUG__?: import("$lib/presentation/debugMode").WarOnBoardDebugHandle;
+    __WAR_ON_BOARD_DEBUG__?: import("#lib/presentation/debugMode.ts").WarOnBoardDebugHandle;
   }
 }
 

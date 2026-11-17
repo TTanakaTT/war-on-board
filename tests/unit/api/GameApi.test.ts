@@ -1,23 +1,23 @@
 import { describe, test, expect } from "vitest";
-import { GameApi } from "$lib/api/GameApi";
-import { PanelRepository } from "$lib/data/repositories/PanelRepository";
-import { PiecesRepository } from "$lib/data/repositories/PieceRepository";
-import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-import { HomeBaseRepository } from "$lib/data/repositories/HomeBaseRepository";
-import { LayerRepository } from "$lib/data/repositories/LayerRepository";
-import { MatchStatsRepository } from "$lib/data/repositories/MatchStatsRepository";
-import { Player } from "$lib/domain/enums/Player";
-import { PanelState } from "$lib/domain/enums/PanelState";
-import { PanelPosition } from "$lib/domain/entities/PanelPosition";
-import { Piece } from "$lib/domain/entities/Piece";
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { ActionError } from "$lib/domain/enums/ActionError";
+import { GameApi } from "#lib/api/GameApi.ts";
+import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
+import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+import { HomeBaseRepository } from "#lib/data/repositories/HomeBaseRepository.ts";
+import { LayerRepository } from "#lib/data/repositories/LayerRepository.ts";
+import { MatchStatsRepository } from "#lib/data/repositories/MatchStatsRepository.ts";
+import { Player } from "#lib/domain/enums/Player.ts";
+import { PanelState } from "#lib/domain/enums/PanelState.ts";
+import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+import { Piece } from "#lib/domain/entities/Piece.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { ActionError } from "#lib/domain/enums/ActionError.ts";
 import type {
   GameActionResult,
   GameStateHistoryEntry,
   GameStateSnapshot,
   TurnEndResult,
-} from "$lib/domain/types/api";
+} from "#lib/domain/types/api.ts";
 import {
   HOME_BASE_INIT_RESOURCE,
   HOME_BASE_INIT_CASTLE,
@@ -25,10 +25,10 @@ import {
   DEFAULT_MAX_PIECES_PER_PANEL,
   PASSIVE_RESOURCE_CAP,
   RESOURCE_THRESHOLD_FOR_GENERATION,
-} from "$lib/domain/constants/GameConstants";
-import { Panel } from "$lib/domain/entities/Panel";
-import { MovementRulesService } from "$lib/services/MovementRulesService";
-import { InvariantService } from "$lib/services/InvariantService";
+} from "#lib/domain/constants/GameConstants.ts";
+import { Panel } from "#lib/domain/entities/Panel.ts";
+import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
+import { InvariantService } from "#lib/services/InvariantService.ts";
 
 function snapshotFromRepositories(): GameStateSnapshot {
   const turn = TurnRepository.get();

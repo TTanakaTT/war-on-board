@@ -1,13 +1,13 @@
-import { MOVEMENT_HOP_COST } from "$lib/domain/constants/GameConstants";
-import { PieceType } from "$lib/domain/enums/PieceType";
+import { MOVEMENT_HOP_COST } from "#lib/domain/constants/GameConstants.ts";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
 import type {
   ControllablePlayerSnapshot,
   GameStateSnapshot,
   PanelPositionSnapshot,
   PieceSnapshot,
   PieceTypeSnapshot,
-} from "$lib/domain/types/api";
-import type { InvariantViolation } from "$lib/domain/types/invariant";
+} from "#lib/domain/types/api.ts";
+import type { InvariantViolation } from "#lib/domain/types/invariant.ts";
 
 /** Tolerance for fractional HP and movement points produced by proportional damage. */
 const FLOAT_TOLERANCE = 1e-9;

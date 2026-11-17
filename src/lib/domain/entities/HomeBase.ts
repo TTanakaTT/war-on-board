@@ -1,4 +1,4 @@
-import type { Player } from "$lib/domain/enums/Player";
+import type { Player } from "#lib/domain/enums/Player.ts";
 import type { PanelPosition } from "./PanelPosition";
 
 export class HomeBase {

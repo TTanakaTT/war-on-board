@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { PieceType } from "$lib/domain/enums/PieceType";
-  import { GameApi } from "$lib/api/GameApi";
-  import { GameApiClient } from "$lib/api/GameApiClient";
-  import { TurnRepository } from "$lib/data/repositories/TurnRepository";
-  import Icon from "$lib/presentation/components/primitives/Icon.svelte";
-  import { pieceTypeLabel } from "$lib/presentation/piecePresentation";
-  import { MatchService } from "$lib/services/MatchService";
+  import { PieceType } from "#lib/domain/enums/PieceType.ts";
+  import { GameApi } from "#lib/api/GameApi.ts";
+  import { GameApiClient } from "#lib/api/GameApiClient.ts";
+  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
+  import { pieceTypeLabel } from "#lib/presentation/piecePresentation.ts";
+  import { MatchService } from "#lib/services/MatchService.ts";
 
   let {
     pieceType,

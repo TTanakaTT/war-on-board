@@ -1,4 +1,4 @@
-import type { PanelPosition } from "$lib/domain/entities/PanelPosition";
+import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
 
 /**
  * A point on the board: `progress` (0–1) of the way from the panel `from` to the adjacent

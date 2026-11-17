@@ -1,5 +1,5 @@
-import { PieceType } from "$lib/domain/enums/PieceType";
-import { m } from "$lib/paraglide/messages";
+import { PieceType } from "#lib/domain/enums/PieceType.ts";
+import { m } from "#lib/paraglide/messages.js";
 
 export const PIECE_TYPE_DISPLAY_ORDER = [
   PieceType.INFANTRY,
