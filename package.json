@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "material-symbols": "^0.45.6",
-    "svelte": "^5.56.4"
+    "svelte": "^5.57.3"
   },
   "devDependencies": {
     "@eslint/compat": "^2.1.1",
