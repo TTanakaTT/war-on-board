@@ -9,6 +9,15 @@ pnpm install
 pnpm dev
 ```
 
+## Docker
+
+Builds the site and serves it at http://localhost:4173.
+
+```bash
+docker build -t war-on-board .
+docker run --rm -p 4173:4173 war-on-board
+```
+
 ## Commands
 
 | Command           | Description                   |

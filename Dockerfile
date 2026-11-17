@@ -1,20 +1,24 @@
-# 親イメージとして公式イメージを使う
-FROM node:current
+# Builds the site and serves it with `vite preview` on port 4173, to check a
+# production build locally. The deployed site is built by
+# .github/workflows/pages.yml, not from this image.
+#
+# Keep the Node major in sync with `node-version` in .github/workflows/*.yml.
+# Dependabot updates the digest only; bump the major by hand.
+FROM node:24-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
 
-# 作業用（working）ディレクトリを指定
-WORKDIR /usr/src/app
+# Keep the pnpm major in sync with pnpm/action-setup in .github/workflows/*.yml.
+RUN npm install -g pnpm@12
 
-# ホスト上のファイルを現在の場所にコピー
-COPY package.json .
+USER node
+WORKDIR /home/node/app
 
-# イメージのファイルシステム内でコマンドを実行
-RUN yarn install
+# Install dependencies before copying the sources, so this layer is reused
+# until the dependencies change.
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# 実行時、コンテナが特定のポートをリッスンするよう Docker に通知
-EXPOSE 8080
+COPY --chown=node:node . .
+RUN pnpm build
 
-# コンテナ内で指定したコマンドを実行
-CMD [ "yarn", "serve" ]
-
-# 残りのソースコードをホスト上からイメージのファイルシステム上にコピー
-COPY . .
+EXPOSE 4173
+CMD ["pnpm", "preview", "--host", "0.0.0.0", "--port", "4173", "--strictPort"]

@@ -1,0 +1,27 @@
+.git
+
+# Same as .gitignore, so the image is built only from tracked files.
+node_modules/
+.pnpm-store/
+build/
+.vite/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.idea/
+*.swp
+*.swo
+.DS_Store
+.vscode/
+.env.local
+.env.*.local
+.svelte-kit/
+tests/e2e/screenshots/
+test-results/
+playwright-report/
+simulation-results/
+*.tgz
+src/lib/paraglide
+project.inlang/cache/
