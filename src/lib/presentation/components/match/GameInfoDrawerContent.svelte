@@ -93,7 +93,7 @@
 
 {#snippet unitCountRows(counts: PieceTypeCount[])}
   {#each counts as pieceTypeCount (pieceTypeCount.pieceType)}
-    <div class="flex items-center justify-between gap-4">
+    <div class="flex items-center justify-between gap-2">
       <span title={pieceTypeLabel(pieceTypeCount.pieceType)}>
         <Icon icon={pieceTypeCount.pieceType.config.iconName} size={20} />
       </span>
@@ -102,18 +102,22 @@
   {/each}
 {/snippet}
 
-<!-- The total under the label at the left, its combat unit breakdown at the right. -->
+<!--
+  The total under the label at the left, its combat unit breakdown at the right. Spacing is
+  kept tight so the row fits the narrow cards of the expanded two-column drawer; if it still
+  does not fit, the label wraps instead of the breakdown overflowing the card.
+-->
 {#snippet armyPowerRow(
   cardId: PlayerInfoCard["id"],
   label: string,
   total: number,
   counts: PieceTypeCount[],
 )}
-  <div class="grid grid-cols-[1fr_auto] items-center gap-x-4">
-    <dt class="self-end whitespace-nowrap">{label}</dt>
+  <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2">
+    <dt class="self-end">{label}</dt>
     <dd class="row-start-2 self-start text-base font-semibold">{total}</dd>
     <dd
-      class="col-start-2 row-span-2 row-start-1 grid gap-2 rounded-xl border p-3 {unitPanelClass(
+      class="col-start-2 row-span-2 row-start-1 grid gap-2 rounded-xl border px-2 py-3 {unitPanelClass(
         cardId,
       )}"
     >
