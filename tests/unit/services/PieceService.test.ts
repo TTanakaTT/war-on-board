@@ -1635,4 +1635,148 @@ describe("PieceService", () => {
       );
     },
   );
+
+  describe.each([Player.SELF, Player.OPPONENT])(
+    "moves along shortest routes to distant targets (%s)",
+    (player) => {
+      const opponent = player === Player.SELF ? Player.OPPONENT : Player.SELF;
+      // (-1,0) reaches (1,0) in two hops, through (0,0) (the route of findShortestPath) or
+      // (0,1). The three of (-1,0), (0,0) and (0,1) are adjacent to each other.
+      const origin = pos(-1, 0);
+      const onRoute = pos(0, 0);
+      const detour = pos(0, 1);
+      const target = pos(1, 0);
+      const onPanel = (position: PanelPosition) => ({ from: position, to: position, progress: 0 });
+
+      const findPiece = (id: number) => PiecesRepository.getAll().find((piece) => piece.id === id)!;
+
+      function addPiece(
+        id: number,
+        at: PanelPosition,
+        overrides: Partial<ConstructorParameters<typeof Piece>[0]> = {},
+      ): Piece {
+        const piece = makePiece({
+          id,
+          panelPosition: at,
+          player,
+          pieceType: PieceType.INFANTRY,
+          ...overrides,
+        });
+        PiecesRepository.add(piece);
+        return piece;
+      }
+
+      /** Fills <position> with two non-mergeable pieces of the player without orders. */
+      function fillPanel(position: PanelPosition, firstId: number): void {
+        addPiece(firstId, position, { pieceType: PieceType.ROOK });
+        addPiece(firstId + 1, position, { pieceType: PieceType.NOBLE });
+      }
+
+      describe("finalizePlayerMoves", () => {
+        test("goes around a panel without room and keeps its order", () => {
+          fillPanel(onRoute, 10);
+          addPiece(1, origin, { targetPosition: target, movementPoints: 1 });
+
+          PieceService.finalizePlayerMoves(player);
+
+          const moved = findPiece(1);
+          expect(moved.panelPosition).toEqual(detour);
+          expect(moved.targetPosition).toEqual(target);
+          expect(moved.movementPoints).toBe(0);
+        });
+
+        test("walks as far as it can when every route is closed, losing its order and only the points it used", () => {
+          fillPanel(pos(1, 0), 10);
+          fillPanel(pos(1, 1), 20);
+          addPiece(1, origin, {
+            pieceType: PieceType.CAVALRY,
+            targetPosition: pos(2, 0),
+            movementPoints: 2,
+          });
+
+          PieceService.finalizePlayerMoves(player);
+
+          const moved = findPiece(1);
+          expect(moved.panelPosition).toEqual(onRoute);
+          expect(moved.targetPosition).toBeUndefined();
+          expect(moved.movementPoints).toBe(1);
+        });
+
+        test("attacks an enemy panel on its route and loses its order", () => {
+          PiecesRepository.add(
+            makePiece({
+              id: 20,
+              panelPosition: onRoute,
+              player: opponent,
+              pieceType: PieceType.NOBLE,
+              hp: 1,
+            }),
+          );
+          addPiece(1, origin, { targetPosition: target, movementPoints: 1 });
+
+          const outcomes = PieceService.finalizePlayerMoves(player);
+
+          expect(outcomes.map((outcome) => outcome.targetPosition)).toEqual([
+            { horizontalLayer: onRoute.horizontalLayer, verticalLayer: onRoute.verticalLayer },
+          ]);
+          expect(outcomes[0].destroyedPieceIds).toContain(20);
+          const attacker = findPiece(1);
+          expect(attacker.panelPosition).toEqual(onRoute);
+          expect(attacker.targetPosition).toBeUndefined();
+        });
+
+        test("stays and loses its order when its target has no room", () => {
+          fillPanel(onRoute, 10);
+          addPiece(1, origin, { targetPosition: onRoute, movementPoints: 1 });
+
+          PieceService.finalizePlayerMoves(player);
+
+          const piece = findPiece(1);
+          expect(piece.panelPosition).toEqual(origin);
+          expect(piece.targetPosition).toBeUndefined();
+        });
+
+        test("pieces trading places in a cycle all move", () => {
+          const panels = [origin, onRoute, detour];
+          panels.forEach((position, i) => {
+            addPiece(i + 1, position, {
+              pieceType: PieceType.NOBLE,
+              targetPosition: panels[(i + 1) % panels.length],
+              orderSequence: i + 1,
+            });
+            addPiece(i + 10, position, { pieceType: PieceType.ROOK });
+          });
+
+          PieceService.finalizePlayerMoves(player);
+
+          panels.forEach((position, i) => {
+            expect(findPiece(i + 1).panelPosition).toEqual(panels[(i + 1) % panels.length]);
+            expect(findPiece(i + 10).panelPosition).toEqual(position);
+            expect(PiecesRepository.getPiecesByPosition(position)).toHaveLength(2);
+          });
+        });
+      });
+
+      describe("previewEndOfTurnPoint", () => {
+        test("shows the panel of the other shortest route it goes around through", () => {
+          fillPanel(onRoute, 10);
+          const piece = addPiece(1, origin, { targetPosition: target, movementPoints: 1 });
+
+          expect(PieceService.previewEndOfTurnPoint(piece)).toEqual(onPanel(detour));
+        });
+
+        test("shows where a blocked piece stops", () => {
+          fillPanel(pos(1, 0), 10);
+          fillPanel(pos(1, 1), 20);
+          const piece = addPiece(1, origin, {
+            pieceType: PieceType.CAVALRY,
+            targetPosition: pos(2, 0),
+            movementPoints: 2,
+          });
+
+          expect(PieceService.previewEndOfTurnPoint(piece)).toEqual(onPanel(onRoute));
+        });
+      });
+    },
+  );
 });

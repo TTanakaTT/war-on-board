@@ -3795,6 +3795,92 @@ describe.each([Player.SELF, Player.OPPONENT])("order sequence (%s)", (player) =>
   });
 });
 
+describe.each([Player.SELF, Player.OPPONENT])("distant moves (%s)", (player) => {
+  const opponent = player === Player.SELF ? Player.OPPONENT : Player.SELF;
+  // (-1,0) reaches (1,0) in two hops, through (0,0) (the route of findShortestPath) or (0,1).
+  const origin = pos(-1, 0);
+  const onRoute = pos(0, 0);
+  const detour = pos(0, 1);
+  const target = pos(1, 0);
+
+  function startGameOnTurnOf(): void {
+    GameApi.initializeGame({ layer: 4 });
+    TurnRepository.set({ ...TurnRepository.get(), player });
+  }
+
+  function add(
+    id: number,
+    at: PanelPosition,
+    overrides: Partial<ConstructorParameters<typeof Piece>[0]> = {},
+  ): void {
+    PiecesRepository.add(
+      new Piece({
+        id,
+        panelPosition: at,
+        initialPosition: at,
+        player,
+        pieceType: PieceType.INFANTRY,
+        ...overrides,
+      }),
+    );
+  }
+
+  describe("GameApi.assignMove", () => {
+    test("always succeeds for a target beyond this turn's reach", () => {
+      startGameOnTurnOf();
+      add(10, target, { pieceType: PieceType.ROOK });
+      add(11, target, { pieceType: PieceType.NOBLE });
+      add(1, origin);
+      add(20, pos(0, 2), { player: opponent });
+      add(2, pos(-1, 1), { pieceType: PieceType.NOBLE });
+
+      // A full friendly target, and an enemy a noble cannot attack.
+      expectActionSuccessWithSnapshot(GameApi.assignMove(player, 1, target));
+      expectActionSuccessWithSnapshot(GameApi.assignMove(player, 2, pos(1, 2)));
+      expect(findPiece(1).targetPosition).toEqual(target);
+      expect(findPiece(2).targetPosition).toEqual(pos(1, 2));
+    });
+  });
+
+  describe("GameApi.cancelMove", () => {
+    test("returns CANNOT_CANCEL when staying cancels another piece's order", () => {
+      startGameOnTurnOf();
+      add(10, onRoute, { pieceType: PieceType.ROOK });
+      add(1, onRoute, { targetPosition: target, orderSequence: 1 });
+      add(2, origin, { pieceType: PieceType.NOBLE, targetPosition: onRoute, orderSequence: 2 });
+
+      expect(GameApi.cancelMove(player, 1)).toEqual({
+        ok: false,
+        error: ActionError.CANNOT_CANCEL,
+      });
+      expect(findPiece(1).targetPosition).toEqual(target);
+    });
+  });
+
+  describe("GameApi.endTurn", () => {
+    test("two pieces heading to the same distant target never exceed a panel's capacity on the way", () => {
+      startGameOnTurnOf();
+      add(1, origin, { pieceType: PieceType.ROOK });
+      add(2, origin, { pieceType: PieceType.NOBLE });
+      add(3, onRoute);
+      expect(GameApi.assignMove(player, 1, target).ok).toBe(true);
+      expect(GameApi.assignMove(player, 2, target).ok).toBe(true);
+
+      expectTurnEndSuccessWithSnapshot(GameApi.endTurn(player));
+
+      expect(findPiece(1).panelPosition).toEqual(onRoute);
+      expect(findPiece(2).panelPosition).toEqual(detour);
+      expect(findPiece(1).targetPosition).toEqual(target);
+      expect(findPiece(2).targetPosition).toEqual(target);
+      expect(
+        InvariantService.check(GameApi.getGameState()).filter(
+          (violation) => violation.type === "piece-capacity-exceeded",
+        ),
+      ).toEqual([]);
+    });
+  });
+});
+
 describe("regression #93", () => {
   test("a cavalry is not generated on the panel a waiting heavy still occupies", () => {
     const snapshot: GameStateSnapshot = JSON.parse(ISSUE_93_BEFORE_END_TURN);
