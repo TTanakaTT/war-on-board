@@ -157,6 +157,64 @@ describe("GenerationService", () => {
       },
     );
 
+    describe.each([Player.SELF, Player.OPPONENT])(
+      "pieces moving in at the end of the turn (%s)",
+      (player) => {
+        const side = player === Player.SELF ? -1 : 1;
+        const homeBase = pos(3 * side, 0);
+        // The candidates after the home base in rear mode, in priority order.
+        const second = pos(2 * side, 0);
+        const third = pos(2 * side, 1);
+        const fourth = pos(1 * side, 0);
+
+        function ownWithResource(position: PanelPosition): void {
+          const panel = PanelRepository.find(position)!;
+          PanelRepository.update(
+            new Panel({ ...panel, player, resource: RESOURCE_THRESHOLD_FOR_GENERATION }),
+          );
+        }
+
+        function addPiece(
+          id: number,
+          position: PanelPosition,
+          pieceType: PieceType,
+          targetPosition?: PanelPosition,
+        ): void {
+          PiecesRepository.add(
+            new Piece({ id, panelPosition: position, player, pieceType, targetPosition }),
+          );
+        }
+
+        beforeEach(() => {
+          const turn = TurnRepository.get();
+          TurnRepository.set({
+            ...turn,
+            generationMode: { ...turn.generationMode, [String(player)]: "rear" },
+          });
+          for (const position of [second, third, fourth]) ownWithResource(position);
+        });
+
+        test("skips a panel where the new piece would cancel a piece moving in", () => {
+          // The home base has room for the new piece now, but a noble moves in this turn.
+          addPiece(1, homeBase, PieceType.ROOK);
+          addPiece(2, third, PieceType.NOBLE, homeBase);
+
+          expect(GenerationService.findGenerationPanel(player)).toEqual(second);
+        });
+
+        test("checks the candidates in priority order and returns the first that fits", () => {
+          addPiece(1, homeBase, PieceType.ROOK);
+          addPiece(2, third, PieceType.NOBLE, homeBase);
+          addPiece(3, second, PieceType.ROOK);
+          addPiece(4, second, PieceType.NOBLE);
+
+          // The home base (a piece moving in) and the second (full) are skipped. The third
+          // comes before the fourth, which also fits, and its noble leaves it this turn.
+          expect(GenerationService.findGenerationPanel(player)).toEqual(third);
+        });
+      },
+    );
+
     test("prefers higher |horizontalLayer| in rear mode (closer to home)", () => {
       const turn = TurnRepository.get();
       TurnRepository.set({

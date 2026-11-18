@@ -165,6 +165,104 @@ describe("PanelsService", () => {
     });
   });
 
+  describe("distancesTo", () => {
+    beforeEach(() => {
+      GameApi.initializeGame({ layer: 4 });
+    });
+
+    test("gives every panel's shortest-path length to the destination", () => {
+      const distances = PanelsService.distancesTo(pos(0, 0));
+
+      expect(distances.size).toBe(PanelRepository.getAll().length);
+      expect(distances.get("0,0")).toBe(0);
+      expect(distances.get("1,0")).toBe(1);
+      expect(distances.get("2,0")).toBe(2);
+      expect(distances.get("-3,0")).toBe(3);
+      for (const panel of PanelRepository.getAll()) {
+        const path = PanelsService.findShortestPath(panel.panelPosition, pos(0, 0))!;
+        const { horizontalLayer, verticalLayer } = panel.panelPosition;
+        expect(distances.get(`${horizontalLayer},${verticalLayer}`)).toBe(path.length - 1);
+      }
+    });
+  });
+
+  describe("shortestRoutePrefixes", () => {
+    beforeEach(() => {
+      GameApi.initializeGame({ layer: 4 });
+    });
+
+    const boardIndex = (position: PanelPosition) =>
+      PanelRepository.getAll().findIndex((panel) => panel.panelPosition.equals(position));
+    const compareInBoardOrder = (a: PanelPosition[], b: PanelPosition[]) => {
+      for (let i = 0; i < a.length; i++) {
+        const difference = boardIndex(a[i]) - boardIndex(b[i]);
+        if (difference !== 0) return difference;
+      }
+      return 0;
+    };
+
+    test("puts the route along findShortestPath first and the rest in board order", () => {
+      const origin = pos(-2, 0);
+      const destination = pos(2, 0);
+      const routes = PanelsService.shortestRoutePrefixes(origin, destination, 4);
+
+      expect(routes).toHaveLength(6);
+      expect(routes[0]).toEqual(PanelsService.findShortestPath(origin, destination)!.slice(1));
+      const rest = routes.slice(1);
+      expect(rest).toEqual([...rest].sort(compareInBoardOrder));
+      for (const route of routes) {
+        expect(route.at(-1)).toEqual(destination);
+        route.forEach((position, i) => {
+          expect(position.isAdjacent(i === 0 ? origin : route[i - 1])).toBe(true);
+        });
+      }
+    });
+
+    test("keeps only the distinct first <length> panels of the routes", () => {
+      const routes = PanelsService.shortestRoutePrefixes(pos(-2, 0), pos(2, 0), 2);
+
+      expect(routes).toEqual([
+        [pos(-1, 0), pos(0, 0)],
+        [pos(-1, 0), pos(0, 1)],
+        [pos(-1, 1), pos(0, 1)],
+        [pos(-1, 1), pos(0, 2)],
+      ]);
+    });
+
+    test("returns whole routes when <length> is longer than the routes", () => {
+      expect(PanelsService.shortestRoutePrefixes(pos(-1, 0), pos(1, 0), 5)).toEqual([
+        [pos(0, 0), pos(1, 0)],
+        [pos(0, 1), pos(1, 0)],
+      ]);
+    });
+
+    test("is empty when origin equals destination", () => {
+      expect(PanelsService.shortestRoutePrefixes(pos(0, 0), pos(0, 0), 2)).toEqual([]);
+    });
+
+    test("is empty when <length> is 0", () => {
+      expect(PanelsService.shortestRoutePrefixes(pos(-1, 0), pos(1, 0), 0)).toEqual([]);
+    });
+  });
+
+  describe("route cache", () => {
+    test("recomputes routes when the board's layout changes", () => {
+      GameApi.initializeGame({ layer: 4 });
+      expect(PanelsService.distancesTo(pos(0, 0)).size).toBe(16);
+      expect(PanelsService.findShortestPath(pos(-3, 0), pos(0, 0))).toHaveLength(4);
+      expect(PanelsService.shortestRoutePrefixes(pos(-3, 0), pos(0, 0), 1)).toEqual([[pos(-2, 0)]]);
+
+      GameApi.initializeGame({ layer: 3 });
+      expect(PanelsService.distancesTo(pos(0, 0)).size).toBe(9);
+      expect(PanelsService.findShortestPath(pos(-3, 0), pos(0, 0))).toBeNull();
+      expect(PanelsService.shortestRoutePrefixes(pos(-3, 0), pos(0, 0), 1)).toEqual([]);
+
+      GameApi.initializeGame({ layer: 4 });
+      expect(PanelsService.distancesTo(pos(0, 0)).size).toBe(16);
+      expect(PanelsService.findShortestPath(pos(-3, 0), pos(0, 0))).toHaveLength(4);
+    });
+  });
+
   describe("clearSelected", () => {
     beforeEach(() => {
       GameApi.initializeGame({ layer: 4 });

@@ -10,7 +10,7 @@ import { PanelState } from "#lib/domain/enums/PanelState.ts";
 import { PieceType } from "#lib/domain/enums/PieceType.ts";
 import { CombatService } from "#lib/services/CombatService.ts";
 import { PanelsService } from "#lib/services/PanelService.ts";
-import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
+import { MovementRulesService, type TurnStep } from "#lib/services/MovementRulesService.ts";
 import {
   PASSIVE_RESOURCE_CAP,
   PASSIVE_CASTLE_CAP,
@@ -19,20 +19,6 @@ import {
 } from "#lib/domain/constants/GameConstants.ts";
 import { MatchStatsRepository } from "#lib/data/repositories/MatchStatsRepository.ts";
 import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-
-/**
- * What a piece that takes multiple turns per hop does at the end of its owner's turn
- * (see PieceService.planGradualStep).
- */
-type GradualStep =
-  | { kind: "idle" }
-  | { kind: "stay" }
-  | { kind: "windUp" }
-  | { kind: "startTransit"; hop: PanelPosition }
-  | { kind: "continueTransit" }
-  | { kind: "blocked" }
-  | { kind: "enter"; hop: PanelPosition }
-  | { kind: "attack"; hop: PanelPosition };
 
 function pointOnPanel(position: PanelPosition): BoardPoint {
   return { from: position, to: position, progress: 0 };
@@ -132,34 +118,6 @@ export class PieceService {
   }
 
   /**
-   * Compare two pieces by order sequence (see Piece.orderSequence): lower numbers first,
-   * pieces without one after those with one, ties broken by lower ID.
-   */
-  private static compareOrderSequence(a: Piece, b: Piece): number {
-    const aSeq = a.orderSequence ?? Number.POSITIVE_INFINITY;
-    const bSeq = b.orderSequence ?? Number.POSITIVE_INFINITY;
-    if (aSeq !== bSeq) return aSeq < bSeq ? -1 : 1;
-    return a.id - b.id;
-  }
-
-  /**
-   * Count of <pieces> after merging, as in MovementRulesService.projectedFriendlyStackCount:
-   * every mergeable type counts once, every non-mergeable piece counts on its own.
-   */
-  private static mergedStackCount(pieces: Piece[]): number {
-    const mergeableTypes = new Set<string>();
-    let count = 0;
-    for (const piece of pieces) {
-      if (piece.pieceType.config.mergeable) {
-        mergeableTypes.add(String(piece.pieceType));
-      } else {
-        count += 1;
-      }
-    }
-    return count + mergeableTypes.size;
-  }
-
-  /**
    * Movement points accrued this turn, capped so a piece never banks more
    * than max(movementRate, MOVEMENT_HOP_COST). A movementRate below
    * MOVEMENT_HOP_COST (e.g. 0.5) would take multiple turns to reach the cap, but such
@@ -192,69 +150,6 @@ export class PieceService {
     });
   }
 
-  /**
-   * Compute how far <piece> can advance this turn toward <destination> without
-   * mutating anything, and whether a transit obstacle stops it short of that.
-   * Always stops one panel short of the destination — the final hop (entry or
-   * attack) is handled by resolveTargetPanel/move(), never here, so a hop is
-   * never double-charged. When an intermediate panel is a transit obstacle
-   * (see MovementRulesService.isTransitObstacle), stops there and reports it
-   * via obstaclePosition — the caller resolves it as this turn's action
-   * instead of continuing toward the original destination.
-   */
-  private static computeTravelAdvance(
-    piece: Piece,
-    destination: PanelPosition,
-    maxPieces: number,
-  ): { stopPosition: PanelPosition; hopsUsed: number; obstaclePosition?: PanelPosition } {
-    const path = PanelsService.findShortestPath(piece.panelPosition, destination);
-    if (!path || path.length < 2) return { stopPosition: piece.panelPosition, hopsUsed: 0 };
-
-    const stopThreshold = path.length - 2; // index of the panel adjacent to destination
-    let hopsBudget = Math.floor(piece.movementPoints / MOVEMENT_HOP_COST);
-    let stopIndex = 0;
-
-    for (let i = 1; i <= stopThreshold && hopsBudget > 0; i++) {
-      if (MovementRulesService.isTransitObstacle(path[i], piece.player, maxPieces)) {
-        return { stopPosition: path[stopIndex], hopsUsed: stopIndex, obstaclePosition: path[i] };
-      }
-      stopIndex = i;
-      hopsBudget -= 1;
-    }
-
-    return { stopPosition: path[stopIndex], hopsUsed: stopIndex };
-  }
-
-  /**
-   * Whether <position> is close enough to <target> to attempt entry/attack
-   * this turn — either the same panel or adjacent to it.
-   */
-  private static isInEngagementRange(position: PanelPosition, target: PanelPosition): boolean {
-    return position.equals(target) || position.isAdjacent(target);
-  }
-
-  /**
-   * Read-only preview of where <piece> would attempt to act at the end of the
-   * current turn if finalizePlayerMoves ran right now. Used by the board UI
-   * to show "this turn's actual movement" instead of the final (possibly
-   * distant) targetPosition. When a transit obstacle blocks the way, this
-   * returns the obstacle panel itself (where the piece will attack/merge/be
-   * blocked this turn), not the panel short of it — mirroring how an
-   * already-in-range piece optimistically shows its actual target regardless
-   * of whether entry will succeed. Always matches finalizePlayerMoves's real
-   * outcome, since both rely on the same computeTravelAdvance.
-   */
-  static previewTravelStop(piece: Piece): PanelPosition {
-    const target = piece.targetPosition;
-    if (!target) return piece.panelPosition;
-    if (this.isInEngagementRange(piece.panelPosition, target)) return target;
-
-    const turn = TurnRepository.get();
-    const maxPieces = turn.maxPiecesPerPanel[String(piece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
-    const { stopPosition, obstaclePosition } = this.computeTravelAdvance(piece, target, maxPieces);
-    return obstaclePosition ?? stopPosition;
-  }
-
   /** Where <piece> is drawn now: on its panel, or part of the way to the panel it is moving into. */
   static currentBoardPoint(piece: Piece): BoardPoint {
     if (!piece.transitPosition) return pointOnPanel(piece.panelPosition);
@@ -267,110 +162,134 @@ export class PieceService {
 
   /**
    * Read-only preview of where <piece> will be at the end of the current turn if
-   * finalizePlayerMoves ran right now — part of the way between two panels for a piece
-   * that takes multiple turns per hop. Like previewTravelStop, an attack is shown at the
-   * attacked panel regardless of whether the attacker will break through.
+   * finalizePlayerMoves ran right now (see MovementRulesService.planEndOfTurn) — part of the
+   * way between two panels for a piece that takes multiple turns per hop. An attack is shown
+   * at the attacked panel regardless of whether the attacker will break through.
    */
   static previewEndOfTurnPoint(piece: Piece): BoardPoint {
-    if (!piece.takesMultipleTurnsPerHop) return pointOnPanel(this.previewTravelStop(piece));
-
     const turn = TurnRepository.get();
     const maxPieces = turn.maxPiecesPerPanel[String(piece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
-    const step = this.planGradualStep(piece, maxPieces);
+    const step = MovementRulesService.planEndOfTurn(piece.player, maxPieces).get(piece.id)?.step;
     const progress = (piece.movementPoints + piece.pieceType.config.movement) / MOVEMENT_HOP_COST;
 
-    switch (step.kind) {
+    switch (step?.kind) {
+      case "advance":
+      case "blocked":
+        return pointOnPanel(step.path.at(-1) ?? piece.panelPosition);
+      case "enter":
+        return pointOnPanel(step.path.at(-1)!);
+      case "attack":
+        return pointOnPanel(step.target);
       case "startTransit":
         return { from: piece.panelPosition, to: step.hop, progress };
       case "continueTransit":
         return { from: piece.panelPosition, to: piece.transitPosition!, progress };
-      case "enter":
-      case "attack":
-        return pointOnPanel(step.hop);
       default:
         return pointOnPanel(piece.panelPosition);
     }
   }
 
-  /**
-   * Decide, without changing anything, what a piece that takes multiple turns per hop does
-   * at the end of this turn. Shared by finalizePlayerMoves and the board preview.
-   *
-   * - No order → idle. Ordered to its own panel → stay (the order is dropped).
-   * - The hop panel (see MovementRulesService.gradualHop) has enemy presence → the piece
-   *   winds up (or keeps moving, when already in transit) until its progress reaches
-   *   MOVEMENT_HOP_COST, then attacks that panel.
-   * - Otherwise the hop panel must have room for the piece — it is kept free for a piece
-   *   in transit, so this only fails when something else filled it — or the piece is
-   *   blocked. With room, it enters the hop panel once its progress reaches
-   *   MOVEMENT_HOP_COST, and otherwise starts or continues its transit.
-   */
-  static planGradualStep(piece: Piece, maxPieces: number): GradualStep {
-    const hop = MovementRulesService.gradualHop(piece);
-    if (!hop) return { kind: "idle" };
-    if (hop.equals(piece.panelPosition)) return { kind: "stay" };
-
-    const completes = MovementRulesService.completesHopThisTurn(piece);
-    if (MovementRulesService.hasEnemyPresence(hop, piece.player)) {
-      if (completes) return { kind: "attack", hop };
-      return piece.isInTransit ? { kind: "continueTransit" } : { kind: "windUp" };
-    }
-
-    const fits =
-      MovementRulesService.projectedFriendlyStackCount(hop, piece.player, piece.id, piece.id) <=
-      maxPieces;
-    if (!fits) return { kind: "blocked" };
-    if (completes) return { kind: "enter", hop };
-    return piece.isInTransit ? { kind: "continueTransit" } : { kind: "startTransit", hop };
+  /** <piece> after walking <path> (this turn's panels), each costing MOVEMENT_HOP_COST. */
+  private static walk(piece: Piece, path: PanelPosition[]): Piece {
+    const end = path.at(-1);
+    if (!end) return piece;
+    return new Piece({
+      ...piece,
+      panelPosition: end,
+      initialPosition: end,
+      movementPoints: piece.movementPoints - path.length * MOVEMENT_HOP_COST,
+    });
   }
 
   /**
-   * Apply a slow piece's step that is not resolved as an engagement (see
-   * finalizePlayerMoves). Entering the final target and attacking are resolved together
-   * with the other engagements instead.
+   * Apply <piece>'s planned <step> (see MovementRulesService.planEndOfTurn). Entering its
+   * target and attacking are not resolved here: the piece is moved to where it engages from
+   * and returned with the panel it engages, to be resolved together with the other pieces
+   * engaging the same panel (see finalizePlayerMoves).
    */
-  private static applyGradualStep(planned: Piece, step: GradualStep): void {
-    if (step.kind === "attack") return;
-    if (step.kind === "enter" && planned.targetPosition?.equals(step.hop)) return;
-    const piece = PiecesRepository.getAll().find((candidate) => candidate.id === planned.id);
-    if (!piece) return;
+  private static applyStep(
+    piece: Piece,
+    step: TurnStep,
+  ): { piece: Piece; target: PanelPosition } | undefined {
+    const slow = piece.takesMultipleTurnsPerHop;
     const progress = piece.movementPoints + piece.pieceType.config.movement;
 
     switch (step.kind) {
+      case "idle":
+        return undefined;
       case "stay":
+        if (slow) {
+          PiecesRepository.update(
+            new Piece({
+              ...piece,
+              targetPosition: undefined,
+              transitPosition: undefined,
+              movementPoints: 0,
+            }),
+          );
+        } else {
+          this.move(piece.panelPosition, piece);
+        }
+        return undefined;
+      case "advance":
+        PiecesRepository.update(this.walk(piece, step.path));
+        return undefined;
       case "blocked":
         PiecesRepository.update(
-          new Piece({
+          slow
+            ? new Piece({
+                ...piece,
+                targetPosition: undefined,
+                transitPosition: undefined,
+                movementPoints: 0,
+              })
+            : new Piece({ ...this.walk(piece, step.path), targetPosition: undefined }),
+        );
+        return undefined;
+      case "enter": {
+        const hop = step.path.at(-1)!;
+        if (!slow) {
+          const engaging = this.walk(piece, step.path.slice(0, -1));
+          PiecesRepository.update(engaging);
+          return { piece: engaging, target: hop };
+        }
+        if (piece.targetPosition?.equals(hop)) {
+          const engaging = new Piece({
             ...piece,
-            targetPosition: undefined,
             transitPosition: undefined,
-            movementPoints: 0,
-          }),
-        );
-        return;
-      case "windUp":
-      case "continueTransit":
-        PiecesRepository.update(new Piece({ ...piece, movementPoints: progress }));
-        return;
-      case "startTransit":
-        PiecesRepository.update(
-          new Piece({ ...piece, transitPosition: step.hop, movementPoints: progress }),
-        );
-        return;
-      case "enter":
+            movementPoints: progress,
+          });
+          PiecesRepository.update(engaging);
+          return { piece: engaging, target: hop };
+        }
         // An intermediate hop: arrive and keep heading for the final target.
         PiecesRepository.update(
           new Piece({
             ...piece,
-            panelPosition: step.hop,
-            initialPosition: step.hop,
+            panelPosition: hop,
+            initialPosition: hop,
             transitPosition: undefined,
             movementPoints: progress - MOVEMENT_HOP_COST,
           }),
         );
-        return;
-      default:
-        return;
+        return undefined;
+      }
+      case "attack": {
+        const engaging = slow
+          ? new Piece({ ...piece, transitPosition: undefined, movementPoints: progress })
+          : this.walk(piece, step.path);
+        PiecesRepository.update(engaging);
+        return { piece: engaging, target: step.target };
+      }
+      case "windUp":
+      case "continueTransit":
+        PiecesRepository.update(new Piece({ ...piece, movementPoints: progress }));
+        return undefined;
+      case "startTransit":
+        PiecesRepository.update(
+          new Piece({ ...piece, transitPosition: step.hop, movementPoints: progress }),
+        );
+        return undefined;
     }
   }
 
@@ -396,16 +315,17 @@ export class PieceService {
    *      exchange simultaneous proportional damage.
    *   4. Surviving attackers may enter only when no enemy pieces remain and the wall is gone.
    *   5. When combat occurred (wall or pieces), they enter one at a time in order sequence
-   *      (see compareOrderSequence), each only if the attackers that entered in this
-   *      resolution, itself included, still number at most <maxPieces> after merging (see
-   *      mergedStackCount). A piece that does not fit stays at its origin like a failed
-   *      attacker; later pieces are still checked, so one that merges with an entered piece
-   *      may still enter. Only pieces entered in this resolution are counted: the panel held
-   *      none of the attacker's pieces before the attack.
+   *      (see MovementRulesService.compareOrderSequence), each only if the attackers that
+   *      entered in this resolution, itself included, still number at most <maxPieces> after
+   *      merging (see MovementRulesService.mergedStackCount). A piece that does not fit
+   *      stays where it attacked from like a failed attacker; later pieces are still checked,
+   *      so one that merges with an entered piece may still enter. Only pieces entered in
+   *      this resolution are counted: the panel held none of the attacker's pieces before the
+   *      attack.
    *   6. Without combat (a plain move into a panel with no enemy pieces or wall), every
-   *      piece enters: its capacity was already guaranteed by the projection checked when
-   *      the order was given, and counting pieces still on the panel here would wrongly
-   *      block a piece taking the place of one that leaves later in this same turn.
+   *      piece enters: the end-of-turn plan (MovementRulesService.planEndOfTurn) already gave
+   *      it room there, and counting pieces still on the panel here would wrongly block a
+   *      piece taking the place of one that leaves later in this same turn.
    *
    * Damage is never resolved by selecting a single front-line defender, and does not depend
    * on order sequence: every attacker fights simultaneously. Group damage is distributed
@@ -470,12 +390,16 @@ export class PieceService {
     const hadAnyCombat = hadWallCombat || hasCombat;
 
     const entered: Piece[] = [];
-    for (const atk of [...attackers].sort((a, b) => this.compareOrderSequence(a, b))) {
+    const inOrderSequence = [...attackers].sort((a, b) =>
+      MovementRulesService.compareOrderSequence(a, b),
+    );
+    for (const atk of inOrderSequence) {
       if (deadIds.has(atk.id)) continue;
       const current = PiecesRepository.getAll().find((p) => p.id === atk.id);
       if (!current) continue;
 
-      const fits = !hadAnyCombat || this.mergedStackCount([...entered, current]) <= maxPieces;
+      const fits =
+        !hadAnyCombat || MovementRulesService.mergedStackCount([...entered, current]) <= maxPieces;
       if (canEnter && fits) {
         this.move(targetPosition, current);
         entered.push(current);
@@ -555,120 +479,37 @@ export class PieceService {
   }
 
   /**
-   * Finalize all pending moves for a player.
+   * Finalize all pending moves for a player by applying the end-of-turn plan
+   * (MovementRulesService.planEndOfTurn), decided for every piece before anything moves.
    *
-   * A piece whose targetPosition is farther than one hop away advances toward it
-   * via computeTravelAdvance, stopping one panel short of the target. If it lands
-   * in range (adjacent to or on the target) with movement points still remaining,
-   * it proceeds to engage this same turn; otherwise its target and remaining
-   * points are left untouched for a later turn's finalizePlayerMoves to continue
-   * — UNLESS an intermediate panel blocks it (a transit obstacle, see
-   * MovementRulesService.isTransitObstacle). Hitting an obstacle always resolves
-   * this turn and always cancels the pending distant order afterward, regardless
-   * of outcome:
-   *   - An enemy-occupied (or enemy-walled) obstacle is engaged exactly like a
-   *     direct target, in the same group as every other piece engaging that panel
-   *     (attack/wall combat, entering only if it's cleared and there is room).
-   *   - A friendly panel already at capacity is entered (and later merged by
-   *     mergeAllPiecesForPlayer) if this specific piece would still fit once
-   *     merge-consolidation is accounted for (MovementRulesService.canMoveTo);
-   *     otherwise the piece stays put, unable to proceed at all.
+   * Pieces walk the panels the plan gives them. A piece blocked on its way stops where the plan
+   * leaves it and its order is cancelled; a piece that does not reach its target this turn
+   * keeps its order for a later turn. A piece that takes multiple turns per hop moves between
+   * panels over several turns (see Piece.transitPosition) and winds an attack up over several
+   * turns.
    *
-   * Pieces that reach engagement range of their actual final target are engaged
-   * exactly as an already-adjacent piece. Every engaging piece — adjacent to its
-   * target, arriving in range this turn, attacking an enemy obstacle, or a slow
-   * piece completing a hop into its final target or an attack — is grouped by the
-   * panel it engages, and each panel is resolved once by resolveTargetPanel: the
-   * group fights simultaneously, and after capturing an enemy panel its pieces
-   * enter in order sequence (Piece.orderSequence) until the panel is full, the
-   * rest staying at their origin with their order cleared.
-   *
-   * A piece whose banked movementPoints haven't yet reached MOVEMENT_HOP_COST is skipped
-   * entirely — its pending target and points are left untouched, to be resolved on a later
-   * turn once enough movement has accrued.
-   *
-   * A piece that takes multiple turns per hop (see Piece.takesMultipleTurnsPerHop) follows
-   * planGradualStep instead, decided for every such piece before anything moves: it moves
-   * between panels over several turns (see Piece.transitPosition) and winds an attack up
-   * over several turns. When it completes a hop into its final target, or attacks, it is
-   * resolved together with the other pieces engaging the same panel. An attack that fails
-   * to break through leaves it on its own panel with its order cancelled — including a
-   * piece in transit whose destination the enemy entered meanwhile.
+   * Every engaging piece — entering its target, attacking its target, or attacking an enemy
+   * panel in its way — is grouped by the panel it engages, and each panel is resolved once by
+   * resolveTargetPanel: the group fights simultaneously, and after capturing an enemy panel its
+   * pieces enter in order sequence (Piece.orderSequence) until the panel is full, the rest
+   * staying where they attacked from with their order cleared. Attacking an enemy panel in its
+   * way always cancels a piece's order, whether or not it enters that panel. An attack that
+   * fails to break through leaves a slow piece on its own panel with its order cancelled —
+   * including a piece in transit whose destination the enemy entered meanwhile.
    *
    * @returns Combat outcomes for groups where combat occurred.
    */
   static finalizePlayerMoves(player: Player): CombatOutcome[] {
     const turn = TurnRepository.get();
     const maxPieces = turn.maxPiecesPerPanel[String(player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
+    const plan = MovementRulesService.planEndOfTurn(player, maxPieces);
 
-    const pieces = PiecesRepository.getPiecesByPlayer(player);
-    // Decided up front, from the same state the end-of-turn projection sees.
-    const gradualSteps = pieces
-      .filter((p) => p.takesMultipleTurnsPerHop)
-      .map((piece) => ({ piece, step: this.planGradualStep(piece, maxPieces) }));
-    const piecesWithMoves = pieces.filter(
-      (p) =>
-        !p.takesMultipleTurnsPerHop && p.targetPosition && p.movementPoints >= MOVEMENT_HOP_COST,
-    );
-
-    // Pieces engaging a panel: moving into or attacking their target, or attacking an enemy
-    // obstacle in their way. Grouped by panel below so each panel is resolved once.
     const engagements: { piece: Piece; target: PanelPosition }[] = [];
-    const friendlyObstacleEncounters: { piece: Piece; obstaclePosition: PanelPosition }[] = [];
-
-    for (const piece of piecesWithMoves) {
-      const target = piece.targetPosition!;
-
-      if (this.isInEngagementRange(piece.panelPosition, target)) {
-        engagements.push({ piece, target });
-        continue;
-      }
-
-      const { stopPosition, hopsUsed, obstaclePosition } = this.computeTravelAdvance(
-        piece,
-        target,
-        maxPieces,
-      );
-
-      let current = piece;
-      if (hopsUsed > 0) {
-        current = new Piece({
-          ...piece,
-          panelPosition: stopPosition,
-          initialPosition: stopPosition,
-          movementPoints: piece.movementPoints - hopsUsed * MOVEMENT_HOP_COST,
-        });
-        PiecesRepository.update(current);
-      }
-
-      if (obstaclePosition) {
-        if (MovementRulesService.hasEnemyPresence(obstaclePosition, player)) {
-          // Resolving it always clears the distant order, whether or not the piece enters.
-          engagements.push({ piece: current, target: obstaclePosition });
-        } else {
-          friendlyObstacleEncounters.push({ piece: current, obstaclePosition });
-        }
-        continue;
-      }
-
-      if (
-        this.isInEngagementRange(current.panelPosition, target) &&
-        current.movementPoints >= MOVEMENT_HOP_COST
-      ) {
-        engagements.push({ piece: current, target });
-      }
-    }
-
-    for (const { piece, step } of gradualSteps) {
-      const entersFinalTarget = step.kind === "enter" && piece.targetPosition?.equals(step.hop);
-      if (step.kind !== "attack" && !entersFinalTarget) continue;
-      const engaging = new Piece({
-        ...piece,
-        transitPosition: undefined,
-        movementPoints: piece.movementPoints + piece.pieceType.config.movement,
-      });
-      PiecesRepository.update(engaging);
-      engagements.push({ piece: engaging, target: step.hop });
+    for (const piece of PiecesRepository.getPiecesByPlayer(player)) {
+      const step = plan.get(piece.id)?.step;
+      if (!step) continue;
+      const engagement = this.applyStep(piece, step);
+      if (engagement) engagements.push(engagement);
     }
 
     const outcomes: CombatOutcome[] = [];
@@ -688,25 +529,6 @@ export class PieceService {
     for (const { attackers, target } of groups.values()) {
       const outcome = this.resolveTargetPanel(attackers, target, maxPieces);
       if (outcome) outcomes.push(outcome);
-    }
-
-    // Friendly transit obstacles: always resolved (and the distant order cancelled) this turn.
-    for (const { piece, obstaclePosition } of friendlyObstacleEncounters) {
-      if (MovementRulesService.canMoveTo(obstaclePosition, player, piece.id, maxPieces)) {
-        this.move(obstaclePosition, piece);
-      } else {
-        PiecesRepository.update(
-          new Piece({
-            ...piece,
-            targetPosition: undefined,
-            movementPoints: piece.movementPoints - MOVEMENT_HOP_COST,
-          }),
-        );
-      }
-    }
-
-    for (const { piece, step } of gradualSteps) {
-      this.applyGradualStep(piece, step);
     }
 
     return outcomes;
