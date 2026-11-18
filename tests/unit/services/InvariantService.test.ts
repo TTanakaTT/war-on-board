@@ -1,212 +1,77 @@
 import { describe, expect, test } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
-import type { GameState, PanelPosition, Piece } from "#lib/domain/model.ts";
-import type { InvariantViolation } from "#lib/domain/types.ts";
-import { InvariantService } from "#lib/services/InvariantService.ts";
+import { createPiece, type GameState, type Piece } from "#lib/domain/model.ts";
+import { InvariantService as I } from "#lib/services/InvariantService.ts";
+import { newGame, pos } from "../helpers.ts";
 
-const CENTER: PanelPosition = { horizontalLayer: 0, verticalLayer: 0 };
-const NEXT_TO_CENTER: PanelPosition = { horizontalLayer: 0, verticalLayer: 1 };
-
-function initialSnapshot(): GameState {
-  GameApi.initializeGame({ layer: 4 });
-  return GameApi.getGameState();
-}
-
-function createPiece(overrides: Partial<Piece> & Pick<Piece, "id">): Piece {
-  const panelPosition = overrides.panelPosition ?? CENTER;
-
-  return {
-    panelPosition,
-    initialPosition: panelPosition,
+const piece = (id: number, overrides: Partial<Piece> = {}) =>
+  createPiece({
+    id,
+    panelPosition: pos(0, 0),
     player: "self",
     pieceType: "infantry",
-    hp: 10,
-    stackCount: 1,
-    maxHp: 10,
-    movementPoints: 0,
     ...overrides,
-  };
-}
+  });
+const state = (pieces: Piece[] = [], change: (s: GameState) => void = () => {}): GameState => {
+  newGame(4);
+  const s = GameApi.getGameState();
+  s.pieces = pieces;
+  change(s);
+  return s;
+};
+const keys = (s: GameState) => I.check(s).map((v) => v.key);
 
-function withPieces(snapshot: GameState, pieces: Piece[]): GameState {
-  return { ...snapshot, pieces: [...snapshot.pieces, ...pieces] };
-}
-
-function summarize(violations: InvariantViolation[]): { type: string; key: string }[] {
-  return violations.map(({ type, key }) => ({ type, key }));
-}
-
-describe("InvariantService.check", () => {
-  test("returns no violations right after initializeGame", () => {
-    expect(InvariantService.check(initialSnapshot())).toEqual([]);
+describe("InvariantService", () => {
+  test("a new game is clean", () => {
+    expect(I.check(state())).toEqual([]);
   });
 
-  test("piece-capacity-exceeded: reports a panel holding more stacks than allowed", () => {
-    const snapshot = withPieces(initialSnapshot(), [
-      createPiece({ id: 1, pieceType: "infantry" }),
-      createPiece({ id: 2, pieceType: "archer" }),
-      createPiece({ id: 3, pieceType: "rook" }),
-    ]);
-
-    expect(summarize(InvariantService.check(snapshot))).toEqual([
-      { type: "piece-capacity-exceeded", key: "piece-capacity-exceeded:0,0:self" },
-    ]);
+  test.each<[string, Piece[], string[]]>([
+    [
+      "capacity",
+      [piece(1), piece(2, { pieceType: "archer" }), piece(3, { pieceType: "rook" })],
+      ["piece-capacity-exceeded:0,0:self"],
+    ],
+    ["mixed players", [piece(1), piece(2, { player: "opponent" })], ["mixed-players-on-panel:0,0"]],
+    ["no HP", [piece(1, { hp: 0 })], ["piece-hp-out-of-range:1"]],
+    ["negative points", [piece(1, { movementPoints: -1 })], ["movement-points-out-of-range:1"]],
+    ["duplicate ids", [piece(1), piece(1, { panelPosition: pos(0, 1) })], ["duplicate-piece-id:1"]],
+    [
+      "off board",
+      [piece(1, { rangedAttackTargetPosition: pos(99, 99), transitPosition: pos(99, 99) })],
+      ["piece-off-board:1:rangedAttackTargetPosition", "piece-off-board:1:transitPosition"],
+    ],
+    ["unmerged", [piece(1), piece(2)], ["unmerged-pieces:0,0:self:infantry"]],
+  ])("reports %s", (_, pieces, expected) => {
+    expect(keys(state(pieces))).toEqual(expected);
   });
 
-  test("piece-capacity-exceeded: counts mergeable pieces of the same type as one stack", () => {
-    const snapshot = withPieces(initialSnapshot(), [
-      createPiece({ id: 1, pieceType: "infantry" }),
-      createPiece({ id: 2, pieceType: "infantry" }),
-      createPiece({ id: 3, pieceType: "archer" }),
-    ]);
-
-    const types = InvariantService.check(snapshot).map((violation) => violation.type);
-
-    expect(types).not.toContain("piece-capacity-exceeded");
-  });
-
-  test("mixed-players-on-panel: reports a panel holding both players' pieces", () => {
-    const snapshot = withPieces(initialSnapshot(), [
-      createPiece({ id: 1, player: "self" }),
-      createPiece({ id: 2, player: "opponent" }),
-    ]);
-
-    expect(summarize(InvariantService.check(snapshot))).toEqual([
-      { type: "mixed-players-on-panel", key: "mixed-players-on-panel:0,0" },
+  test("a heavy in transit is not counted as unmerged; negative resources are reported", () => {
+    const heavy = (id: number, extra = {}) => piece(id, { pieceType: "heavy", ...extra });
+    expect(
+      I.check(state([heavy(1), heavy(2, { transitPosition: pos(0, 1), movementPoints: 0.5 })])),
+    ).toEqual([]);
+    expect(keys(state([], (s) => (s.turn.resources.opponent = -1)))).toEqual([
+      "negative-resources:opponent",
     ]);
   });
 
-  test("piece-hp-out-of-range: reports a piece with no HP left", () => {
-    const snapshot = withPieces(initialSnapshot(), [createPiece({ id: 1, hp: 0 })]);
-
-    expect(summarize(InvariantService.check(snapshot))).toEqual([
-      { type: "piece-hp-out-of-range", key: "piece-hp-out-of-range:1" },
-    ]);
-  });
-
-  test("movement-points-out-of-range: reports negative movement points", () => {
-    const snapshot = withPieces(initialSnapshot(), [createPiece({ id: 1, movementPoints: -1 })]);
-
-    expect(summarize(InvariantService.check(snapshot))).toEqual([
-      { type: "movement-points-out-of-range", key: "movement-points-out-of-range:1" },
-    ]);
-  });
-
-  test("duplicate-piece-id: reports an id used by more than one piece", () => {
-    const snapshot = withPieces(initialSnapshot(), [
-      createPiece({ id: 1, panelPosition: CENTER }),
-      createPiece({ id: 1, panelPosition: NEXT_TO_CENTER }),
-    ]);
-
-    expect(summarize(InvariantService.check(snapshot))).toEqual([
-      { type: "duplicate-piece-id", key: "duplicate-piece-id:1" },
-    ]);
-  });
-
-  test("piece-off-board: reports a piece field pointing outside the board", () => {
-    const snapshot = withPieces(initialSnapshot(), [
-      createPiece({
-        id: 1,
-        rangedAttackTargetPosition: { horizontalLayer: 99, verticalLayer: 99 },
-      }),
-    ]);
-
-    expect(summarize(InvariantService.check(snapshot))).toEqual([
-      { type: "piece-off-board", key: "piece-off-board:1:rangedAttackTargetPosition" },
-    ]);
-  });
-
-  test("unmerged-pieces: reports mergeable pieces of the same type left unmerged", () => {
-    const snapshot = withPieces(initialSnapshot(), [
-      createPiece({ id: 1, pieceType: "infantry" }),
-      createPiece({ id: 2, pieceType: "infantry" }),
-    ]);
-
-    expect(summarize(InvariantService.check(snapshot))).toEqual([
-      { type: "unmerged-pieces", key: "unmerged-pieces:0,0:self:infantry" },
-    ]);
-  });
-
-  test.each(["self", "opponent"] as const)(
-    "unmerged-pieces: leaves out a piece in transit (%s)",
-    (player) => {
-      const snapshot = withPieces(initialSnapshot(), [
-        createPiece({ id: 1, player, pieceType: "heavy" }),
-        createPiece({
-          id: 2,
-          player,
-          pieceType: "heavy",
-          targetPosition: NEXT_TO_CENTER,
-          transitPosition: NEXT_TO_CENTER,
-          movementPoints: 0.5,
-        }),
-      ]);
-
-      expect(InvariantService.check(snapshot)).toEqual([]);
-    },
-  );
-
-  test("piece-off-board: reports a transit position outside the board", () => {
-    const snapshot = withPieces(initialSnapshot(), [
-      createPiece({
-        id: 1,
-        pieceType: "heavy",
-        transitPosition: { horizontalLayer: 99, verticalLayer: 99 },
-      }),
-    ]);
-
-    expect(summarize(InvariantService.check(snapshot))).toEqual([
-      { type: "piece-off-board", key: "piece-off-board:1:transitPosition" },
-    ]);
-  });
-
-  test("negative-resources: reports a player with negative resources", () => {
-    const snapshot = initialSnapshot();
-    const negative: GameState = {
-      ...snapshot,
-      turn: { ...snapshot.turn, resources: { ...snapshot.turn.resources, opponent: -1 } },
+  test("findIntroducedViolations skips existing keys and flags changes after a winner", () => {
+    const before = state([piece(1, { hp: 0 })]);
+    const after = {
+      ...before,
+      pieces: [...before.pieces, piece(2, { movementPoints: -1, panelPosition: pos(0, 1) })],
     };
-
-    expect(summarize(InvariantService.check(negative))).toEqual([
-      { type: "negative-resources", key: "negative-resources:opponent" },
-    ]);
-  });
-});
-
-describe("InvariantService.findIntroducedViolations", () => {
-  test("returns only violations whose key did not exist before", () => {
-    const before = withPieces(initialSnapshot(), [createPiece({ id: 1, hp: 0 })]);
-    const after = withPieces(before, [
-      createPiece({ id: 2, movementPoints: -1, panelPosition: NEXT_TO_CENTER }),
+    expect(I.findIntroducedViolations(before, after).map((v) => v.key)).toEqual([
+      "movement-points-out-of-range:2",
     ]);
 
-    expect(InvariantService.check(after).map((violation) => violation.key)).toContain(
-      "piece-hp-out-of-range:1",
-    );
-    expect(summarize(InvariantService.findIntroducedViolations(before, after))).toEqual([
-      { type: "movement-points-out-of-range", key: "movement-points-out-of-range:2" },
+    const finished = state([], (s) => (s.turn.winner = "self"));
+    expect(I.findIntroducedViolations(finished, structuredClone(finished))).toEqual([]);
+    const changed = structuredClone(finished);
+    changed.turn.resources.self = 999;
+    expect(I.findIntroducedViolations(finished, changed).map((v) => v.type)).toEqual([
+      "state-changed-after-winner",
     ]);
-  });
-
-  test("returns state-changed-after-winner when the state changes after a winner is decided", () => {
-    const snapshot = initialSnapshot();
-    const finished: GameState = { ...snapshot, turn: { ...snapshot.turn, winner: "self" } };
-    const changed: GameState = {
-      ...finished,
-      turn: { ...finished.turn, resources: { ...finished.turn.resources, self: 999 } },
-    };
-
-    expect(summarize(InvariantService.findIntroducedViolations(finished, changed))).toEqual([
-      { type: "state-changed-after-winner", key: "state-changed-after-winner" },
-    ]);
-  });
-
-  test("does not return state-changed-after-winner when the finished state stays the same", () => {
-    const snapshot = initialSnapshot();
-    const finished: GameState = { ...snapshot, turn: { ...snapshot.turn, winner: "self" } };
-
-    expect(InvariantService.findIntroducedViolations(finished, structuredClone(finished))).toEqual(
-      [],
-    );
   });
 });

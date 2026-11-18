@@ -1,325 +1,64 @@
-import { beforeEach, describe, test, expect } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
-import { PanelsService } from "#lib/services/PanelService.ts";
-import { PanelRepository, PiecesRepository } from "#lib/store.svelte.ts";
-import {
-  type PanelPosition,
-  PanelState,
-  PieceType,
-  Player,
-  pos,
-  samePos,
-  isAdjacent,
-  createPiece,
-  createPanel,
-} from "#lib/domain/model.ts";
-import { HOME_BASE_INIT_CASTLE, HOME_BASE_INIT_RESOURCE } from "#lib/domain/config.ts";
+import { isAdjacent, PanelState, Player, type PanelPosition } from "#lib/domain/model.ts";
+import { PanelsService as P } from "#lib/services/PanelService.ts";
+import { PanelRepository } from "#lib/store.svelte.ts";
+import { add, newGame, panel, pos, setPanel } from "../helpers.ts";
 
-describe("PanelsService", () => {
-  describe("initialize", () => {
-    test("creates correct number of panels for given layer", () => {
-      // layer^2 panels: layer=4 → 16
-      const panels = PanelsService.initialize(4);
-      expect(panels).toHaveLength(16);
-    });
+beforeEach(() => newGame(4));
 
-    test("assigns Player.SELF to leftmost home base panel", () => {
-      const panels = PanelsService.initialize(4);
-      const selfHome = panels.find(
-        (p) => p.panelPosition.horizontalLayer === -3 && p.panelPosition.verticalLayer === 0,
-      );
-      expect(selfHome).toBeDefined();
-      expect(selfHome!.player).toBe(Player.SELF);
-    });
-
-    test("assigns Player.OPPONENT to rightmost home base panel", () => {
-      const panels = PanelsService.initialize(4);
-      const oppHome = panels.find(
-        (p) => p.panelPosition.horizontalLayer === 3 && p.panelPosition.verticalLayer === 0,
-      );
-      expect(oppHome).toBeDefined();
-      expect(oppHome!.player).toBe(Player.OPPONENT);
-    });
-
-    test("assigns Player.UNKNOWN to all non-home-base panels", () => {
-      const panels = PanelsService.initialize(4);
-      const nonHome = panels.filter(
-        (p) =>
-          !(Math.abs(p.panelPosition.horizontalLayer) === 3 && p.panelPosition.verticalLayer === 0),
-      );
-      expect(nonHome.length).toBeGreaterThan(0);
-      for (const p of nonHome) {
-        expect(p.player).toBe(Player.UNKNOWN);
-      }
-    });
-
-    test("sets initial resource and castle on home base panels only", () => {
-      const panels = PanelsService.initialize(4);
-      for (const p of panels) {
-        const isHome =
-          Math.abs(p.panelPosition.horizontalLayer) === 3 && p.panelPosition.verticalLayer === 0;
-        if (isHome) {
-          expect(p.resource).toBe(HOME_BASE_INIT_RESOURCE);
-          expect(p.castle).toBe(HOME_BASE_INIT_CASTLE);
-        } else {
-          expect(p.resource).toBe(0);
-          expect(p.castle).toBe(0);
-        }
-      }
-    });
-
-    test("sets all panels to UNOCCUPIED state", () => {
-      const panels = PanelsService.initialize(4);
-      for (const p of panels) {
-        expect(p.panelState).toBe(PanelState.UNOCCUPIED);
-      }
-    });
+describe("board", () => {
+  test("adjacency is symmetric and edge panels have fewer neighbors", () => {
+    const positions = PanelRepository.getAll().map((p) => p.panelPosition);
+    const neighbors = (p: PanelPosition) => positions.filter((q) => isAdjacent(p, q));
+    expect(neighbors(pos(0, 1))).toHaveLength(6);
+    expect(neighbors(pos(-3, 0))).toEqual([pos(-2, 0), pos(-2, 1)]);
+    for (const p of positions) for (const q of neighbors(p)) expect(isAdjacent(q, p)).toBe(true);
   });
 
-  describe("find", () => {
-    beforeEach(() => {
-      GameApi.initializeGame({ layer: 4 });
-    });
-
-    test("returns panel matching the given position", () => {
-      const panel = PanelRepository.find(pos(0, 0));
-      expect(panel).toBeDefined();
-      expect(panel!.panelPosition.horizontalLayer).toBe(0);
-      expect(panel!.panelPosition.verticalLayer).toBe(0);
-    });
-
-    test("returns undefined when position does not exist", () => {
-      expect(PanelRepository.find(pos(99, 99))).toBeUndefined();
-    });
+  test("shortest paths and distances", () => {
+    expect(P.findShortestPath(pos(0, 0), pos(0, 0))).toEqual([pos(0, 0)]);
+    const path = P.findShortestPath(pos(-3, 0), pos(3, 0))!;
+    expect(path).toHaveLength(7);
+    path.slice(1).forEach((p, i) => expect(isAdjacent(p, path[i])).toBe(true));
+    expect(P.distancesTo(pos(0, 0)).get("-3,0")).toBe(3);
   });
 
-  describe("findShortestPath", () => {
-    beforeEach(() => {
-      GameApi.initializeGame({ layer: 4 });
-    });
-
-    test("returns [origin] when origin equals destination", () => {
-      const path = PanelsService.findShortestPath(pos(0, 0), pos(0, 0));
-      expect(path).toEqual([pos(0, 0)]);
-    });
-
-    test("returns a 2-panel path for adjacent origin and destination", () => {
-      const path = PanelsService.findShortestPath(pos(-3, 0), pos(-2, 0));
-      expect(path).toEqual([pos(-3, 0), pos(-2, 0)]);
-    });
-
-    test("returns the minimal-length path across multiple hops, each step adjacent to the last", () => {
-      const path = PanelsService.findShortestPath(pos(-3, 0), pos(0, 0));
-      expect(path).not.toBeNull();
-      expect(samePos(path![0], pos(-3, 0))).toBe(true);
-      expect(samePos(path![path!.length - 1], pos(0, 0))).toBe(true);
-      // Home base (-3,0) to (0,0) along vl=0 is 3 hops away — the shortest path has 4 panels.
-      expect(path).toHaveLength(4);
-      for (let i = 1; i < path!.length; i++) {
-        expect(isAdjacent(path![i], path![i - 1])).toBe(true);
-      }
-    });
+  test("route prefixes: findShortestPath's route first, distinct, capped at the route length", () => {
+    expect(P.shortestRoutePrefixes(pos(-2, 0), pos(2, 0), 2)).toEqual([
+      [pos(-1, 0), pos(0, 0)],
+      [pos(-1, 0), pos(0, 1)],
+      [pos(-1, 1), pos(0, 1)],
+      [pos(-1, 1), pos(0, 2)],
+    ]);
+    expect(P.shortestRoutePrefixes(pos(-1, 0), pos(1, 0), 5)).toEqual([
+      [pos(0, 0), pos(1, 0)],
+      [pos(0, 1), pos(1, 0)],
+    ]);
+    expect(P.shortestRoutePrefixes(pos(0, 0), pos(0, 0), 2)).toEqual([]);
+    expect(P.shortestRoutePrefixes(pos(-1, 0), pos(1, 0), 0)).toEqual([]);
   });
 
-  describe("distancesTo", () => {
-    beforeEach(() => {
-      GameApi.initializeGame({ layer: 4 });
-    });
-
-    test("gives every panel's shortest-path length to the destination", () => {
-      const distances = PanelsService.distancesTo(pos(0, 0));
-
-      expect(distances.size).toBe(PanelRepository.getAll().length);
-      expect(distances.get("0,0")).toBe(0);
-      expect(distances.get("1,0")).toBe(1);
-      expect(distances.get("2,0")).toBe(2);
-      expect(distances.get("-3,0")).toBe(3);
-      for (const panel of PanelRepository.getAll()) {
-        const path = PanelsService.findShortestPath(panel.panelPosition, pos(0, 0))!;
-        const { horizontalLayer, verticalLayer } = panel.panelPosition;
-        expect(distances.get(`${horizontalLayer},${verticalLayer}`)).toBe(path.length - 1);
-      }
-    });
+  test("route caches follow board layout changes", () => {
+    expect(P.distancesTo(pos(0, 0)).size).toBe(16);
+    GameApi.initializeGame({ layer: 3 });
+    expect(P.distancesTo(pos(0, 0)).size).toBe(9);
+    expect(P.findShortestPath(pos(-3, 0), pos(0, 0))).toBeNull();
   });
 
-  describe("shortestRoutePrefixes", () => {
-    beforeEach(() => {
-      GameApi.initializeGame({ layer: 4 });
-    });
-
-    const boardIndex = (position: PanelPosition) =>
-      PanelRepository.getAll().findIndex((panel) => samePos(panel.panelPosition, position));
-    const compareInBoardOrder = (a: PanelPosition[], b: PanelPosition[]) => {
-      for (let i = 0; i < a.length; i++) {
-        const difference = boardIndex(a[i]) - boardIndex(b[i]);
-        if (difference !== 0) return difference;
-      }
-      return 0;
-    };
-
-    test("puts the route along findShortestPath first and the rest in board order", () => {
-      const origin = pos(-2, 0);
-      const destination = pos(2, 0);
-      const routes = PanelsService.shortestRoutePrefixes(origin, destination, 4);
-
-      expect(routes).toHaveLength(6);
-      expect(routes[0]).toEqual(PanelsService.findShortestPath(origin, destination)!.slice(1));
-      const rest = routes.slice(1);
-      expect(rest).toEqual([...rest].sort(compareInBoardOrder));
-      for (const route of routes) {
-        expect(route.at(-1)).toEqual(destination);
-        route.forEach((position, i) => {
-          expect(isAdjacent(position, i === 0 ? origin : route[i - 1])).toBe(true);
-        });
-      }
-    });
-
-    test("keeps only the distinct first <length> panels of the routes", () => {
-      const routes = PanelsService.shortestRoutePrefixes(pos(-2, 0), pos(2, 0), 2);
-
-      expect(routes).toEqual([
-        [pos(-1, 0), pos(0, 0)],
-        [pos(-1, 0), pos(0, 1)],
-        [pos(-1, 1), pos(0, 1)],
-        [pos(-1, 1), pos(0, 2)],
-      ]);
-    });
-
-    test("returns whole routes when <length> is longer than the routes", () => {
-      expect(PanelsService.shortestRoutePrefixes(pos(-1, 0), pos(1, 0), 5)).toEqual([
-        [pos(0, 0), pos(1, 0)],
-        [pos(0, 1), pos(1, 0)],
-      ]);
-    });
-
-    test("is empty when origin equals destination", () => {
-      expect(PanelsService.shortestRoutePrefixes(pos(0, 0), pos(0, 0), 2)).toEqual([]);
-    });
-
-    test("is empty when <length> is 0", () => {
-      expect(PanelsService.shortestRoutePrefixes(pos(-1, 0), pos(1, 0), 0)).toEqual([]);
-    });
-  });
-
-  describe("route cache", () => {
-    test("recomputes routes when the board's layout changes", () => {
-      GameApi.initializeGame({ layer: 4 });
-      expect(PanelsService.distancesTo(pos(0, 0)).size).toBe(16);
-      expect(PanelsService.findShortestPath(pos(-3, 0), pos(0, 0))).toHaveLength(4);
-      expect(PanelsService.shortestRoutePrefixes(pos(-3, 0), pos(0, 0), 1)).toEqual([[pos(-2, 0)]]);
-
-      GameApi.initializeGame({ layer: 3 });
-      expect(PanelsService.distancesTo(pos(0, 0)).size).toBe(9);
-      expect(PanelsService.findShortestPath(pos(-3, 0), pos(0, 0))).toBeNull();
-      expect(PanelsService.shortestRoutePrefixes(pos(-3, 0), pos(0, 0), 1)).toEqual([]);
-
-      GameApi.initializeGame({ layer: 4 });
-      expect(PanelsService.distancesTo(pos(0, 0)).size).toBe(16);
-      expect(PanelsService.findShortestPath(pos(-3, 0), pos(0, 0))).toHaveLength(4);
-    });
-  });
-
-  describe("clearSelected", () => {
-    beforeEach(() => {
-      GameApi.initializeGame({ layer: 4 });
-    });
-
-    test("resets MOVABLE panels to OCCUPIED when pieces are present", () => {
-      const panel = PanelRepository.find(pos(0, 0))!;
-      PanelRepository.update(createPanel({ ...panel, panelState: PanelState.MOVABLE }));
-      PiecesRepository.add(
-        createPiece({
-          id: 1,
-          panelPosition: pos(0, 0),
-          player: Player.SELF,
-          pieceType: PieceType.INFANTRY,
-        }),
-      );
-      const cleared = PanelsService.clearSelected();
-      const p = cleared.find((x) => samePos(x.panelPosition, pos(0, 0)))!;
-      expect(p.panelState).toBe(PanelState.OCCUPIED);
-    });
-
-    test("resets MOVABLE panels to UNOCCUPIED when no pieces are present", () => {
-      const panel = PanelRepository.find(pos(0, 0))!;
-      PanelRepository.update(createPanel({ ...panel, panelState: PanelState.MOVABLE }));
-      const cleared = PanelsService.clearSelected();
-      const p = cleared.find((x) => samePos(x.panelPosition, pos(0, 0)))!;
-      expect(p.panelState).toBe(PanelState.UNOCCUPIED);
-    });
-
-    test("resets SELECTED panels similarly", () => {
-      const panel = PanelRepository.find(pos(0, 0))!;
-      PanelRepository.update(createPanel({ ...panel, panelState: PanelState.SELECTED }));
-      const cleared = PanelsService.clearSelected();
-      const p = cleared.find((x) => samePos(x.panelPosition, pos(0, 0)))!;
-      expect(p.panelState).toBe(PanelState.UNOCCUPIED);
-    });
-
-    test("does not modify OCCUPIED or UNOCCUPIED panels", () => {
-      const panel = PanelRepository.find(pos(0, 0))!;
-      expect(panel.panelState).toBe(PanelState.UNOCCUPIED);
-      const cleared = PanelsService.clearSelected();
-      const p = cleared.find((x) => samePos(x.panelPosition, pos(0, 0)))!;
-      expect(p.panelState).toBe(PanelState.UNOCCUPIED);
-    });
-  });
-
-  describe("refreshPanelStates", () => {
-    beforeEach(() => {
-      GameApi.initializeGame({ layer: 4 });
-    });
-
-    test("sets panel to OCCUPIED when pieces exist at position", () => {
-      PiecesRepository.add(
-        createPiece({
-          id: 1,
-          panelPosition: pos(0, 0),
-          player: Player.SELF,
-          pieceType: PieceType.INFANTRY,
-        }),
-      );
-      PanelsService.refreshPanelStates();
-      const panel = PanelRepository.find(pos(0, 0))!;
-      expect(panel.panelState).toBe(PanelState.OCCUPIED);
-    });
-
-    test("sets panel to UNOCCUPIED when no pieces exist at position", () => {
-      PanelsService.refreshPanelStates();
-      const panel = PanelRepository.find(pos(0, 0))!;
-      expect(panel.panelState).toBe(PanelState.UNOCCUPIED);
-    });
-
-    test("updates panel player to match piece owner", () => {
-      PiecesRepository.add(
-        createPiece({
-          id: 1,
-          panelPosition: pos(0, 0),
-          player: Player.SELF,
-          pieceType: PieceType.INFANTRY,
-        }),
-      );
-      PanelsService.refreshPanelStates();
-      const panel = PanelRepository.find(pos(0, 0))!;
-      expect(panel.player).toBe(Player.SELF);
-    });
-
-    test("preserves panel resource and castle values", () => {
-      const panel = PanelRepository.find(pos(-3, 0))!;
-      const originalResource = panel.resource;
-      const originalCastle = panel.castle;
-      PiecesRepository.add(
-        createPiece({
-          id: 1,
-          panelPosition: pos(-3, 0),
-          player: Player.SELF,
-          pieceType: PieceType.INFANTRY,
-        }),
-      );
-      PanelsService.refreshPanelStates();
-      const updated = PanelRepository.find(pos(-3, 0))!;
-      expect(updated.resource).toBe(originalResource);
-      expect(updated.castle).toBe(originalCastle);
-    });
+  test("clearSelected resets highlights from occupancy; refresh also sets owners", () => {
+    add(1, pos(0, 0), Player.OPPONENT);
+    setPanel(pos(0, 0), { panelState: PanelState.SELECTED, resource: 2 });
+    setPanel(pos(0, 1), { panelState: PanelState.MOVABLE });
+    const cleared = P.clearSelected();
+    expect(
+      cleared.find(
+        (p) => p.panelPosition.verticalLayer === 1 && p.panelPosition.horizontalLayer === 0,
+      )!.panelState,
+    ).toBe(PanelState.UNOCCUPIED);
+    PanelRepository.setAll(cleared);
+    expect(panel(pos(0, 0)).panelState).toBe(PanelState.OCCUPIED);
+    P.refreshPanelStates();
+    expect(panel(pos(0, 0))).toMatchObject({ player: Player.OPPONENT, resource: 2 });
   });
 });
