@@ -37,9 +37,9 @@ interface PieceConfig {
    */
   readonly mergeable: boolean;
   /**
-   * Whether this piece counts toward a player's army value (the total cost of
-   * combat units on the board, shown in the info panel). Support pieces whose
-   * role is a passive effect on their panel are not combat units.
+   * Whether this piece is a combat unit: only combat units count toward a
+   * player's army power (the total cost of their combat units, shown in the info
+   * panel). Support pieces whose role is a passive effect on their panel are not.
    */
   readonly isCombatUnit: boolean;
 }
