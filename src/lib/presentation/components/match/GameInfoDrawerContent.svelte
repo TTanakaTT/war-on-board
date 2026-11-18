@@ -69,8 +69,8 @@
     };
   }
 
-  function panelClass(playerId: PlayerInfoCard["id"], isWideLayoutValue: boolean): string {
-    return `border-2 bg-player-card-surface shadow-sm ${isWideLayoutValue ? "rounded-2xl p-4" : "rounded-xl p-3"} ${playerId === "self" ? "border-player-self text-player-self" : "border-player-opponent text-player-opponent"}`;
+  function panelClass(playerId: PlayerInfoCard["id"]): string {
+    return `rounded-xl border-2 bg-player-card-surface p-3 shadow-sm ${playerId === "self" ? "border-player-self text-player-self" : "border-player-opponent text-player-opponent"}`;
   }
 
   function unitPanelClass(playerId: PlayerInfoCard["id"]): string {
@@ -128,7 +128,7 @@
 
 <div class={containerClass}>
   {#each playerCards as card (card.id)}
-    <section class="min-w-0 {panelClass(card.id, isWideLayout)}">
+    <section class="min-w-0 {panelClass(card.id)}">
       <h2 class="text-base font-semibold">
         {card.label}
       </h2>
