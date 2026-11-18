@@ -102,24 +102,8 @@
   {/each}
 {/snippet}
 
-<!-- PROTOTYPE ONLY: layout 1 — label and total on one line at the left, the breakdown box at the right. -->
-{#snippet armyPowerLayout1(
-  cardId: PlayerInfoCard["id"],
-  label: string,
-  total: number,
-  counts: PieceTypeCount[],
-)}
-  <div class="flex items-center gap-4">
-    <dt class="whitespace-nowrap">{label}</dt>
-    <dd class="font-semibold">{total}</dd>
-    <dd class="ms-auto grid gap-2 rounded-xl border p-3 {unitPanelClass(cardId)}">
-      {@render unitCountRows(counts)}
-    </dd>
-  </div>
-{/snippet}
-
-<!-- PROTOTYPE ONLY: layout 2 — total under the label at the left, the breakdown box at the right. -->
-{#snippet armyPowerLayout2(
+<!-- The total under the label at the left, its combat unit breakdown at the right. -->
+{#snippet armyPowerRow(
   cardId: PlayerInfoCard["id"],
   label: string,
   total: number,
@@ -176,28 +160,13 @@
           <dt>{m.occupied_panels_label()}</dt>
           <dd class="font-semibold">{card.occupiedPanels}</dd>
         </div>
-        <!-- PROTOTYPE ONLY: both layouts are shown for comparison. -->
-        <p class="text-xs {infoLabelClass(card.id)}">案1</p>
-        {@render armyPowerLayout1(
+        {@render armyPowerRow(
           card.id,
           m.army_power_label(),
           card.armyPower,
           card.visibleLiveUnitCounts,
         )}
-        {@render armyPowerLayout1(
-          card.id,
-          m.lost_army_power_label(),
-          card.lostArmyPower,
-          card.visibleDeadUnitCounts,
-        )}
-        <p class="text-xs {infoLabelClass(card.id)}">案2</p>
-        {@render armyPowerLayout2(
-          card.id,
-          m.army_power_label(),
-          card.armyPower,
-          card.visibleLiveUnitCounts,
-        )}
-        {@render armyPowerLayout2(
+        {@render armyPowerRow(
           card.id,
           m.lost_army_power_label(),
           card.lostArmyPower,
