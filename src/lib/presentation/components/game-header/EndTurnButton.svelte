@@ -1,6 +1,6 @@
 <script lang="ts">
   import { GameApiClient } from "#lib/api/GameApiClient.ts";
-  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+  import { TurnRepository } from "#lib/store.svelte.ts";
   import { m } from "#lib/paraglide/messages.js";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
   import { InteractionService } from "#lib/services/InteractionService.ts";

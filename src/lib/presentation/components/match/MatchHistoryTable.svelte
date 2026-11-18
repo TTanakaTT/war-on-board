@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { MatchHistoryExport, MatchHistoryMetricPair } from "#lib/domain/types/history.ts";
-  import type { ControllablePlayerSnapshot } from "#lib/domain/types/api.ts";
+  import type { BySide, MatchHistoryExport } from "#lib/domain/types.ts";
+  import type { Side } from "#lib/domain/model.ts";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
-  import { seatLabel } from "#lib/presentation/matchPresentation.ts";
+  import { seatLabel } from "#lib/presentation/labels.ts";
   import { m } from "#lib/paraglide/messages.js";
 
   const HISTORY_TABLE_HEADER_PLAYERS = [
@@ -16,22 +16,12 @@
     "opponent",
     "self",
     "opponent",
-  ] as const satisfies readonly ControllablePlayerSnapshot[];
+  ] as const satisfies readonly Side[];
 
   let { matchHistory }: { matchHistory: MatchHistoryExport } = $props();
 
-  function metricValue(
-    metricPair: MatchHistoryMetricPair,
-    player: ControllablePlayerSnapshot,
-  ): number {
+  function metricValue(metricPair: BySide<number>, player: Side): number {
     return metricPair[player];
-  }
-
-  function isCurrentTurnPlayer(
-    turnPlayer: ControllablePlayerSnapshot,
-    player: ControllablePlayerSnapshot,
-  ): boolean {
-    return turnPlayer === player;
   }
 
   function shouldRenderTurnCell(index: number): boolean {
@@ -158,7 +148,7 @@
           <td
             class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
           >
-            {#if isCurrentTurnPlayer(entry.turnPlayer, "self")}
+            {#if entry.turnPlayer === "self"}
               <span
                 class="inline-flex items-center justify-center"
                 title={m.history_current_turn_marker_label()}
@@ -171,7 +161,7 @@
           <td
             class="border-outline/60 dark:border-outline-dark/60 border-b px-3 py-2 text-center whitespace-nowrap"
           >
-            {#if isCurrentTurnPlayer(entry.turnPlayer, "opponent")}
+            {#if entry.turnPlayer === "opponent"}
               <span
                 class="inline-flex items-center justify-center"
                 title={m.history_current_turn_marker_label()}

@@ -1,19 +1,21 @@
 <script lang="ts">
-  import { PanelsService } from "#lib/services/PanelService.ts";
-  import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
+  import {
+    PanelRepository,
+    PiecesRepository,
+    SelectionRepository,
+    TurnRepository,
+  } from "#lib/store.svelte.ts";
+  import {
+    type PanelPosition,
+    PanelState,
+    type Piece,
+    Player,
+    samePos,
+  } from "#lib/domain/model.ts";
   import { InteractionService } from "#lib/services/InteractionService.ts";
-  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-  import { SelectedPanelRepository } from "#lib/data/repositories/SelectedPanelRepository.ts";
-  import { RangedAttackModeRepository } from "#lib/data/repositories/RangedAttackModeRepository.ts";
   import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
-
-  import { PanelState } from "#lib/domain/enums/PanelState.ts";
-  import { Player } from "#lib/domain/enums/Player.ts";
-  import type { Piece } from "#lib/domain/entities/Piece.ts";
-  import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
   import { m } from "#lib/paraglide/messages.js";
-  import { BoardLayout } from "#lib/presentation/BoardLayout.ts";
-  import { getPanelRowPieces } from "#lib/presentation/PieceTokenLayout.ts";
+  import { BoardLayout, getPanelRowPieces } from "#lib/presentation/layout.ts";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
   import HexagonPanelSvg from "./HexagonPanelSvg.svelte";
   import PieceToken from "./PieceToken.svelte";
@@ -37,41 +39,30 @@
     onclick: () => void;
   } = $props();
 
-  let selectedPieceId = $derived(SelectedPanelRepository.getPieceId());
+  let selectedPieceId = $derived(SelectionRepository.getPieceId());
   let pieces = $derived(PiecesRepository.getPiecesByPosition(panelPosition));
-  // Pieces in transit belong to this panel but are drawn between panels (TransitPieceTokens).
   let rowPieces = $derived(getPanelRowPieces(panelPosition));
 
-  let panel = $derived(PanelsService.find(panelPosition));
+  let panel = $derived(PanelRepository.find(panelPosition));
   let player = $derived(panel?.player);
   let castle = $derived(panel?.castle);
   let resource = $derived(panel?.resource);
 
   let panelState = $derived(panel?.panelState);
 
-  let selectedPiece = $derived.by(() => {
-    const selectedPieceId = SelectedPanelRepository.getPieceId();
-    if (selectedPieceId === undefined) return undefined;
-    return PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
-  });
-  // A MOVABLE panel beyond this turn's reach of the selected piece (see
-  // MovementRulesService.isWithinThisTurnsReach) takes multiple turns to reach —
-  // shown in a distinct color so the player can tell it apart from a
-  // this-turn-reachable panel at a glance.
+  let selectedPiece = $derived(PiecesRepository.get(selectedPieceId));
+  // Targets beyond this turn's reach get a distinct color.
   let isDistantMovable = $derived(
     Boolean(
       selectedPiece &&
-      !panelPosition.equals(selectedPiece.panelPosition) &&
+      !samePos(panelPosition, selectedPiece.panelPosition) &&
       !MovementRulesService.isWithinThisTurnsReach(selectedPiece, panelPosition),
     ),
   );
-  // While ranged-attack mode is active, a panel this reachable-by-fire (see
-  // MovementRulesService.canRangedAttack) is highlighted distinctly from a
-  // plain movable panel, since clicking it fires instead of walking there.
   let isRangedAttackTarget = $derived(
     Boolean(
       selectedPiece &&
-      RangedAttackModeRepository.isActive() &&
+      SelectionRepository.isRangedAttackMode() &&
       MovementRulesService.canRangedAttack(selectedPiece.id, panelPosition),
     ),
   );
@@ -160,7 +151,6 @@
           strokeDasharray,
         };
       }
-      case PanelState.IMMOVABLE:
       default:
         return {
           isInteractive: false,

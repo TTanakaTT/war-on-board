@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { Player } from "#lib/domain/enums/Player.ts";
-  import type { PlayerSnapshot } from "#lib/domain/types/api.ts";
+  import { Player } from "#lib/domain/model.ts";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
 
   interface Props {
-    player: Player | PlayerSnapshot;
+    player: Player;
     label: string;
     resource?: number;
     additionalClass?: string;
@@ -21,7 +20,7 @@
     previewCost,
   }: Props = $props();
 
-  let isFirstPlayer = $derived(player === Player.SELF || player === "self");
+  let isFirstPlayer = $derived(player === Player.SELF);
   let toneClass = $derived(
     isFirstPlayer
       ? "border-player-self text-player-self"

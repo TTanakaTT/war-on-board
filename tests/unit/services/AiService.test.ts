@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, test, expect, vi } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
 import { GameApiClient } from "#lib/api/GameApiClient.ts";
-import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-import { ActionError } from "#lib/domain/enums/ActionError.ts";
-import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
-import { Player } from "#lib/domain/enums/Player.ts";
+import { TurnRepository } from "#lib/store.svelte.ts";
+import { ActionError, AiStrength, Player } from "#lib/domain/model.ts";
 import { AiService } from "#lib/services/AiService.ts";
 import { createSeededRandom } from "#lib/services/ai/random.ts";
 

@@ -1,7 +1,10 @@
 <script lang="ts">
-  import type { Player } from "#lib/domain/enums/Player.ts";
-  import { Player as PlayerEnum } from "#lib/domain/enums/Player.ts";
-  import type { PieceType } from "#lib/domain/enums/PieceType.ts";
+  import {
+    pieceConfig,
+    type PieceType,
+    type Player,
+    Player as PlayerEnum,
+  } from "#lib/domain/model.ts";
   import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
   import IconButton from "#lib/presentation/components/primitives/IconButton.svelte";
@@ -83,7 +86,7 @@
       onclick={onToggleGenerateMenu}
       variant="primary"
     >
-      <Icon icon={generateMenuPieceTypes[0].config.iconName} size={20} />
+      <Icon icon={pieceConfig(generateMenuPieceTypes[0]).iconName} size={20} />
       <span class="sr-only">{m.produce()}</span>
     </AppButton>
 
@@ -93,7 +96,7 @@
           class="bg-surface/95 dark:bg-surface-dark/95 border-outline dark:border-outline-dark pointer-events-auto w-max max-w-[calc(100vw-12rem)] rounded-2xl border px-2 py-2 shadow-lg backdrop-blur-sm"
         >
           <div class="flex flex-wrap items-center justify-end gap-2">
-            {#each generateMenuPieceTypes as pieceType (pieceType.config.iconName)}
+            {#each generateMenuPieceTypes as pieceType (pieceConfig(pieceType).iconName)}
               <GeneratePieceButton
                 {pieceType}
                 compact={true}
@@ -107,7 +110,7 @@
     {/if}
   </div>
 {:else}
-  {#each generateMenuPieceTypes as pieceType (pieceType.config.iconName)}
+  {#each generateMenuPieceTypes as pieceType (pieceConfig(pieceType).iconName)}
     <GeneratePieceButton {pieceType} {compact} {onPreviewChange} />
   {/each}
 {/if}

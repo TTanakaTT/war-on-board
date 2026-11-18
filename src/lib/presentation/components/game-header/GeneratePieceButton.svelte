@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { PieceType } from "#lib/domain/enums/PieceType.ts";
+  import { pieceConfig, PieceType } from "#lib/domain/model.ts";
+  import { TurnRepository } from "#lib/store.svelte.ts";
   import { GameApi } from "#lib/api/GameApi.ts";
   import { GameApiClient } from "#lib/api/GameApiClient.ts";
-  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
-  import { pieceTypeLabel } from "#lib/presentation/piecePresentation.ts";
+  import { pieceTypeLabel } from "#lib/presentation/labels.ts";
   import { MatchService } from "#lib/services/MatchService.ts";
 
   let {
@@ -22,14 +22,14 @@
   let turn = $derived(TurnRepository.get());
   let actingPlayer = $derived(turn.player);
   let currentResources = $derived(turn.resources[String(actingPlayer)] ?? 0);
-  let canAfford = $derived(currentResources >= pieceType.config.cost);
+  let canAfford = $derived(currentResources >= pieceConfig(pieceType).cost);
   let canGenerate = $derived(GameApi.canGenerate(actingPlayer, pieceType));
   let isHumanTurn = $derived(MatchService.getControllerForCurrentTurn() === "human");
   let isAutomationRunning = $derived(MatchService.isAutomationRunning());
   let buttonClass = $derived(compact ? "h-11 w-11 rounded-2xl px-0" : "");
 
   function startPreview(): void {
-    onPreviewChange?.(pieceType.config.cost);
+    onPreviewChange?.(pieceConfig(pieceType).cost);
   }
 
   function endPreview(): void {
@@ -55,7 +55,7 @@
       turn.winner !== null}
     aria-label={pieceTypeLabel(pieceType)}
   >
-    <Icon icon={pieceType.config.iconName} size={20} />
+    <Icon icon={pieceConfig(pieceType).iconName} size={20} />
     {#if !compact}
       <span>{pieceTypeLabel(pieceType)}</span>
     {/if}

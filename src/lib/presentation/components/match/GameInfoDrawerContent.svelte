@@ -1,21 +1,23 @@
 <script lang="ts">
-  import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
-  import { MatchStatsRepository } from "#lib/data/repositories/MatchStatsRepository.ts";
-  import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
-  import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-  import { Player } from "#lib/domain/enums/Player.ts";
+  import {
+    MatchControlRepository,
+    MatchStatsRepository,
+    PanelRepository,
+    PiecesRepository,
+    TurnRepository,
+  } from "#lib/store.svelte.ts";
+  import { pieceConfig, Player } from "#lib/domain/model.ts";
   import { m } from "#lib/paraglide/messages.js";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
-  import { pieceTypeLabel } from "#lib/presentation/piecePresentation.ts";
-  import { playerDisplayName, playerInfoOrder } from "#lib/presentation/matchPresentation.ts";
+  import { pieceTypeLabel } from "#lib/presentation/labels.ts";
+  import { playerDisplayName, playerInfoOrder } from "#lib/presentation/labels.ts";
   import {
     armyPower,
     deadCombatUnitCounts,
     liveCombatUnitCounts,
     visiblePieceTypeCounts,
     type PieceTypeCount,
-  } from "#lib/presentation/playerInfoPresentation.ts";
+  } from "#lib/presentation/labels.ts";
 
   interface PlayerInfoCard {
     id: "self" | "opponent";
@@ -95,18 +97,14 @@
   {#each counts as pieceTypeCount (pieceTypeCount.pieceType)}
     <div class="flex items-center justify-between gap-2">
       <span title={pieceTypeLabel(pieceTypeCount.pieceType)}>
-        <Icon icon={pieceTypeCount.pieceType.config.iconName} size={20} />
+        <Icon icon={pieceConfig(pieceTypeCount.pieceType).iconName} size={20} />
       </span>
       <span class="font-semibold">{pieceTypeCount.count}</span>
     </div>
   {/each}
 {/snippet}
 
-<!--
-  The total under the label at the left, its combat unit breakdown at the right. Spacing is
-  kept tight so the row fits the narrow cards of the expanded two-column drawer; if it still
-  does not fit, the label wraps instead of the breakdown overflowing the card.
--->
+<!-- Tight spacing for the narrow two-column cards: the label wraps before the breakdown overflows. -->
 {#snippet armyPowerRow(
   cardId: PlayerInfoCard["id"],
   label: string,

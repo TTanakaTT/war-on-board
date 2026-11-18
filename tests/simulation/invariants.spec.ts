@@ -1,13 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import {
-  DEFAULT_AUTOMATION_TURN_LIMIT,
-  DEFAULT_GAME_LAYER,
-} from "../../src/lib/domain/constants/GameConstants";
-import { AiStrength } from "../../src/lib/domain/enums/AiStrength";
-import type { InvariantViolationReport } from "../../src/lib/domain/types/invariant";
-import type { StartMatchOptions } from "../../src/lib/domain/types/match";
+import { DEFAULT_AUTOMATION_TURN_LIMIT, DEFAULT_GAME_LAYER } from "../../src/lib/domain/config";
+import { AiStrength } from "../../src/lib/domain/model";
+import type { InvariantViolationReport, StartMatchOptions } from "../../src/lib/domain/types";
 import { buildInvariantIssue, INVARIANT_ISSUE_OUTPUT_DIR } from "./invariantIssue";
 
 /** Upper bound for one match, including the per-step automation delay. */

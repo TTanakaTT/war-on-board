@@ -1,15 +1,18 @@
 import { describe, test, expect, beforeEach } from "vitest";
 import { CombatService } from "#lib/services/CombatService.ts";
 import { GameApi } from "#lib/api/GameApi.ts";
-import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
-import { Piece } from "#lib/domain/entities/Piece.ts";
-import { Panel } from "#lib/domain/entities/Panel.ts";
-import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
-import { PieceType } from "#lib/domain/enums/PieceType.ts";
-import { Player } from "#lib/domain/enums/Player.ts";
-
-const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
+import { PanelRepository, PiecesRepository } from "#lib/store.svelte.ts";
+import {
+  type Piece,
+  PieceType,
+  Player,
+  pos,
+  samePos,
+  createPiece,
+  createPanel,
+  pieceConfig,
+  wallAttackPower,
+} from "#lib/domain/model.ts";
 
 function makePiece(
   overrides: Partial<{
@@ -21,7 +24,7 @@ function makePiece(
     maxHp: number;
   }> = {},
 ): Piece {
-  return new Piece({
+  return createPiece({
     id: overrides.id ?? 1,
     panelPosition: pos(0, 0),
     player: overrides.player ?? Player.SELF,
@@ -168,23 +171,20 @@ describe("CombatService", () => {
       // Attacker at distance=2. Defender A has attackRange=1 (can't reach), defender B has attackRange=2 (can).
       const attacker = makePiece({ id: 1, pieceType: PieceType.INFANTRY, hp: 10 });
       const shortRangeDefender = makePiece({ id: 2, pieceType: PieceType.ROOK, hp: 10 }); // attackRange=1
-      const longRangeDefender = new Piece({
+      const longRangeDefender = createPiece({
         id: 3,
         panelPosition: pos(0, 0),
         player: Player.OPPONENT,
-        pieceType: PieceType.ROOK,
-        hp: 10,
+        pieceType: PieceType.ARCHER,
       });
-      Object.defineProperty(longRangeDefender, "attackRange", { value: 2 });
       PiecesRepository.add(attacker);
       PiecesRepository.add(shortRangeDefender);
       PiecesRepository.add(longRangeDefender);
 
       CombatService.resolveCombat([attacker], [shortRangeDefender, longRangeDefender], 2);
 
-      // Only longRangeDefender's (2-1)*1=1 damage counts toward the counterattack, distributed by HP
-      // across the sole attacker: attacker.hp = 10 - 1 = 9.
-      expect(PiecesRepository.getAll().find((p) => p.id === 1)!.hp).toBeCloseTo(9);
+      // Only the archer's (4-1)*1=3 damage counts toward the counterattack.
+      expect(PiecesRepository.getAll().find((p) => p.id === 1)!.hp).toBeCloseTo(7);
     });
 
     test("returns empty deadIds when attackers array is empty", () => {
@@ -204,9 +204,9 @@ describe("CombatService", () => {
 
   describe("attackWall / attackWallMulti", () => {
     test("single attacker reduces castle HP by attackPowerAgainstWall", () => {
-      const panel = PanelRepository.getAll().find((p) => p.panelPosition.equals(pos(1, 0)))!;
+      const panel = PanelRepository.getAll().find((p) => samePos(p.panelPosition, pos(1, 0)))!;
       PanelRepository.update(
-        new Panel({
+        createPanel({
           panelPosition: panel.panelPosition,
           panelState: panel.panelState,
           player: Player.OPPONENT,
@@ -215,14 +215,14 @@ describe("CombatService", () => {
       );
       const attacker = makePiece({ id: 1, pieceType: PieceType.INFANTRY }); // attackWall=1
 
-      CombatService.attackWall(attacker, PanelRepository.find(pos(1, 0))!);
+      CombatService.attackWallMulti([attacker], PanelRepository.find(pos(1, 0))!);
       expect(PanelRepository.find(pos(1, 0))!.castle).toBe(9);
     });
 
     test("multi-attacker sums wall damage from all attackers", () => {
-      const panel = PanelRepository.getAll().find((p) => p.panelPosition.equals(pos(1, 0)))!;
+      const panel = PanelRepository.getAll().find((p) => samePos(p.panelPosition, pos(1, 0)))!;
       PanelRepository.update(
-        new Panel({
+        createPanel({
           panelPosition: panel.panelPosition,
           panelState: panel.panelState,
           player: Player.OPPONENT,
@@ -237,9 +237,9 @@ describe("CombatService", () => {
     });
 
     test("wallDestroyed is true when castle reaches 0", () => {
-      const panel = PanelRepository.getAll().find((p) => p.panelPosition.equals(pos(1, 0)))!;
+      const panel = PanelRepository.getAll().find((p) => samePos(p.panelPosition, pos(1, 0)))!;
       PanelRepository.update(
-        new Panel({
+        createPanel({
           panelPosition: panel.panelPosition,
           panelState: panel.panelState,
           player: Player.OPPONENT,
@@ -248,7 +248,7 @@ describe("CombatService", () => {
       );
       const attacker = makePiece({ id: 1, pieceType: PieceType.INFANTRY }); // attackWall=1
 
-      const result = CombatService.attackWall(attacker, PanelRepository.find(pos(1, 0))!);
+      const result = CombatService.attackWallMulti([attacker], PanelRepository.find(pos(1, 0))!);
       expect(result.wallDestroyed).toBe(true);
       expect(PanelRepository.find(pos(1, 0))!.castle).toBe(0);
       expect(result.wallDamageDealt).toBe(1);
@@ -257,9 +257,9 @@ describe("CombatService", () => {
     });
 
     test("castle does not go below 0", () => {
-      const panel = PanelRepository.getAll().find((p) => p.panelPosition.equals(pos(1, 0)))!;
+      const panel = PanelRepository.getAll().find((p) => samePos(p.panelPosition, pos(1, 0)))!;
       PanelRepository.update(
-        new Panel({
+        createPanel({
           panelPosition: panel.panelPosition,
           panelState: panel.panelState,
           player: Player.OPPONENT,
@@ -274,9 +274,9 @@ describe("CombatService", () => {
     });
 
     test("overflow wall damage is converted into scaled piece damage", () => {
-      const panel = PanelRepository.getAll().find((p) => p.panelPosition.equals(pos(1, 0)))!;
+      const panel = PanelRepository.getAll().find((p) => samePos(p.panelPosition, pos(1, 0)))!;
       PanelRepository.update(
-        new Panel({
+        createPanel({
           panelPosition: panel.panelPosition,
           panelState: panel.panelState,
           player: Player.OPPONENT,
@@ -286,7 +286,7 @@ describe("CombatService", () => {
       );
       const attacker = makePiece({ id: 1, pieceType: PieceType.INFANTRY });
 
-      const result = CombatService.attackWall(attacker, PanelRepository.find(pos(1, 0))!);
+      const result = CombatService.attackWallMulti([attacker], PanelRepository.find(pos(1, 0))!);
 
       expect(result.wallDestroyed).toBe(true);
       expect(result.wallDamageDealt).toBe(0.5);
@@ -308,7 +308,7 @@ describe("CombatService", () => {
     });
 
     test("splits damage across recipients in proportion to their current HP", () => {
-      const recipientA = new Piece({
+      const recipientA = createPiece({
         id: 1,
         panelPosition: pos(1, 0),
         initialPosition: pos(1, 0),
@@ -316,7 +316,7 @@ describe("CombatService", () => {
         pieceType: PieceType.INFANTRY,
         hp: 6,
       });
-      const recipientB = new Piece({
+      const recipientB = createPiece({
         id: 2,
         panelPosition: pos(1, 0),
         initialPosition: pos(1, 0),
@@ -389,7 +389,7 @@ describe("CombatService", () => {
         hp: 20,
       });
       // Merge multiplies hit count, not attack power — AP stays at config(5).
-      expect(stacked.attackPowerAgainstPiece).toBe(5);
+      expect(pieceConfig(stacked.pieceType).attackPowerAgainstPiece).toBe(5);
     });
 
     test("stacked Infantry (stackCount=2) attackPowerAgainstWall scales by stackCount", () => {
@@ -401,7 +401,7 @@ describe("CombatService", () => {
         hp: 20,
       });
       // Walls have no defense stat, so wall AP scales directly: config(1) * stackCount(2) = 2
-      expect(stacked.attackPowerAgainstWall).toBe(2);
+      expect(wallAttackPower(stacked)).toBe(2);
     });
 
     test("stacked Infantry (stackCount=3) deals (attack - defense) * stackCount damage to a single defender", () => {
@@ -447,9 +447,9 @@ describe("CombatService", () => {
     });
 
     test("stacked Infantry (stackCount=2) attacks wall with wall AP scaled by stackCount", () => {
-      const panel = PanelRepository.getAll().find((p) => p.panelPosition.equals(pos(1, 0)))!;
+      const panel = PanelRepository.getAll().find((p) => samePos(p.panelPosition, pos(1, 0)))!;
       PanelRepository.update(
-        new Panel({
+        createPanel({
           panelPosition: panel.panelPosition,
           panelState: panel.panelState,
           player: Player.OPPONENT,
@@ -465,7 +465,7 @@ describe("CombatService", () => {
         hp: 20,
       });
 
-      CombatService.attackWall(stacked, PanelRepository.find(pos(1, 0))!);
+      CombatService.attackWallMulti([stacked], PanelRepository.find(pos(1, 0))!);
 
       expect(PanelRepository.find(pos(1, 0))!.castle).toBe(8); // 10 - 2
     });

@@ -14,12 +14,12 @@ export function createSeededRandom(seed: number): RandomSource {
   };
 }
 
-/** The only place that reads Math.random: a fresh 32-bit unsigned seed. */
+/** The only Math.random call. */
 export function createRandomSeed(): number {
   return Math.floor(Math.random() * 2 ** 32);
 }
 
-/** Fisher–Yates shuffle into a new array; <items> is left untouched. */
+/** Fisher–Yates into a new array. */
 export function shuffle<T>(items: readonly T[], random: RandomSource): T[] {
   const shuffled = [...items];
 

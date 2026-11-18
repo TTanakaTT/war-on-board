@@ -1,290 +1,133 @@
-import { Panel } from "#lib/domain/entities/Panel.ts";
-import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
-import { PanelState } from "#lib/domain/enums/PanelState.ts";
-import type { Piece } from "#lib/domain/entities/Piece.ts";
-import { PanelsService } from "#lib/services/PanelService.ts";
-import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
-import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-import { SelectedPanelRepository } from "#lib/data/repositories/SelectedPanelRepository.ts";
-import { RangedAttackModeRepository } from "#lib/data/repositories/RangedAttackModeRepository.ts";
-import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
-import { DEFAULT_MAX_PIECES_PER_PANEL } from "#lib/domain/constants/GameConstants.ts";
 import { GameApiClient } from "#lib/api/GameApiClient.ts";
+import {
+  PanelState,
+  samePos,
+  type Panel,
+  type PanelPosition,
+  type Piece,
+} from "#lib/domain/model.ts";
+import {
+  PanelRepository,
+  PiecesRepository,
+  SelectionRepository,
+  TurnRepository,
+} from "#lib/store.svelte.ts";
 import { MatchService } from "#lib/services/MatchService.ts";
+import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
+import { PanelsService } from "#lib/services/PanelService.ts";
 
-/**
- * InteractionService — handles user/AI interaction with the board.
- *
- * Responsible for:
- *  - pieceChange(): piece click → select / cancel
- *  - panelChange(): panel click → assign target / cancel move
- *  - stateChange(): recompute MOVABLE / IMMOVABLE / SELECTED highlights
- *
- * Delegates movement-rule queries to MovementRulesService.
- */
+/** Human board clicks: selection, orders and panel highlights. */
 export class InteractionService {
   static clearSelection(): void {
-    SelectedPanelRepository.set(undefined);
-    RangedAttackModeRepository.set(false);
+    SelectionRepository.setPieceId(undefined);
   }
 
-  /**
-   * Toggle ranged-attack targeting mode for the currently selected piece.
-   * No-op if no piece is selected. While active, the next panelChange()
-   * click fires GameApiClient.assignRangedAttack instead of the normal
-   * SELECTED/MOVABLE handling.
-   */
   static toggleRangedAttackMode(): void {
-    if (SelectedPanelRepository.getPieceId() === undefined) return;
-    RangedAttackModeRepository.set(!RangedAttackModeRepository.isActive());
+    if (SelectionRepository.getPieceId() === undefined) return;
+    SelectionRepository.setRangedAttackMode(!SelectionRepository.isRangedAttackMode());
   }
 
   /**
-   * Handle a panel background click.
-   *
-   * - Ranged-attack mode active → fire at the clicked panel, then exit the mode
-   *   regardless of outcome (see GameApi.assignRangedAttack for validation).
-   * - SELECTED panel → cancel pending move (if allowed by cap).
-   * - MOVABLE panel → assign as move target.
-   * - Other → ignored (piece clicks drive selection, not panel background).
+   * Ranged mode: fire at the panel. SELECTED: cancel the selected piece's move. MOVABLE: order
+   * the selected piece there. OCCUPIED: select a current-player piece on it.
    */
-  static panelChange(panelPosition: PanelPosition) {
+  static panelChange(position: PanelPosition) {
     if (!this.isHumanInteractionAllowed()) return;
+    const turn = TurnRepository.get();
+    const selectedId = SelectionRepository.getPieceId();
 
-    if (RangedAttackModeRepository.isActive()) {
-      const selectedPieceId = SelectedPanelRepository.getPieceId();
-      if (selectedPieceId !== undefined) {
-        const selectedPiece = PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
-        const turn = TurnRepository.get();
-        GameApiClient.assignRangedAttack(turn.player, selectedPieceId, panelPosition);
-        RangedAttackModeRepository.set(false);
-        if (selectedPiece) this.stateChange(selectedPiece.panelPosition);
-      }
+    if (SelectionRepository.isRangedAttackMode()) {
+      if (selectedId === undefined) return;
+      const selected = PiecesRepository.get(selectedId);
+      GameApiClient.assignRangedAttack(turn.player, selectedId, position);
+      SelectionRepository.setRangedAttackMode(false);
+      if (selected) this.stateChange(selected.panelPosition);
       return;
     }
 
-    const panelState = PanelsService.findPanelState(panelPosition);
-
-    switch (panelState) {
+    switch (PanelRepository.find(position)?.panelState) {
       case PanelState.SELECTED: {
-        const selectedPieceId = SelectedPanelRepository.getPieceId();
-        const selectedPiece = PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
-        if (selectedPiece && selectedPiece.targetPosition) {
-          const result = GameApiClient.cancelMove(selectedPiece.player, selectedPiece.id);
-          if (!result.ok) return;
-
-          const cleared = PanelsService.clearSelected();
-          PanelRepository.setAll(cleared);
-          this.clearSelection();
+        const selected = PiecesRepository.get(selectedId);
+        if (selected?.targetPosition) {
+          if (GameApiClient.cancelMove(selected.player, selected.id).ok) this.deselect();
           return;
         }
         break;
       }
-      case PanelState.MOVABLE: {
-        const selectedPieceId = SelectedPanelRepository.getPieceId();
-        if (selectedPieceId !== undefined) {
-          const turn = TurnRepository.get();
-          const result = GameApiClient.assignMove(turn.player, selectedPieceId, panelPosition);
-          if (!result.ok) return;
+      case PanelState.MOVABLE:
+        if (
+          selectedId !== undefined &&
+          !GameApiClient.assignMove(turn.player, selectedId, position).ok
+        ) {
+          return;
         }
         break;
-      }
       case PanelState.OCCUPIED: {
-        const turn = TurnRepository.get();
-        const ownPieces = PiecesRepository.getPiecesByPosition(panelPosition).filter(
+        const own = PiecesRepository.getPiecesByPosition(position).filter(
           (p) => p.player === turn.player,
         );
-        const piece = ownPieces.find((p) => !p.targetPosition) ?? ownPieces[0];
+        const piece = own.find((p) => !p.targetPosition) ?? own[0];
         if (piece) this.pieceChange(piece);
         return;
       }
       default:
         return;
     }
-    this.stateChange(panelPosition);
+    this.stateChange(position);
   }
 
-  /**
-   * Handle a piece icon click.
-   *
-   * - Clicking a current-turn piece selects it and highlights movable panels.
-   * - Move cancellation is handled by panelChange() when the selected source panel is clicked.
-   */
+  /** Selects a current-player piece, or deselects it when clicked again. */
   static pieceChange(piece: Piece) {
     if (!this.isHumanInteractionAllowed()) return;
+    if (piece.player !== TurnRepository.get().player) return;
 
-    const turn = TurnRepository.get();
-    if (piece.player !== turn.player) return;
-
-    const isSameSelected =
-      SelectedPanelRepository.getPieceId() === piece.id &&
-      PanelsService.findPanelState(piece.panelPosition) === PanelState.SELECTED;
-
+    const wasSelected =
+      SelectionRepository.getPieceId() === piece.id &&
+      PanelRepository.find(piece.panelPosition)?.panelState === PanelState.SELECTED;
     PanelRepository.setAll(PanelsService.clearSelected());
-    RangedAttackModeRepository.set(false);
-    if (isSameSelected) {
-      this.clearSelection();
-      return;
-    }
-
-    SelectedPanelRepository.set(
-      new Panel({
-        panelPosition: piece.panelPosition,
-        panelState: PanelState.SELECTED,
-        player: piece.player,
-        resource: 0,
-        castle: 0,
-      }),
-      piece.id,
-    );
-    this.stateChange(piece.panelPosition);
+    SelectionRepository.setPieceId(wasSelected ? undefined : piece.id);
+    if (!wasSelected) this.stateChange(piece.panelPosition);
   }
 
-  /**
-   * Recompute panel highlight states after a selection/move action.
-   *
-   * When a piece is selected (see highlightMovableFromOccupied), every panel
-   * on the board is a candidate move target — distance no longer disqualifies
-   * a panel (see MovementRulesService.planEndOfTurn). Panels
-   * allowed by MovementRulesService.canMoveTo() become MOVABLE (clickable);
-   * panels it disallows are left in their current state, unchanged.
-   */
-  static stateChange(panelPosition: PanelPosition) {
-    const originalPanel = PanelsService.find(panelPosition);
-    const panelState = originalPanel?.panelState;
-
-    switch (panelState) {
-      case PanelState.SELECTED:
-      case PanelState.MOVABLE: {
-        PanelRepository.setAll(PanelsService.clearSelected());
-        this.clearSelection();
-        break;
-      }
-      case PanelState.OCCUPIED: {
-        this.highlightMovableFromOccupied(panelPosition, originalPanel!);
-        break;
-      }
-      default: {
-        this.highlightMovableFromEmpty(panelPosition, originalPanel);
-        break;
-      }
+  /** Highlights the targets of the piece on an unhighlighted panel; otherwise clears the selection. */
+  static stateChange(position: PanelPosition) {
+    const panel = PanelRepository.find(position);
+    const highlighted =
+      panel?.panelState === PanelState.SELECTED || panel?.panelState === PanelState.MOVABLE;
+    if (panel && !highlighted && PiecesRepository.getPiecesByPosition(position).length > 0) {
+      this.highlightTargets(panel);
+    } else {
+      this.deselect();
     }
   }
 
-  // ── Private helpers ──────────────────────────────────────────────
+  /** Every panel the selected piece can be ordered to (any distance) becomes MOVABLE. */
+  private static highlightTargets(source: Panel) {
+    const pieces = PiecesRepository.getPiecesByPosition(source.panelPosition);
+    const selected = pieces.find((p) => p.id === SelectionRepository.getPieceId()) ?? pieces[0];
+    const maxPieces = TurnRepository.maxPieces(selected.player);
+    const before = MovementRulesService.planEndOfTurn(selected.player, maxPieces);
 
-  /**
-   * Highlight movable panels when a piece on an OCCUPIED panel is selected.
-   *
-   * Any panel on the board may be selected as a move target — a target
-   * beyond this turn's reach is walked toward over multiple turns (see
-   * MovementRulesService.planEndOfTurn) and can always be ordered. Panels that
-   * fail canMoveTo are left in their current state rather than dimmed, since
-   * they may still become reachable later (e.g. once an occupying stack clears).
-   */
-  private static highlightMovableFromOccupied(panelPosition: PanelPosition, originalPanel: Panel) {
-    const selectedPieces = PiecesRepository.getPiecesByPosition(panelPosition);
-    const selectedPieceId = SelectedPanelRepository.getPieceId();
-    const selectedPiece = selectedPieces.find((p) => p.id === selectedPieceId) ?? selectedPieces[0];
-
-    // Mark source as SELECTED
-    PanelRepository.update(
-      new Panel({
-        ...originalPanel,
-        panelState: PanelState.SELECTED,
-      }),
-    );
-
-    const turn = TurnRepository.get();
-    const maxPieces =
-      turn.maxPiecesPerPanel[String(selectedPiece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
-
-    // Mark each candidate panel as MOVABLE (if movement rules allow)
-    const before = MovementRulesService.planEndOfTurn(selectedPiece.player, maxPieces);
-    PanelRepository.getAll()
-      .filter((p: Panel) => !p.panelPosition.equals(panelPosition))
-      .forEach((targetPanel: Panel) => {
-        if (
-          MovementRulesService.canMoveTo(
-            targetPanel.panelPosition,
-            selectedPiece.player,
-            selectedPiece.id,
-            maxPieces,
-            before,
-          )
-        ) {
-          PanelRepository.update(
-            new Panel({
-              ...targetPanel,
-              panelState: PanelState.MOVABLE,
-            }),
-          );
+    PanelRepository.setAll(
+      PanelRepository.getAll().map((panel) => {
+        if (samePos(panel.panelPosition, source.panelPosition)) {
+          return { ...panel, panelState: PanelState.SELECTED };
         }
-      });
-  }
-
-  /**
-   * Highlight reachable panels when an empty / unoccupied panel is clicked.
-   * (Used during board-setup-like interactions.)
-   */
-  private static highlightMovableFromEmpty(
-    panelPosition: PanelPosition,
-    originalPanel: Panel | undefined,
-  ) {
-    PanelRepository.update(
-      new Panel({
-        panelPosition: panelPosition,
-        panelState: PanelState.SELECTED,
-        player: originalPanel?.player,
-        resource: originalPanel?.resource,
-        castle: originalPanel?.castle,
+        const movable = MovementRulesService.canMoveTo(
+          panel.panelPosition,
+          selected.player,
+          selected.id,
+          maxPieces,
+          before,
+        );
+        return movable ? { ...panel, panelState: PanelState.MOVABLE } : panel;
       }),
     );
-
-    const adjacentPanels = PanelsService.findAdjacentPanels(panelPosition);
-    adjacentPanels
-      .filter((p: Panel) => p.panelState === PanelState.UNOCCUPIED)
-      .forEach((adjacentPanel: Panel) => {
-        const hasPiece =
-          PiecesRepository.getPiecesByPosition(adjacentPanel.panelPosition).length > 0;
-        PanelRepository.update(
-          new Panel({
-            ...adjacentPanel,
-            panelState: hasPiece ? PanelState.OCCUPIED : PanelState.MOVABLE,
-          }),
-        );
-      });
-
-    this.dimUnreachablePanels(
-      panelPosition,
-      adjacentPanels.map((p) => p.panelPosition),
-    );
   }
 
-  /**
-   * Set all panels that are NOT in <reachablePositions> and NOT the source
-   * to IMMOVABLE (dimmed, non-interactive).
-   */
-  private static dimUnreachablePanels(
-    sourcePosition: PanelPosition,
-    reachablePositions: PanelPosition[],
-  ) {
-    PanelRepository.getAll().forEach((p: Panel) => {
-      if (
-        !p.panelPosition.equals(sourcePosition) &&
-        !reachablePositions.some((pos) => pos.equals(p.panelPosition)) &&
-        p.panelState !== PanelState.IMMOVABLE &&
-        p.panelState !== PanelState.MOVABLE
-      ) {
-        PanelRepository.update(
-          new Panel({
-            ...p,
-            panelState: PanelState.IMMOVABLE,
-          }),
-        );
-      }
-    });
+  private static deselect() {
+    PanelRepository.setAll(PanelsService.clearSelected());
+    this.clearSelection();
   }
 
   private static isHumanInteractionAllowed(): boolean {

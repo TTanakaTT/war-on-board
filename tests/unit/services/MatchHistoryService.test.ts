@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
-import type { GameStateHistoryEntry, PieceSnapshot } from "#lib/domain/types/api.ts";
+import type { GameStateHistoryEntry, Piece } from "#lib/domain/model.ts";
 import { MatchHistoryService } from "#lib/services/MatchHistoryService.ts";
 
 describe("MatchHistoryService", () => {
@@ -15,7 +15,7 @@ describe("MatchHistoryService", () => {
   test("counts a merged piece as its stackCount in unitTotals", () => {
     const [initialEntry] = GameApi.getGameStateHistory();
     const panelPosition = { horizontalLayer: 0, verticalLayer: 0 };
-    const mergedPiece: PieceSnapshot = {
+    const mergedPiece: Piece = {
       id: 1,
       panelPosition,
       initialPosition: panelPosition,

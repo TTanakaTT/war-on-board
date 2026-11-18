@@ -1,9 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { DebugModeRepository } from "#lib/data/repositories/DebugModeRepository.ts";
+  import { DebugModeRepository } from "#lib/store.svelte.ts";
   import { installDebugModeMonitor, violationTypeLabel } from "#lib/presentation/debugMode.ts";
 
-  // Dev-build-only text below is English on purpose, not Paraglide messages (see CLAUDE.md).
   let reportCount = $derived(DebugModeRepository.getReportCount());
   let latestViolationType = $derived(DebugModeRepository.getLatestViolationType());
 

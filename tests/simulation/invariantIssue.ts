@@ -1,8 +1,5 @@
-import type { GameStateSnapshot } from "../../src/lib/domain/types/api";
-import type {
-  InvariantViolationReport,
-  RecordedCommand,
-} from "../../src/lib/domain/types/invariant";
+import type { GameState } from "../../src/lib/domain/model";
+import type { InvariantViolationReport, RecordedCommand } from "../../src/lib/domain/types";
 
 /** Where the simulation leaves the files the workflow turns into an issue. */
 export const INVARIANT_ISSUE_OUTPUT_DIR = "simulation-results";
@@ -105,7 +102,7 @@ function formatCommand(command: RecordedCommand): string {
   return `${command.operation}(${command.args.map((arg) => JSON.stringify(arg)).join(", ")})`;
 }
 
-function snapshotDetails(summary: string, snapshot: GameStateSnapshot): string[] {
+function snapshotDetails(summary: string, snapshot: GameState): string[] {
   return [
     `<details><summary>${summary}</summary>`,
     "",

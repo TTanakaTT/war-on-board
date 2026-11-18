@@ -1,118 +1,55 @@
 import { GameApi } from "#lib/api/GameApi.ts";
-import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
-import type {
-  ControllablePlayerSnapshot,
-  GameStateHistoryEntry,
-  GameStateSnapshot,
-} from "#lib/domain/types/api.ts";
-import type {
-  MatchHistoryEntrySummary,
-  MatchHistoryExport,
-  MatchHistoryMetadata,
-  MatchHistoryMetricPair,
-  MatchHistoryPlayerSummary,
-} from "#lib/domain/types/history.ts";
-import type { MatchAiSeeds, MatchAiStrengths, MatchControllers } from "#lib/domain/types/match.ts";
+import { type GameState, type Panel, type Side } from "#lib/domain/model.ts";
+import type { BySide, MatchHistoryExport } from "#lib/domain/types.ts";
+import { MatchControlRepository } from "#lib/store.svelte.ts";
 
-const CONTROLLABLE_PLAYERS = [
-  "self",
-  "opponent",
-] as const satisfies readonly ControllablePlayerSnapshot[];
+const bySide = (value: (side: Side) => number): BySide<number> => ({
+  self: value("self"),
+  opponent: value("opponent"),
+});
 
 export class MatchHistoryService {
   static getExportData(): MatchHistoryExport {
-    const historyEntries = GameApi.getGameStateHistory();
-    const matchControl = MatchControlRepository.get();
+    const history = GameApi.getGameStateHistory();
+    const { controllers, aiStrengths, aiSeeds } = MatchControlRepository.get();
+    const latest = history.at(-1)?.snapshot;
+    const player = (side: Side) => ({
+      player: side,
+      controller: controllers[side],
+      aiStrength: aiStrengths[side],
+      aiSeed: aiSeeds[side],
+    });
 
     return {
-      metadata: this.buildMetadata(
-        historyEntries,
-        matchControl.controllers,
-        matchControl.aiStrengths,
-        matchControl.aiSeeds,
-      ),
-      entries: historyEntries.map((entry) => this.buildEntrySummary(entry)),
-    };
-  }
-
-  private static buildMetadata(
-    historyEntries: GameStateHistoryEntry[],
-    controllers: MatchControllers,
-    aiStrengths: MatchAiStrengths,
-    aiSeeds: MatchAiSeeds,
-  ): MatchHistoryMetadata {
-    const latestSnapshot = historyEntries.at(-1)?.snapshot;
-
-    return {
-      winner: latestSnapshot?.turn.winner ?? null,
-      layer: latestSnapshot?.layer ?? 0,
-      homeBases: latestSnapshot?.homeBases ?? [],
-      players: {
-        self: this.buildPlayerSummary("self", controllers, aiStrengths, aiSeeds),
-        opponent: this.buildPlayerSummary("opponent", controllers, aiStrengths, aiSeeds),
+      metadata: {
+        winner: latest?.turn.winner ?? null,
+        layer: latest?.layer ?? 0,
+        homeBases: latest?.homeBases ?? [],
+        players: { self: player("self"), opponent: player("opponent") },
       },
+      entries: history.map(({ capturedAtTurn, snapshot }) => ({
+        capturedAtTurn,
+        turnPlayer: snapshot.turn.player,
+        // A merged piece counts as its stackCount.
+        unitTotals: bySide((side) =>
+          snapshot.pieces
+            .filter((p) => p.player === side)
+            .reduce((sum, p) => sum + p.stackCount, 0),
+        ),
+        resources: bySide((side) => snapshot.turn.resources[side] ?? 0),
+        wallTotals: this.sumOwnedPanels(snapshot, (panel) => panel.castle),
+        occupiedPanels: this.sumOwnedPanels(snapshot, () => 1),
+      })),
     };
   }
 
-  private static buildPlayerSummary(
-    player: ControllablePlayerSnapshot,
-    controllers: MatchControllers,
-    aiStrengths: MatchAiStrengths,
-    aiSeeds: MatchAiSeeds,
-  ): MatchHistoryPlayerSummary {
-    return {
-      player,
-      controller: controllers[player],
-      aiStrength: aiStrengths[player],
-      aiSeed: aiSeeds[player],
-    };
+  static toJson(): string {
+    return JSON.stringify(this.getExportData(), null, 2);
   }
 
-  private static buildEntrySummary(entry: GameStateHistoryEntry): MatchHistoryEntrySummary {
-    const turnPlayer = entry.snapshot.turn.player;
-
-    return {
-      capturedAtTurn: entry.capturedAtTurn,
-      turnPlayer,
-      unitTotals: this.countUnits(entry.snapshot),
-      resources: this.readResources(entry.snapshot),
-      wallTotals: this.sumOwnedPanels(entry.snapshot, (panel) => panel.castle),
-      occupiedPanels: this.sumOwnedPanels(entry.snapshot, () => 1),
-    };
-  }
-
-  /** Units per player. A merged piece counts as its stackCount. */
-  private static countUnits(snapshot: GameStateSnapshot): MatchHistoryMetricPair {
-    const unitsOf = (player: ControllablePlayerSnapshot): number =>
-      snapshot.pieces
-        .filter((piece) => piece.player === player)
-        .reduce((sum, piece) => sum + piece.stackCount, 0);
-
-    return {
-      self: unitsOf("self"),
-      opponent: unitsOf("opponent"),
-    };
-  }
-
-  private static readResources(snapshot: GameStateSnapshot): MatchHistoryMetricPair {
-    return {
-      self: snapshot.turn.resources.self ?? 0,
-      opponent: snapshot.turn.resources.opponent ?? 0,
-    };
-  }
-
-  private static sumOwnedPanels(
-    snapshot: GameStateSnapshot,
-    readValue: (panel: GameStateSnapshot["panels"][number]) => number,
-  ): MatchHistoryMetricPair {
-    return CONTROLLABLE_PLAYERS.reduce<MatchHistoryMetricPair>(
-      (totals, player) => ({
-        ...totals,
-        [player]: snapshot.panels
-          .filter((panel) => panel.player === player)
-          .reduce((sum, panel) => sum + readValue(panel), 0),
-      }),
-      { self: 0, opponent: 0 },
+  private static sumOwnedPanels(state: GameState, value: (panel: Panel) => number) {
+    return bySide((side) =>
+      state.panels.filter((p) => p.player === side).reduce((sum, p) => sum + value(p), 0),
     );
   }
 }

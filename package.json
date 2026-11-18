@@ -45,7 +45,6 @@
     "vitest": "^5.1.0"
   },
   "imports": {
-    "#lib": "./src/lib/index.ts",
     "#lib/*": "./src/lib/*"
   }
 }

@@ -2,30 +2,35 @@ import { beforeEach, describe, test, expect } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
 import { PieceService } from "#lib/services/PieceService.ts";
 import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
-import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
-import { Piece } from "#lib/domain/entities/Piece.ts";
-import { Panel } from "#lib/domain/entities/Panel.ts";
-import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
-import { PieceType } from "#lib/domain/enums/PieceType.ts";
-import { Player } from "#lib/domain/enums/Player.ts";
+import { PanelRepository, PiecesRepository } from "#lib/store.svelte.ts";
 import {
-  PASSIVE_RESOURCE_CAP,
-  PASSIVE_CASTLE_CAP,
-  HOME_BASE_INIT_CASTLE,
+  type PanelPosition,
+  type Piece,
+  PieceType,
+  Player,
+  pos,
+  samePos,
+  isAdjacent,
+  createPiece,
+  createPanel,
+  pieceConfig,
+  wallAttackPower,
+} from "#lib/domain/model.ts";
+import {
   DEFAULT_MAX_PIECES_PER_PANEL,
-} from "#lib/domain/constants/GameConstants.ts";
-
-const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
+  HOME_BASE_INIT_CASTLE,
+  PASSIVE_CASTLE_CAP,
+  PASSIVE_RESOURCE_CAP,
+} from "#lib/domain/config.ts";
 
 const makePiece = (
-  overrides: Partial<ConstructorParameters<typeof Piece>[0]> & {
+  overrides: Partial<Piece> & {
     panelPosition: PanelPosition;
     player: Player;
     pieceType: PieceType;
   },
 ) =>
-  new Piece({
+  createPiece({
     id: 0,
     ...overrides,
   });
@@ -73,7 +78,7 @@ describe("PieceService", () => {
       PiecesRepository.add(piece);
       PieceService.move(pos(-1, 0), piece);
       const updated = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(updated.panelPosition.equals(pos(-1, 0))).toBe(true);
+      expect(samePos(updated.panelPosition, pos(-1, 0))).toBe(true);
       expect(updated.targetPosition).toBeUndefined();
     });
 
@@ -87,7 +92,7 @@ describe("PieceService", () => {
       PiecesRepository.add(piece);
       PieceService.move(pos(-1, 0), piece);
       const updated = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(updated.initialPosition.equals(pos(-1, 0))).toBe(true);
+      expect(samePos(updated.initialPosition, pos(-1, 0))).toBe(true);
     });
 
     test("preserves piece id, player, pieceType, and hp", () => {
@@ -215,7 +220,7 @@ describe("PieceService", () => {
       PiecesRepository.add(piece);
       PieceService.resetInitialPositions(Player.SELF);
       const updated = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(updated.initialPosition.equals(pos(-1, 0))).toBe(true);
+      expect(samePos(updated.initialPosition, pos(-1, 0))).toBe(true);
     });
 
     test("does not affect opponent pieces", () => {
@@ -237,7 +242,7 @@ describe("PieceService", () => {
       PiecesRepository.add(oppPiece);
       PieceService.resetInitialPositions(Player.SELF);
       const oppUpdated = PiecesRepository.getAll().find((p) => p.id === 2)!;
-      expect(oppUpdated.initialPosition.equals(pos(2, 0))).toBe(true);
+      expect(samePos(oppUpdated.initialPosition, pos(2, 0))).toBe(true);
     });
   });
 
@@ -251,7 +256,7 @@ describe("PieceService", () => {
       });
       PiecesRepository.add(noble);
       const panel = PanelRepository.find(pos(0, 0))!;
-      PanelRepository.update(new Panel({ ...panel, player: Player.SELF, resource: 0 }));
+      PanelRepository.update(createPanel({ ...panel, player: Player.SELF, resource: 0 }));
       PieceService.applyPassiveGains(Player.SELF);
       expect(PanelRepository.find(pos(0, 0))!.resource).toBe(1);
     });
@@ -266,7 +271,7 @@ describe("PieceService", () => {
       PiecesRepository.add(noble);
       const panel = PanelRepository.find(pos(0, 0))!;
       PanelRepository.update(
-        new Panel({ ...panel, player: Player.SELF, resource: PASSIVE_RESOURCE_CAP }),
+        createPanel({ ...panel, player: Player.SELF, resource: PASSIVE_RESOURCE_CAP }),
       );
       PieceService.applyPassiveGains(Player.SELF);
       expect(PanelRepository.find(pos(0, 0))!.resource).toBe(PASSIVE_RESOURCE_CAP);
@@ -281,7 +286,7 @@ describe("PieceService", () => {
       });
       PiecesRepository.add(rook);
       const panel = PanelRepository.find(pos(0, 0))!;
-      PanelRepository.update(new Panel({ ...panel, player: Player.SELF, castle: 0 }));
+      PanelRepository.update(createPanel({ ...panel, player: Player.SELF, castle: 0 }));
       PieceService.applyPassiveGains(Player.SELF);
       expect(PanelRepository.find(pos(0, 0))!.castle).toBe(1);
     });
@@ -296,7 +301,7 @@ describe("PieceService", () => {
       PiecesRepository.add(rook);
       const panel = PanelRepository.find(pos(0, 0))!;
       PanelRepository.update(
-        new Panel({ ...panel, player: Player.SELF, castle: PASSIVE_CASTLE_CAP }),
+        createPanel({ ...panel, player: Player.SELF, castle: PASSIVE_CASTLE_CAP }),
       );
       PieceService.applyPassiveGains(Player.SELF);
       expect(PanelRepository.find(pos(0, 0))!.castle).toBe(PASSIVE_CASTLE_CAP);
@@ -370,7 +375,7 @@ describe("PieceService", () => {
       // No combat on empty panel
       expect(outcomes).toEqual([]);
       const moved = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(moved.panelPosition.equals(pos(-1, 0))).toBe(true);
+      expect(samePos(moved.panelPosition, pos(-1, 0))).toBe(true);
     });
 
     test("resolves combat when target has enemy pieces", () => {
@@ -397,7 +402,7 @@ describe("PieceService", () => {
 
     test("attacks wall first when target panel has castle > 0", () => {
       const panel = PanelRepository.find(pos(0, 0))!;
-      PanelRepository.update(new Panel({ ...panel, player: Player.OPPONENT, castle: 3 }));
+      PanelRepository.update(createPanel({ ...panel, player: Player.OPPONENT, castle: 3 }));
       const attacker = makePiece({
         id: 1,
         panelPosition: pos(-1, 0),
@@ -455,8 +460,8 @@ describe("PieceService", () => {
 
       expect(outcomes).toEqual([]);
       const unchanged = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(unchanged.panelPosition.equals(pos(-2, 0))).toBe(true);
-      expect(unchanged.targetPosition?.equals(pos(-1, 0))).toBe(true);
+      expect(samePos(unchanged.panelPosition, pos(-2, 0))).toBe(true);
+      expect(samePos(unchanged.targetPosition, pos(-1, 0))).toBe(true);
       expect(unchanged.movementPoints).toBe(0.5);
     });
 
@@ -474,7 +479,7 @@ describe("PieceService", () => {
       PieceService.finalizePlayerMoves(Player.SELF);
 
       const moved = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(moved.panelPosition.equals(pos(-1, 0))).toBe(true);
+      expect(samePos(moved.panelPosition, pos(-1, 0))).toBe(true);
     });
 
     test("groups multiple attackers targeting the same panel", () => {
@@ -520,8 +525,8 @@ describe("PieceService", () => {
       // Turn 1: advances one hop, not yet in range (3 hops away originally).
       PieceService.finalizePlayerMoves(Player.SELF);
       let current = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(current.panelPosition.equals(pos(-2, 0))).toBe(true);
-      expect(current.targetPosition?.equals(pos(0, 0))).toBe(true);
+      expect(samePos(current.panelPosition, pos(-2, 0))).toBe(true);
+      expect(samePos(current.targetPosition, pos(0, 0))).toBe(true);
       expect(current.movementPoints).toBe(0);
 
       // Turn 2: accrues back to 1, advances one more hop — now adjacent, but with no
@@ -529,15 +534,15 @@ describe("PieceService", () => {
       PieceService.accrueMovementForPlayer(Player.SELF);
       PieceService.finalizePlayerMoves(Player.SELF);
       current = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(current.panelPosition.equals(pos(-1, 0))).toBe(true);
-      expect(current.targetPosition?.equals(pos(0, 0))).toBe(true);
+      expect(samePos(current.panelPosition, pos(-1, 0))).toBe(true);
+      expect(samePos(current.targetPosition, pos(0, 0))).toBe(true);
       expect(current.movementPoints).toBe(0);
 
       // Turn 3: accrues to 1 again; already adjacent, so it enters directly this turn.
       PieceService.accrueMovementForPlayer(Player.SELF);
       PieceService.finalizePlayerMoves(Player.SELF);
       current = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(current.panelPosition.equals(pos(0, 0))).toBe(true);
+      expect(samePos(current.panelPosition, pos(0, 0))).toBe(true);
       expect(current.targetPosition).toBeUndefined();
     });
 
@@ -563,8 +568,8 @@ describe("PieceService", () => {
       // Turn 1: covers 2 hops (movement=2), landing 2 hops short of the target — not in range yet.
       PieceService.finalizePlayerMoves(Player.SELF);
       let current = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(current.panelPosition.equals(pos(-1, 0))).toBe(true);
-      expect(current.targetPosition?.equals(pos(1, 0))).toBe(true);
+      expect(samePos(current.panelPosition, pos(-1, 0))).toBe(true);
+      expect(samePos(current.targetPosition, pos(1, 0))).toBe(true);
 
       // Turn 2: accrues back to 2. Transit stops one panel short of the target (1 hop,
       // spending 1 point), leaving 1 point — enough to engage the defender this same turn.
@@ -572,7 +577,7 @@ describe("PieceService", () => {
       const outcomes = PieceService.finalizePlayerMoves(Player.SELF);
       expect(outcomes.length).toBe(1);
       current = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(current.panelPosition.equals(pos(0, 0))).toBe(true);
+      expect(samePos(current.panelPosition, pos(0, 0))).toBe(true);
       // Defender (hp=100) survives, so the attacker doesn't enter — the attempted attack
       // still consumes its last movement point and clears the (now-resolved) target.
       expect(current.targetPosition).toBeUndefined();
@@ -609,7 +614,7 @@ describe("PieceService", () => {
       PieceService.finalizePlayerMoves(Player.SELF);
 
       const current = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(current.panelPosition.equals(pos(-3, 0))).toBe(true);
+      expect(samePos(current.panelPosition, pos(-3, 0))).toBe(true);
       expect(current.targetPosition).toBeUndefined();
       // It did not move, so it spent no movement points.
       expect(current.movementPoints).toBe(1);
@@ -645,8 +650,8 @@ describe("PieceService", () => {
       PieceService.finalizePlayerMoves(Player.SELF);
 
       const current = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(current.panelPosition.equals(pos(-2, 0))).toBe(true);
-      expect(current.targetPosition?.equals(pos(0, 0))).toBe(true);
+      expect(samePos(current.panelPosition, pos(-2, 0))).toBe(true);
+      expect(samePos(current.targetPosition, pos(0, 0))).toBe(true);
       expect(current.movementPoints).toBe(0);
     });
 
@@ -676,7 +681,7 @@ describe("PieceService", () => {
       expect(outcomes.length).toBe(1);
       expect(outcomes[0].entered).toBe(true);
       const current = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(current.panelPosition.equals(pos(-2, 0))).toBe(true);
+      expect(samePos(current.panelPosition, pos(-2, 0))).toBe(true);
       expect(current.targetPosition).toBeUndefined();
     });
 
@@ -705,7 +710,7 @@ describe("PieceService", () => {
       expect(outcomes.length).toBe(1);
       expect(outcomes[0].entered).toBe(false);
       const current = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(current.panelPosition.equals(pos(-3, 0))).toBe(true);
+      expect(samePos(current.panelPosition, pos(-3, 0))).toBe(true);
       expect(current.targetPosition).toBeUndefined();
       expect(current.movementPoints).toBe(0);
     });
@@ -742,7 +747,7 @@ describe("PieceService", () => {
       expect(updatedDefender.hp).toBe(97);
 
       const updatedArcher = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(updatedArcher.panelPosition.equals(pos(-1, 0))).toBe(true);
+      expect(samePos(updatedArcher.panelPosition, pos(-1, 0))).toBe(true);
       expect(updatedArcher.rangedAttackTargetPosition).toBeUndefined();
       expect(updatedArcher.movementPoints).toBe(0);
     });
@@ -821,7 +826,7 @@ describe("PieceService", () => {
 
       expect(outcomes).toEqual([]);
       const unchanged = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(unchanged.rangedAttackTargetPosition?.equals(pos(1, 0))).toBe(true);
+      expect(samePos(unchanged.rangedAttackTargetPosition, pos(1, 0))).toBe(true);
       expect(unchanged.movementPoints).toBe(0.5);
     });
   });
@@ -868,7 +873,7 @@ describe("PieceService", () => {
 
       PieceService.finalizePlayerMoves(Player.SELF);
       const actual = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(actual.panelPosition.equals(preview.to)).toBe(true);
+      expect(samePos(actual.panelPosition, preview.to)).toBe(true);
     });
 
     test("advances further with a larger movement budget", () => {
@@ -917,7 +922,7 @@ describe("PieceService", () => {
 
   describe("mergePiecesAtPosition", () => {
     test("two mergeable Infantry at same position merge into one with summed HP, maxHp, stackCount", () => {
-      const k1 = new Piece({
+      const k1 = createPiece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
@@ -926,7 +931,7 @@ describe("PieceService", () => {
         maxHp: 10,
         stackCount: 1,
       });
-      const k2 = new Piece({
+      const k2 = createPiece({
         id: 2,
         panelPosition: pos(0, 0),
         player: Player.SELF,
@@ -949,13 +954,13 @@ describe("PieceService", () => {
     });
 
     test("merged Infantry keeps raw attack power but scales wall attack power by stackCount", () => {
-      const k1 = new Piece({
+      const k1 = createPiece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
         pieceType: PieceType.INFANTRY,
       });
-      const k2 = new Piece({
+      const k2 = createPiece({
         id: 2,
         panelPosition: pos(0, 0),
         player: Player.SELF,
@@ -969,15 +974,15 @@ describe("PieceService", () => {
       const merged = PiecesRepository.getPiecesByPosition(pos(0, 0))[0];
       expect(merged.stackCount).toBe(2);
       // AP stays at the raw config value — merge multiplies hit count, not attack power.
-      expect(merged.attackPowerAgainstPiece).toBe(5);
+      expect(pieceConfig(merged.pieceType).attackPowerAgainstPiece).toBe(5);
       // Wall AP: config(1) * stackCount(2) = 2
-      expect(merged.attackPowerAgainstWall).toBe(2);
+      expect(wallAttackPower(merged)).toBe(2);
     });
 
     test("three Infantry at same position merge into one with combined values", () => {
       [1, 2, 3].forEach((id) =>
         PiecesRepository.add(
-          new Piece({
+          createPiece({
             id,
             panelPosition: pos(0, 0),
             player: Player.SELF,
@@ -996,17 +1001,17 @@ describe("PieceService", () => {
       expect(remaining[0].stackCount).toBe(3);
       expect(remaining[0].hp).toBe(30);
       expect(remaining[0].maxHp).toBe(30);
-      expect(remaining[0].attackPowerAgainstPiece).toBe(5); // raw config value, unaffected by stackCount
+      expect(pieceConfig(remaining[0].pieceType).attackPowerAgainstPiece).toBe(5); // raw config value, unaffected by stackCount
     });
 
     test("non-mergeable Nobles at same position are NOT merged", () => {
-      const b1 = new Piece({
+      const b1 = createPiece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
         pieceType: PieceType.NOBLE,
       });
-      const b2 = new Piece({
+      const b2 = createPiece({
         id: 2,
         panelPosition: pos(0, 0),
         player: Player.SELF,
@@ -1021,13 +1026,13 @@ describe("PieceService", () => {
     });
 
     test("non-mergeable Rooks at same position are NOT merged", () => {
-      const r1 = new Piece({
+      const r1 = createPiece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
         pieceType: PieceType.ROOK,
       });
-      const r2 = new Piece({
+      const r2 = createPiece({
         id: 2,
         panelPosition: pos(0, 0),
         player: Player.SELF,
@@ -1042,13 +1047,13 @@ describe("PieceService", () => {
     });
 
     test("Infantry of different players at same position are NOT merged", () => {
-      const selfInfantry = new Piece({
+      const selfInfantry = createPiece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
         pieceType: PieceType.INFANTRY,
       });
-      const oppInfantry = new Piece({
+      const oppInfantry = createPiece({
         id: 2,
         panelPosition: pos(0, 0),
         player: Player.OPPONENT,
@@ -1063,7 +1068,7 @@ describe("PieceService", () => {
     });
 
     test("single Infantry at position is unchanged", () => {
-      const k = new Piece({
+      const k = createPiece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
@@ -1081,19 +1086,19 @@ describe("PieceService", () => {
     });
 
     test("lowest ID piece is kept as the merged base", () => {
-      const k1 = new Piece({
+      const k1 = createPiece({
         id: 10,
         panelPosition: pos(0, 0),
         player: Player.SELF,
         pieceType: PieceType.INFANTRY,
       });
-      const k2 = new Piece({
+      const k2 = createPiece({
         id: 3,
         panelPosition: pos(0, 0),
         player: Player.SELF,
         pieceType: PieceType.INFANTRY,
       });
-      const k3 = new Piece({
+      const k3 = createPiece({
         id: 7,
         panelPosition: pos(0, 0),
         player: Player.SELF,
@@ -1115,7 +1120,7 @@ describe("PieceService", () => {
     test("merges Infantry at multiple positions for the given player", () => {
       [1, 2].forEach((id) =>
         PiecesRepository.add(
-          new Piece({
+          createPiece({
             id,
             panelPosition: pos(0, 0),
             player: Player.SELF,
@@ -1125,7 +1130,7 @@ describe("PieceService", () => {
       );
       [3, 4].forEach((id) =>
         PiecesRepository.add(
-          new Piece({
+          createPiece({
             id,
             panelPosition: pos(0, 1),
             player: Player.SELF,
@@ -1143,7 +1148,7 @@ describe("PieceService", () => {
     test("does not affect opponent pieces", () => {
       [1, 2].forEach((id) =>
         PiecesRepository.add(
-          new Piece({
+          createPiece({
             id,
             panelPosition: pos(0, 0),
             player: Player.OPPONENT,
@@ -1167,10 +1172,7 @@ describe("PieceService", () => {
 
     const findPiece = (id: number) => PiecesRepository.getAll().find((piece) => piece.id === id);
 
-    function addHeavy(
-      overrides: Partial<ConstructorParameters<typeof Piece>[0]> = {},
-      id: number = 1,
-    ): Piece {
+    function addHeavy(overrides: Partial<Piece> = {}, id: number = 1): Piece {
       const heavy = makePiece({
         id,
         panelPosition: origin,
@@ -1259,9 +1261,9 @@ describe("PieceService", () => {
         PieceService.finalizePlayerMoves(player);
 
         const heavy = findPiece(1)!;
-        expect(heavy.panelPosition.equals(origin)).toBe(true);
-        expect(heavy.transitPosition?.equals(hop)).toBe(true);
-        expect(heavy.targetPosition?.equals(beyond)).toBe(true);
+        expect(samePos(heavy.panelPosition, origin)).toBe(true);
+        expect(samePos(heavy.transitPosition, hop)).toBe(true);
+        expect(samePos(heavy.targetPosition, beyond)).toBe(true);
         expect(heavy.movementPoints).toBe(0.5);
       });
 
@@ -1271,8 +1273,8 @@ describe("PieceService", () => {
         PieceService.finalizePlayerMoves(player);
 
         const heavy = findPiece(1)!;
-        expect(heavy.panelPosition.equals(origin)).toBe(true);
-        expect(heavy.transitPosition?.equals(hop)).toBe(true);
+        expect(samePos(heavy.panelPosition, origin)).toBe(true);
+        expect(samePos(heavy.transitPosition, hop)).toBe(true);
         expect(heavy.movementPoints).toBe(0.75);
       });
 
@@ -1282,7 +1284,7 @@ describe("PieceService", () => {
         PieceService.finalizePlayerMoves(player);
 
         const heavy = findPiece(1)!;
-        expect(heavy.panelPosition.equals(hop)).toBe(true);
+        expect(samePos(heavy.panelPosition, hop)).toBe(true);
         expect(heavy.transitPosition).toBeUndefined();
         expect(heavy.targetPosition).toBeUndefined();
       });
@@ -1293,10 +1295,10 @@ describe("PieceService", () => {
         PieceService.finalizePlayerMoves(player);
 
         const heavy = findPiece(1)!;
-        expect(heavy.panelPosition.equals(hop)).toBe(true);
-        expect(heavy.initialPosition.equals(hop)).toBe(true);
+        expect(samePos(heavy.panelPosition, hop)).toBe(true);
+        expect(samePos(heavy.initialPosition, hop)).toBe(true);
         expect(heavy.transitPosition).toBeUndefined();
-        expect(heavy.targetPosition?.equals(beyond)).toBe(true);
+        expect(samePos(heavy.targetPosition, beyond)).toBe(true);
         expect(heavy.movementPoints).toBe(0);
       });
 
@@ -1308,7 +1310,7 @@ describe("PieceService", () => {
 
         expect(findPiece(10)).toBeUndefined();
         const heavy = findPiece(1)!;
-        expect(heavy.panelPosition.equals(hop)).toBe(true);
+        expect(samePos(heavy.panelPosition, hop)).toBe(true);
         expect(heavy.transitPosition).toBeUndefined();
       });
 
@@ -1320,7 +1322,7 @@ describe("PieceService", () => {
 
         expect(findPiece(10)).toBeDefined();
         const heavy = findPiece(1)!;
-        expect(heavy.panelPosition.equals(origin)).toBe(true);
+        expect(samePos(heavy.panelPosition, origin)).toBe(true);
         expect(heavy.transitPosition).toBeUndefined();
         expect(heavy.targetPosition).toBeUndefined();
         expect(heavy.hp).toBeLessThan(heavy.maxHp);
@@ -1332,15 +1334,15 @@ describe("PieceService", () => {
 
         PieceService.finalizePlayerMoves(player);
         const windingUp = findPiece(1)!;
-        expect(windingUp.panelPosition.equals(origin)).toBe(true);
+        expect(samePos(windingUp.panelPosition, origin)).toBe(true);
         expect(windingUp.transitPosition).toBeUndefined();
-        expect(windingUp.targetPosition?.equals(hop)).toBe(true);
+        expect(samePos(windingUp.targetPosition, hop)).toBe(true);
         expect(windingUp.movementPoints).toBe(0.5);
         expect(findPiece(10)).toBeDefined();
 
         PieceService.finalizePlayerMoves(player);
         expect(findPiece(10)).toBeUndefined();
-        expect(findPiece(1)!.panelPosition.equals(hop)).toBe(true);
+        expect(samePos(findPiece(1)!.panelPosition, hop)).toBe(true);
       });
 
       test("a slow piece whose next hop has no room drops its order", () => {
@@ -1350,7 +1352,7 @@ describe("PieceService", () => {
         PieceService.finalizePlayerMoves(player);
 
         const heavy = findPiece(1)!;
-        expect(heavy.panelPosition.equals(origin)).toBe(true);
+        expect(samePos(heavy.panelPosition, origin)).toBe(true);
         expect(heavy.transitPosition).toBeUndefined();
         expect(heavy.targetPosition).toBeUndefined();
         expect(heavy.movementPoints).toBe(0);
@@ -1465,14 +1467,14 @@ describe("PieceService", () => {
       const neighborsOf = (position: PanelPosition) =>
         PanelRepository.getAll()
           .map((panel) => panel.panelPosition)
-          .filter((candidate) => candidate.isAdjacent(position));
+          .filter((candidate) => isAdjacent(candidate, position));
 
       function addAttacker(
         id: number,
         pieceType: PieceType,
         at: PanelPosition,
         orderSequence: number | undefined,
-        overrides: Partial<ConstructorParameters<typeof Piece>[0]> = {},
+        overrides: Partial<Piece> = {},
       ): void {
         PiecesRepository.add(
           makePiece({
@@ -1496,7 +1498,7 @@ describe("PieceService", () => {
 
       function expectStayedAfterFailedAttack(id: number, origin: PanelPosition): void {
         const piece = findPiece(id);
-        expect(piece.panelPosition.equals(origin)).toBe(true);
+        expect(samePos(piece.panelPosition, origin)).toBe(true);
         expect(piece.targetPosition).toBeUndefined();
         expect(piece.movementPoints).toBe(0);
       }
@@ -1512,8 +1514,8 @@ describe("PieceService", () => {
 
         expect(outcomes).toHaveLength(1);
         expect(outcomes[0].entered).toBe(true);
-        expect(findPiece(1).panelPosition.equals(target)).toBe(true);
-        expect(findPiece(2).panelPosition.equals(target)).toBe(true);
+        expect(samePos(findPiece(1).panelPosition, target)).toBe(true);
+        expect(samePos(findPiece(2).panelPosition, target)).toBe(true);
         expectStayedAfterFailedAttack(3, n3);
       });
 
@@ -1526,8 +1528,8 @@ describe("PieceService", () => {
 
         PieceService.finalizePlayerMoves(player);
 
-        expect(findPiece(3).panelPosition.equals(target)).toBe(true);
-        expect(findPiece(2).panelPosition.equals(target)).toBe(true);
+        expect(samePos(findPiece(3).panelPosition, target)).toBe(true);
+        expect(samePos(findPiece(2).panelPosition, target)).toBe(true);
         expectStayedAfterFailedAttack(1, n1);
       });
 
@@ -1541,9 +1543,9 @@ describe("PieceService", () => {
 
         PieceService.finalizePlayerMoves(player);
 
-        expect(findPiece(1).panelPosition.equals(target)).toBe(true);
-        expect(findPiece(2).panelPosition.equals(target)).toBe(true);
-        expect(findPiece(4).panelPosition.equals(target)).toBe(true);
+        expect(samePos(findPiece(1).panelPosition, target)).toBe(true);
+        expect(samePos(findPiece(2).panelPosition, target)).toBe(true);
+        expect(samePos(findPiece(4).panelPosition, target)).toBe(true);
         expectStayedAfterFailedAttack(3, n3);
       });
 
@@ -1551,7 +1553,7 @@ describe("PieceService", () => {
         const obstacle = pos(-2, 0);
         const travelerOrigin = pos(-3, 0);
         const [n1, n2] = neighborsOf(obstacle).filter(
-          (candidate) => !candidate.equals(travelerOrigin),
+          (candidate) => !samePos(candidate, travelerOrigin),
         );
         addEnemyNoble(10, obstacle);
         addAttacker(1, PieceType.ROOK, n1, 2, { targetPosition: obstacle });
@@ -1562,9 +1564,9 @@ describe("PieceService", () => {
         const outcomes = PieceService.finalizePlayerMoves(player);
 
         expect(outcomes).toHaveLength(1);
-        expect(findPiece(3).panelPosition.equals(obstacle)).toBe(true);
+        expect(samePos(findPiece(3).panelPosition, obstacle)).toBe(true);
         expect(findPiece(3).targetPosition).toBeUndefined();
-        expect(findPiece(1).panelPosition.equals(obstacle)).toBe(true);
+        expect(samePos(findPiece(1).panelPosition, obstacle)).toBe(true);
         expectStayedAfterFailedAttack(2, n2);
       });
 
@@ -1585,10 +1587,10 @@ describe("PieceService", () => {
 
           expect(outcomes).toHaveLength(1);
           for (const id of entering) {
-            expect(findPiece(id).panelPosition.equals(target)).toBe(true);
+            expect(samePos(findPiece(id).panelPosition, target)).toBe(true);
           }
           const stayed = findPiece(staying);
-          expect(stayed.panelPosition.equals(neighbors[staying - 1])).toBe(true);
+          expect(samePos(stayed.panelPosition, neighbors[staying - 1])).toBe(true);
           expect(stayed.targetPosition).toBeUndefined();
           expect(stayed.transitPosition).toBeUndefined();
         },
@@ -1628,8 +1630,8 @@ describe("PieceService", () => {
 
           PieceService.finalizePlayerMoves(player);
 
-          expect(findPiece(1).panelPosition.equals(panelQ)).toBe(true);
-          expect(findPiece(3).panelPosition.equals(panelP)).toBe(true);
+          expect(samePos(findPiece(1).panelPosition, panelQ)).toBe(true);
+          expect(samePos(findPiece(3).panelPosition, panelP)).toBe(true);
           expect(findPiece(3).targetPosition).toBeUndefined();
         },
       );
@@ -1650,11 +1652,7 @@ describe("PieceService", () => {
 
       const findPiece = (id: number) => PiecesRepository.getAll().find((piece) => piece.id === id)!;
 
-      function addPiece(
-        id: number,
-        at: PanelPosition,
-        overrides: Partial<ConstructorParameters<typeof Piece>[0]> = {},
-      ): Piece {
+      function addPiece(id: number, at: PanelPosition, overrides: Partial<Piece> = {}): Piece {
         const piece = makePiece({
           id,
           panelPosition: at,

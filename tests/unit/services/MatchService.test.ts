@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
-import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
-import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
-import { Player } from "#lib/domain/enums/Player.ts";
+import { MatchControlRepository, TurnRepository } from "#lib/store.svelte.ts";
+import { AiStrength, Player } from "#lib/domain/model.ts";
 import { AiService } from "#lib/services/AiService.ts";
 import { MatchService } from "#lib/services/MatchService.ts";
 
@@ -32,8 +30,6 @@ describe("MatchService", () => {
       });
 
       const matchControl = MatchControlRepository.get();
-
-      expect(matchControl.mode).toBe("human-vs-human");
       expect(matchControl.controllers.self).toBe("human");
       expect(matchControl.controllers.opponent).toBe("human");
       expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_1);
@@ -63,8 +59,6 @@ describe("MatchService", () => {
       await vi.runAllTimersAsync();
 
       const matchControl = MatchControlRepository.get();
-
-      expect(matchControl.mode).toBe("cpu-vs-human");
       expect(matchControl.controllers.self).toBe("cpu");
       expect(matchControl.controllers.opponent).toBe("human");
       expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_2);
@@ -91,8 +85,6 @@ describe("MatchService", () => {
       await vi.runAllTimersAsync();
 
       const matchControl = MatchControlRepository.get();
-
-      expect(matchControl.mode).toBe("cpu-vs-cpu");
       expect(matchControl.controllers.self).toBe("cpu");
       expect(matchControl.controllers.opponent).toBe("cpu");
       expect(matchControl.aiStrengths.self).toBe(AiStrength.STRENGTH_2);

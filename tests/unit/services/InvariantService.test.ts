@@ -1,22 +1,18 @@
 import { describe, expect, test } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
-import type {
-  GameStateSnapshot,
-  PanelPositionSnapshot,
-  PieceSnapshot,
-} from "#lib/domain/types/api.ts";
-import type { InvariantViolation } from "#lib/domain/types/invariant.ts";
+import type { GameState, PanelPosition, Piece } from "#lib/domain/model.ts";
+import type { InvariantViolation } from "#lib/domain/types.ts";
 import { InvariantService } from "#lib/services/InvariantService.ts";
 
-const CENTER: PanelPositionSnapshot = { horizontalLayer: 0, verticalLayer: 0 };
-const NEXT_TO_CENTER: PanelPositionSnapshot = { horizontalLayer: 0, verticalLayer: 1 };
+const CENTER: PanelPosition = { horizontalLayer: 0, verticalLayer: 0 };
+const NEXT_TO_CENTER: PanelPosition = { horizontalLayer: 0, verticalLayer: 1 };
 
-function initialSnapshot(): GameStateSnapshot {
+function initialSnapshot(): GameState {
   GameApi.initializeGame({ layer: 4 });
   return GameApi.getGameState();
 }
 
-function createPiece(overrides: Partial<PieceSnapshot> & Pick<PieceSnapshot, "id">): PieceSnapshot {
+function createPiece(overrides: Partial<Piece> & Pick<Piece, "id">): Piece {
   const panelPosition = overrides.panelPosition ?? CENTER;
 
   return {
@@ -32,7 +28,7 @@ function createPiece(overrides: Partial<PieceSnapshot> & Pick<PieceSnapshot, "id
   };
 }
 
-function withPieces(snapshot: GameStateSnapshot, pieces: PieceSnapshot[]): GameStateSnapshot {
+function withPieces(snapshot: GameState, pieces: Piece[]): GameState {
   return { ...snapshot, pieces: [...snapshot.pieces, ...pieces] };
 }
 
@@ -166,7 +162,7 @@ describe("InvariantService.check", () => {
 
   test("negative-resources: reports a player with negative resources", () => {
     const snapshot = initialSnapshot();
-    const negative: GameStateSnapshot = {
+    const negative: GameState = {
       ...snapshot,
       turn: { ...snapshot.turn, resources: { ...snapshot.turn.resources, opponent: -1 } },
     };
@@ -194,8 +190,8 @@ describe("InvariantService.findIntroducedViolations", () => {
 
   test("returns state-changed-after-winner when the state changes after a winner is decided", () => {
     const snapshot = initialSnapshot();
-    const finished: GameStateSnapshot = { ...snapshot, turn: { ...snapshot.turn, winner: "self" } };
-    const changed: GameStateSnapshot = {
+    const finished: GameState = { ...snapshot, turn: { ...snapshot.turn, winner: "self" } };
+    const changed: GameState = {
       ...finished,
       turn: { ...finished.turn, resources: { ...finished.turn.resources, self: 999 } },
     };
@@ -207,7 +203,7 @@ describe("InvariantService.findIntroducedViolations", () => {
 
   test("does not return state-changed-after-winner when the finished state stays the same", () => {
     const snapshot = initialSnapshot();
-    const finished: GameStateSnapshot = { ...snapshot, turn: { ...snapshot.turn, winner: "self" } };
+    const finished: GameState = { ...snapshot, turn: { ...snapshot.turn, winner: "self" } };
 
     expect(InvariantService.findIntroducedViolations(finished, structuredClone(finished))).toEqual(
       [],

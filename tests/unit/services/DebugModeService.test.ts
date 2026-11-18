@@ -1,12 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
 import { GameApiClient } from "#lib/api/GameApiClient.ts";
-import { DebugModeRepository } from "#lib/data/repositories/DebugModeRepository.ts";
-import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
-import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
-import { Player } from "#lib/domain/enums/Player.ts";
-import type { PlayerController } from "#lib/domain/types/match.ts";
+import { DebugModeRepository, MatchControlRepository, TurnRepository } from "#lib/store.svelte.ts";
+import { AiStrength, Player } from "#lib/domain/model.ts";
+import type { PlayerController } from "#lib/domain/types.ts";
 import { AI_STALL_THRESHOLD_MS, DebugModeService } from "#lib/services/DebugModeService.ts";
 import { MatchService } from "#lib/services/MatchService.ts";
 

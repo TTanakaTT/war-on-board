@@ -1,125 +1,90 @@
 import { GameApi } from "#lib/api/GameApi.ts";
-import {
-  GameApiClient,
-  type GameApiCommandInterceptor,
-  type GameApiCommandName,
-} from "#lib/api/GameApiClient.ts";
-import { DebugModeRepository } from "#lib/data/repositories/DebugModeRepository.ts";
-import { LayerRepository } from "#lib/data/repositories/LayerRepository.ts";
-import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
-import type { GameStateSnapshot } from "#lib/domain/types/api.ts";
-import type {
-  InvariantMatchConditions,
-  InvariantViolation,
-  InvariantViolationReport,
-  RecordedCommand,
-} from "#lib/domain/types/invariant.ts";
+import { GameApiClient, type GameApiCommandName } from "#lib/api/GameApiClient.ts";
+import type { GameState } from "#lib/domain/model.ts";
+import type { InvariantViolation, RecordedCommand } from "#lib/domain/types.ts";
+import { DebugModeRepository, LayerRepository, MatchControlRepository } from "#lib/store.svelte.ts";
 import { InvariantService } from "#lib/services/InvariantService.ts";
 import { MatchService } from "#lib/services/MatchService.ts";
 
-/** How long CPU automation may run without the turn advancing before it counts as stalled. */
+/** CPU automation running this long without the turn advancing counts as stalled. */
 export const AI_STALL_THRESHOLD_MS = 5000;
 
-/** A command that went through GameApiClient, with the game state around it. */
 export interface CheckedCommand {
   operation: GameApiCommandName;
   args: unknown[];
-  before: GameStateSnapshot;
-  after: GameStateSnapshot;
-}
-
-interface AutomationProgress {
-  signature: string;
-  sinceMs: number;
-  reported: boolean;
+  before: GameState;
+  after: GameState;
 }
 
 /**
- * DebugModeService — dev-build-only invariant monitoring.
- *
- * While checks are enabled, every command that goes through GameApiClient is checked with
- * InvariantService. Uncaught exceptions and stalled CPU automation are reported too. Each
- * detection is recorded, logged to the console, and halts CPU automation so the board can
- * be inspected. Browser wiring (listeners, timers, the window handle) lives in
- * presentation/debugMode.ts; this service never touches browser APIs itself.
+ * Dev-build-only monitoring: checks invariants after every GameApiClient command and records
+ * uncaught exceptions and stalled automation. Each detection is logged and halts automation.
+ * Browser wiring lives in presentation/debugMode.ts.
  */
 export class DebugModeService {
   private static turnCommands: RecordedCommand[] = [];
-  private static automationProgress: AutomationProgress | null = null;
-
-  static isChecksEnabled(): boolean {
-    return DebugModeRepository.isChecksEnabled();
-  }
+  private static automationProgress: {
+    signature: string;
+    sinceMs: number;
+    reported: boolean;
+  } | null = null;
 
   static setChecksEnabled(enabled: boolean): void {
     DebugModeRepository.setChecksEnabled(enabled);
-
-    if (enabled) {
-      GameApiClient.setInterceptor(checkCommand);
-      return;
-    }
-
-    GameApiClient.setInterceptor(null);
-    this.turnCommands = [];
-    this.automationProgress = null;
+    GameApiClient.setInterceptor(
+      enabled
+        ? (operation, args, execute) => {
+            const before = GameApi.getGameState();
+            const result = execute();
+            this.handleCommand({ operation, args, before, after: GameApi.getGameState() });
+            return result;
+          }
+        : null,
+    );
+    if (!enabled) this.resetTracking();
   }
 
-  static handleCommand(event: CheckedCommand): void {
-    if (!this.isChecksEnabled()) return;
-
+  static handleCommand({ operation, args, before, after }: CheckedCommand): void {
+    if (!DebugModeRepository.isChecksEnabled()) return;
+    // Plain JSON args so reports can be stored and copied into issues.
     const command: RecordedCommand = {
-      operation: event.operation,
-      args: event.args.map(serializeCommandArg),
+      operation,
+      args: args.map((arg) => (arg === undefined ? null : JSON.parse(JSON.stringify(arg)))),
     };
 
-    if (event.operation === "initializeGame") {
-      // A new game starts from scratch: earlier detections and turn history no longer apply.
+    if (operation === "initializeGame") {
       DebugModeRepository.clearReports();
-      this.turnCommands = [];
-      this.automationProgress = null;
-      this.report(InvariantService.check(event.after), command, [command], null, event.after);
+      this.resetTracking();
+      this.report(InvariantService.check(after), command, [command], null, after);
       return;
     }
 
     this.turnCommands.push(command);
     const turnCommands = [...this.turnCommands];
-    if (hasTurnChanged(event.before, event.after)) {
+    if (before.turn.num !== after.turn.num || before.turn.player !== after.turn.player) {
       this.turnCommands = [];
     }
-
     this.report(
-      InvariantService.findIntroducedViolations(event.before, event.after),
+      InvariantService.findIntroducedViolations(before, after),
       command,
       turnCommands,
-      event.before,
-      event.after,
+      before,
+      after,
     );
   }
 
   static recordUncaughtException(error: unknown): void {
-    if (!this.isChecksEnabled()) return;
-
+    if (!DebugModeRepository.isChecksEnabled()) return;
     const detail =
       error instanceof Error
         ? `${error.name}: ${error.message}\n${error.stack ?? ""}`.trim()
         : String(error);
-
-    this.report(
-      [{ type: "uncaught-exception", key: `uncaught-exception:${detail}`, detail }],
-      null,
-      [...this.turnCommands],
-      null,
-      GameApi.getGameState(),
-    );
+    this.reportRuntime({ type: "uncaught-exception", key: `uncaught-exception:${detail}`, detail });
   }
 
-  /**
-   * Called periodically with the current time. Reports `ai-stalled` once when CPU automation
-   * has been running for AI_STALL_THRESHOLD_MS without the turn advancing.
-   */
+  /** Called periodically; reports `ai-stalled` once per stalled turn. */
   static observeAutomationProgress(nowMs: number): void {
-    if (!this.isChecksEnabled()) return;
-
+    if (!DebugModeRepository.isChecksEnabled()) return;
     if (MatchControlRepository.get().automation.status !== "running") {
       this.automationProgress = null;
       return;
@@ -127,87 +92,51 @@ export class DebugModeService {
 
     const turn = GameApi.getGameState().turn;
     const signature = `${turn.num}:${turn.player}:${turn.winner}`;
-    if (this.automationProgress?.signature !== signature) {
+    const progress = this.automationProgress;
+    if (progress?.signature !== signature) {
       this.automationProgress = { signature, sinceMs: nowMs, reported: false };
       return;
     }
+    const stalledMs = nowMs - progress.sinceMs;
+    if (progress.reported || stalledMs < AI_STALL_THRESHOLD_MS) return;
 
-    const stalledMs = nowMs - this.automationProgress.sinceMs;
-    if (this.automationProgress.reported || stalledMs < AI_STALL_THRESHOLD_MS) return;
+    progress.reported = true;
+    this.reportRuntime({
+      type: "ai-stalled",
+      key: `ai-stalled:${signature}`,
+      detail: `turn ${turn.num} (${turn.player}) did not advance for ${stalledMs}ms while CPU automation was running`,
+    });
+  }
 
-    this.automationProgress.reported = true;
-    this.report(
-      [
-        {
-          type: "ai-stalled",
-          key: `ai-stalled:${signature}`,
-          detail: `turn ${turn.num} (${turn.player}) did not advance for ${stalledMs}ms while CPU automation was running`,
-        },
-      ],
-      null,
-      [...this.turnCommands],
-      null,
-      GameApi.getGameState(),
-    );
+  private static resetTracking() {
+    this.turnCommands = [];
+    this.automationProgress = null;
+  }
+
+  private static reportRuntime(violation: InvariantViolation) {
+    this.report([violation], null, [...this.turnCommands], null, GameApi.getGameState());
   }
 
   private static report(
     violations: InvariantViolation[],
     command: RecordedCommand | null,
     turnCommands: RecordedCommand[],
-    before: GameStateSnapshot | null,
-    after: GameStateSnapshot,
+    before: GameState | null,
+    after: GameState,
   ): void {
     if (violations.length === 0) return;
-
-    const report: InvariantViolationReport = {
+    const { controllers, aiStrengths, aiSeeds } = MatchControlRepository.get();
+    const report = {
       violations,
-      match: this.getMatchConditions(),
+      match: { layer: LayerRepository.get(), controllers, aiStrengths, aiSeeds },
       command,
       turnCommands,
       before,
       after,
     };
-
     DebugModeRepository.addReport(report);
-    console.error(
-      `[Invariant] ${violations.map((violation) => violation.type).join(", ")}`,
-      report,
-    );
-
-    // Deferred: a detection inside an automation step would otherwise be overwritten when
-    // that step stores its own match control right after the AI's command returns.
+    console.error(`[Invariant] ${violations.map((v) => v.type).join(", ")}`, report);
+    // Deferred: an automation step would otherwise overwrite the halt right after this command.
     setTimeout(() => MatchService.haltAutomation(), 0);
   }
-
-  private static getMatchConditions(): InvariantMatchConditions {
-    const matchControl = MatchControlRepository.get();
-
-    return {
-      layer: LayerRepository.get(),
-      controllers: { ...matchControl.controllers },
-      aiStrengths: { ...matchControl.aiStrengths },
-      aiSeeds: { ...matchControl.aiSeeds },
-    };
-  }
-}
-
-const checkCommand: GameApiCommandInterceptor = (operation, args, execute) => {
-  const before = GameApi.getGameState();
-  const result = execute();
-  DebugModeService.handleCommand({ operation, args, before, after: GameApi.getGameState() });
-  return result;
-};
-
-function hasTurnChanged(before: GameStateSnapshot, after: GameStateSnapshot): boolean {
-  return before.turn.num !== after.turn.num || before.turn.player !== after.turn.player;
-}
-
-/** Converts enum-like class instances (Player, PieceType) to their string values. */
-function serializeCommandArg(arg: unknown): unknown {
-  if (arg !== null && typeof arg === "object" && Symbol.toPrimitive in arg) {
-    return String(arg);
-  }
-
-  return arg === undefined ? null : JSON.parse(JSON.stringify(arg));
 }

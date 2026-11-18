@@ -1,19 +1,16 @@
 <script lang="ts">
-  import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-  import { SelectedPanelRepository } from "#lib/data/repositories/SelectedPanelRepository.ts";
-  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-  import { getPieceTokenCoordinates } from "#lib/presentation/PieceTokenLayout.ts";
+  import { PiecesRepository, SelectionRepository, TurnRepository } from "#lib/store.svelte.ts";
+  import { isInTransit } from "#lib/domain/model.ts";
+  import { getPieceTokenCoordinates } from "#lib/presentation/layout.ts";
   import { InteractionService } from "#lib/services/InteractionService.ts";
   import PieceToken from "./PieceToken.svelte";
 
-  // Pieces between two panels (see Piece.transitPosition), drawn part of the way along the
-  // hop. They still belong to their own panel, so selecting one works like selecting a
-  // piece in that panel's token row.
-  let selectedPieceId = $derived(SelectedPanelRepository.getPieceId());
+  // Pieces in transit, drawn part of the way along their hop.
+  let selectedPieceId = $derived(SelectionRepository.getPieceId());
   let turn = $derived(TurnRepository.get());
   let transitTokens = $derived(
     PiecesRepository.getAll()
-      .filter((piece) => piece.isInTransit)
+      .filter((piece) => isInTransit(piece))
       .map((piece) => ({ piece, coordinates: getPieceTokenCoordinates(piece) })),
   );
 </script>

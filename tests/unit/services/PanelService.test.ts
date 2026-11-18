@@ -1,20 +1,19 @@
 import { beforeEach, describe, test, expect } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
 import { PanelsService } from "#lib/services/PanelService.ts";
-import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
-import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-import { Panel } from "#lib/domain/entities/Panel.ts";
-import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
-import { Piece } from "#lib/domain/entities/Piece.ts";
-import { PanelState } from "#lib/domain/enums/PanelState.ts";
-import { PieceType } from "#lib/domain/enums/PieceType.ts";
-import { Player } from "#lib/domain/enums/Player.ts";
+import { PanelRepository, PiecesRepository } from "#lib/store.svelte.ts";
 import {
-  HOME_BASE_INIT_RESOURCE,
-  HOME_BASE_INIT_CASTLE,
-} from "#lib/domain/constants/GameConstants.ts";
-
-const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
+  type PanelPosition,
+  PanelState,
+  PieceType,
+  Player,
+  pos,
+  samePos,
+  isAdjacent,
+  createPiece,
+  createPanel,
+} from "#lib/domain/model.ts";
+import { HOME_BASE_INIT_CASTLE, HOME_BASE_INIT_RESOURCE } from "#lib/domain/config.ts";
 
 describe("PanelsService", () => {
   describe("initialize", () => {
@@ -83,57 +82,14 @@ describe("PanelsService", () => {
     });
 
     test("returns panel matching the given position", () => {
-      const panel = PanelsService.find(pos(0, 0));
+      const panel = PanelRepository.find(pos(0, 0));
       expect(panel).toBeDefined();
       expect(panel!.panelPosition.horizontalLayer).toBe(0);
       expect(panel!.panelPosition.verticalLayer).toBe(0);
     });
 
     test("returns undefined when position does not exist", () => {
-      expect(PanelsService.find(pos(99, 99))).toBeUndefined();
-    });
-  });
-
-  describe("findPanelState", () => {
-    beforeEach(() => {
-      GameApi.initializeGame({ layer: 4 });
-    });
-
-    test("returns panelState for existing position", () => {
-      const state = PanelsService.findPanelState(pos(0, 0));
-      expect(state).toBe(PanelState.UNOCCUPIED);
-    });
-
-    test("returns undefined for non-existing position", () => {
-      expect(PanelsService.findPanelState(pos(99, 99))).toBeUndefined();
-    });
-  });
-
-  describe("findAdjacentPanels", () => {
-    beforeEach(() => {
-      GameApi.initializeGame({ layer: 4 });
-    });
-
-    test("returns all adjacent panels for a center position", () => {
-      // pos(0, 0) in layer=4 should have multiple neighbors
-      const adjacent = PanelsService.findAdjacentPanels(pos(0, 0));
-      expect(adjacent.length).toBeGreaterThan(0);
-      for (const a of adjacent) {
-        expect(a.panelPosition.isAdjacent(pos(0, 0))).toBe(true);
-      }
-    });
-
-    test("returns fewer panels for edge positions", () => {
-      // Home base at (-3, 0) is an edge position
-      const edgeAdj = PanelsService.findAdjacentPanels(pos(-3, 0));
-      const centerAdj = PanelsService.findAdjacentPanels(pos(0, 0));
-      expect(edgeAdj.length).toBeLessThan(centerAdj.length);
-    });
-
-    test("returns empty array for position with no neighbors", () => {
-      // Position far outside the board
-      const adj = PanelsService.findAdjacentPanels(pos(99, 99));
-      expect(adj).toHaveLength(0);
+      expect(PanelRepository.find(pos(99, 99))).toBeUndefined();
     });
   });
 
@@ -155,12 +111,12 @@ describe("PanelsService", () => {
     test("returns the minimal-length path across multiple hops, each step adjacent to the last", () => {
       const path = PanelsService.findShortestPath(pos(-3, 0), pos(0, 0));
       expect(path).not.toBeNull();
-      expect(path![0].equals(pos(-3, 0))).toBe(true);
-      expect(path![path!.length - 1].equals(pos(0, 0))).toBe(true);
+      expect(samePos(path![0], pos(-3, 0))).toBe(true);
+      expect(samePos(path![path!.length - 1], pos(0, 0))).toBe(true);
       // Home base (-3,0) to (0,0) along vl=0 is 3 hops away — the shortest path has 4 panels.
       expect(path).toHaveLength(4);
       for (let i = 1; i < path!.length; i++) {
-        expect(path![i].isAdjacent(path![i - 1])).toBe(true);
+        expect(isAdjacent(path![i], path![i - 1])).toBe(true);
       }
     });
   });
@@ -192,7 +148,7 @@ describe("PanelsService", () => {
     });
 
     const boardIndex = (position: PanelPosition) =>
-      PanelRepository.getAll().findIndex((panel) => panel.panelPosition.equals(position));
+      PanelRepository.getAll().findIndex((panel) => samePos(panel.panelPosition, position));
     const compareInBoardOrder = (a: PanelPosition[], b: PanelPosition[]) => {
       for (let i = 0; i < a.length; i++) {
         const difference = boardIndex(a[i]) - boardIndex(b[i]);
@@ -213,7 +169,7 @@ describe("PanelsService", () => {
       for (const route of routes) {
         expect(route.at(-1)).toEqual(destination);
         route.forEach((position, i) => {
-          expect(position.isAdjacent(i === 0 ? origin : route[i - 1])).toBe(true);
+          expect(isAdjacent(position, i === 0 ? origin : route[i - 1])).toBe(true);
         });
       }
     });
@@ -270,9 +226,9 @@ describe("PanelsService", () => {
 
     test("resets MOVABLE panels to OCCUPIED when pieces are present", () => {
       const panel = PanelRepository.find(pos(0, 0))!;
-      PanelRepository.update(new Panel({ ...panel, panelState: PanelState.MOVABLE }));
+      PanelRepository.update(createPanel({ ...panel, panelState: PanelState.MOVABLE }));
       PiecesRepository.add(
-        new Piece({
+        createPiece({
           id: 1,
           panelPosition: pos(0, 0),
           player: Player.SELF,
@@ -280,31 +236,23 @@ describe("PanelsService", () => {
         }),
       );
       const cleared = PanelsService.clearSelected();
-      const p = cleared.find((x) => x.panelPosition.equals(pos(0, 0)))!;
+      const p = cleared.find((x) => samePos(x.panelPosition, pos(0, 0)))!;
       expect(p.panelState).toBe(PanelState.OCCUPIED);
     });
 
     test("resets MOVABLE panels to UNOCCUPIED when no pieces are present", () => {
       const panel = PanelRepository.find(pos(0, 0))!;
-      PanelRepository.update(new Panel({ ...panel, panelState: PanelState.MOVABLE }));
+      PanelRepository.update(createPanel({ ...panel, panelState: PanelState.MOVABLE }));
       const cleared = PanelsService.clearSelected();
-      const p = cleared.find((x) => x.panelPosition.equals(pos(0, 0)))!;
+      const p = cleared.find((x) => samePos(x.panelPosition, pos(0, 0)))!;
       expect(p.panelState).toBe(PanelState.UNOCCUPIED);
     });
 
     test("resets SELECTED panels similarly", () => {
       const panel = PanelRepository.find(pos(0, 0))!;
-      PanelRepository.update(new Panel({ ...panel, panelState: PanelState.SELECTED }));
+      PanelRepository.update(createPanel({ ...panel, panelState: PanelState.SELECTED }));
       const cleared = PanelsService.clearSelected();
-      const p = cleared.find((x) => x.panelPosition.equals(pos(0, 0)))!;
-      expect(p.panelState).toBe(PanelState.UNOCCUPIED);
-    });
-
-    test("resets IMMOVABLE panels similarly", () => {
-      const panel = PanelRepository.find(pos(0, 0))!;
-      PanelRepository.update(new Panel({ ...panel, panelState: PanelState.IMMOVABLE }));
-      const cleared = PanelsService.clearSelected();
-      const p = cleared.find((x) => x.panelPosition.equals(pos(0, 0)))!;
+      const p = cleared.find((x) => samePos(x.panelPosition, pos(0, 0)))!;
       expect(p.panelState).toBe(PanelState.UNOCCUPIED);
     });
 
@@ -312,7 +260,7 @@ describe("PanelsService", () => {
       const panel = PanelRepository.find(pos(0, 0))!;
       expect(panel.panelState).toBe(PanelState.UNOCCUPIED);
       const cleared = PanelsService.clearSelected();
-      const p = cleared.find((x) => x.panelPosition.equals(pos(0, 0)))!;
+      const p = cleared.find((x) => samePos(x.panelPosition, pos(0, 0)))!;
       expect(p.panelState).toBe(PanelState.UNOCCUPIED);
     });
   });
@@ -324,7 +272,7 @@ describe("PanelsService", () => {
 
     test("sets panel to OCCUPIED when pieces exist at position", () => {
       PiecesRepository.add(
-        new Piece({
+        createPiece({
           id: 1,
           panelPosition: pos(0, 0),
           player: Player.SELF,
@@ -344,7 +292,7 @@ describe("PanelsService", () => {
 
     test("updates panel player to match piece owner", () => {
       PiecesRepository.add(
-        new Piece({
+        createPiece({
           id: 1,
           panelPosition: pos(0, 0),
           player: Player.SELF,
@@ -361,7 +309,7 @@ describe("PanelsService", () => {
       const originalResource = panel.resource;
       const originalCastle = panel.castle;
       PiecesRepository.add(
-        new Piece({
+        createPiece({
           id: 1,
           panelPosition: pos(-3, 0),
           player: Player.SELF,

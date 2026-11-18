@@ -1,15 +1,13 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
-import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
-import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
-import { Player } from "#lib/domain/enums/Player.ts";
-import { HistoryExportService } from "#lib/services/HistoryExportService.ts";
+import { MatchControlRepository } from "#lib/store.svelte.ts";
+import { AiStrength, Player } from "#lib/domain/model.ts";
+import { MatchHistoryService } from "#lib/services/MatchHistoryService.ts";
 
 describe("HistoryExportService", () => {
   beforeEach(() => {
     GameApi.initializeGame({ layer: 4 });
     MatchControlRepository.set({
-      mode: "cpu-vs-cpu",
       controllers: {
         self: "cpu",
         opponent: "cpu",
@@ -37,7 +35,7 @@ describe("HistoryExportService", () => {
     expect(endTurnResult.ok).toBe(true);
 
     const historyBeforeExport = GameApi.getGameStateHistory();
-    const exportedJson = HistoryExportService.toJson();
+    const exportedJson = MatchHistoryService.toJson();
     const parsedHistory = JSON.parse(exportedJson);
     const historyAfterExport = GameApi.getGameStateHistory();
 

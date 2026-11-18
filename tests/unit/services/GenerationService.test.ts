@@ -1,30 +1,26 @@
 import { beforeEach, describe, test, expect } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
 import { GenerationService } from "#lib/services/GenerationService.ts";
-import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
-import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-import { Panel } from "#lib/domain/entities/Panel.ts";
-import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
-import { Piece } from "#lib/domain/entities/Piece.ts";
-import { PieceType } from "#lib/domain/enums/PieceType.ts";
-import { Player } from "#lib/domain/enums/Player.ts";
-import { ActionError } from "#lib/domain/enums/ActionError.ts";
-import { InvariantService } from "#lib/services/InvariantService.ts";
-import type {
-  ControllablePlayerSnapshot,
-  GameStateSnapshot,
-  PanelPositionSnapshot,
-  PanelStateSnapshot,
-  PieceTypeSnapshot,
-  PlayerSnapshot,
-} from "#lib/domain/types/api.ts";
+import { PanelRepository, PiecesRepository, TurnRepository } from "#lib/store.svelte.ts";
 import {
-  RESOURCE_THRESHOLD_FOR_GENERATION,
+  ActionError,
+  PanelState,
+  type GameState,
+  type PanelPosition,
+  pieceConfig,
+  PieceType,
+  Player,
+  type Side,
+  pos,
+  samePos,
+  createPiece,
+  createPanel,
+} from "#lib/domain/model.ts";
+import {
   DEFAULT_MAX_PIECES_PER_PANEL,
-} from "#lib/domain/constants/GameConstants.ts";
-
-const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
+  RESOURCE_THRESHOLD_FOR_GENERATION,
+} from "#lib/domain/config.ts";
+import { InvariantService } from "#lib/services/InvariantService.ts";
 
 describe("GenerationService", () => {
   beforeEach(() => {
@@ -45,7 +41,7 @@ describe("GenerationService", () => {
       const panels = PanelRepository.getAll();
       for (const p of panels) {
         if (p.player === Player.SELF) {
-          PanelRepository.update(new Panel({ ...p, player: Player.UNKNOWN }));
+          PanelRepository.update(createPanel({ ...p, player: Player.UNKNOWN }));
         }
       }
       expect(GenerationService.findGenerationPanel(Player.SELF)).toBeNull();
@@ -54,7 +50,7 @@ describe("GenerationService", () => {
     test("returns null when all owned panels have resource below threshold", () => {
       // Set home base resource to 0
       const homePanel = PanelRepository.find(pos(-3, 0))!;
-      PanelRepository.update(new Panel({ ...homePanel, resource: 0 }));
+      PanelRepository.update(createPanel({ ...homePanel, resource: 0 }));
       expect(GenerationService.findGenerationPanel(Player.SELF)).toBeNull();
     });
 
@@ -62,7 +58,7 @@ describe("GenerationService", () => {
       // Fill home base with max pieces
       for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
         PiecesRepository.add(
-          new Piece({
+          createPiece({
             id: i + 1,
             panelPosition: pos(-3, 0),
             player: Player.SELF,
@@ -77,7 +73,7 @@ describe("GenerationService", () => {
       // Fill home base to max with Infantry
       for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
         PiecesRepository.add(
-          new Piece({
+          createPiece({
             id: i + 1,
             panelPosition: pos(-3, 0),
             player: Player.SELF,
@@ -94,7 +90,7 @@ describe("GenerationService", () => {
     test("returns null for full panel when pieceType is non-mergeable even if same-type exists", () => {
       for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
         PiecesRepository.add(
-          new Piece({
+          createPiece({
             id: i + 1,
             panelPosition: pos(-3, 0),
             player: Player.SELF,
@@ -110,7 +106,7 @@ describe("GenerationService", () => {
       // Fill with Rooks (non-mergeable), try to generate Infantry (mergeable but no match)
       for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
         PiecesRepository.add(
-          new Piece({
+          createPiece({
             id: i + 1,
             panelPosition: pos(-3, 0),
             player: Player.SELF,
@@ -130,7 +126,7 @@ describe("GenerationService", () => {
 
         function addHeavyAndRookAtHomeBase(heavyInTransit: boolean): void {
           PiecesRepository.add(
-            new Piece({
+            createPiece({
               id: 1,
               panelPosition: homeBase,
               player,
@@ -141,7 +137,7 @@ describe("GenerationService", () => {
             }),
           );
           PiecesRepository.add(
-            new Piece({ id: 2, panelPosition: homeBase, player, pieceType: PieceType.ROOK }),
+            createPiece({ id: 2, panelPosition: homeBase, player, pieceType: PieceType.ROOK }),
           );
         }
 
@@ -170,7 +166,7 @@ describe("GenerationService", () => {
         function ownWithResource(position: PanelPosition): void {
           const panel = PanelRepository.find(position)!;
           PanelRepository.update(
-            new Panel({ ...panel, player, resource: RESOURCE_THRESHOLD_FOR_GENERATION }),
+            createPanel({ ...panel, player, resource: RESOURCE_THRESHOLD_FOR_GENERATION }),
           );
         }
 
@@ -181,7 +177,7 @@ describe("GenerationService", () => {
           targetPosition?: PanelPosition,
         ): void {
           PiecesRepository.add(
-            new Piece({ id, panelPosition: position, player, pieceType, targetPosition }),
+            createPiece({ id, panelPosition: position, player, pieceType, targetPosition }),
           );
         }
 
@@ -225,7 +221,11 @@ describe("GenerationService", () => {
       // Give panel at (-2, 0) enough resource and SELF ownership
       const panel2 = PanelRepository.find(pos(-2, 0))!;
       PanelRepository.update(
-        new Panel({ ...panel2, player: Player.SELF, resource: RESOURCE_THRESHOLD_FOR_GENERATION }),
+        createPanel({
+          ...panel2,
+          player: Player.SELF,
+          resource: RESOURCE_THRESHOLD_FOR_GENERATION,
+        }),
       );
       // Home base at (-3, 0) also qualifies
       const result = GenerationService.findGenerationPanel(Player.SELF);
@@ -242,7 +242,11 @@ describe("GenerationService", () => {
       // Give panel at (-2, 0) enough resource and SELF ownership
       const panel2 = PanelRepository.find(pos(-2, 0))!;
       PanelRepository.update(
-        new Panel({ ...panel2, player: Player.SELF, resource: RESOURCE_THRESHOLD_FOR_GENERATION }),
+        createPanel({
+          ...panel2,
+          player: Player.SELF,
+          resource: RESOURCE_THRESHOLD_FOR_GENERATION,
+        }),
       );
       const result = GenerationService.findGenerationPanel(Player.SELF);
       // In front mode, lower |hl| first → (-2, 0) before (-3, 0)
@@ -258,7 +262,11 @@ describe("GenerationService", () => {
       // Only home base qualifies initially, but add a front panel too
       const panel1 = PanelRepository.find(pos(-1, 0))!;
       PanelRepository.update(
-        new Panel({ ...panel1, player: Player.SELF, resource: RESOURCE_THRESHOLD_FOR_GENERATION }),
+        createPanel({
+          ...panel1,
+          player: Player.SELF,
+          resource: RESOURCE_THRESHOLD_FOR_GENERATION,
+        }),
       );
       const result = GenerationService.findGenerationPanel(Player.SELF);
       // Front mode: |-1| < |-3|, so (-1, 0) preferred
@@ -274,7 +282,7 @@ describe("GenerationService", () => {
 
       const homeSidePanel = PanelRepository.find(pos(-1, 0))!;
       PanelRepository.update(
-        new Panel({
+        createPanel({
           ...homeSidePanel,
           player: Player.SELF,
           resource: RESOURCE_THRESHOLD_FOR_GENERATION,
@@ -283,7 +291,7 @@ describe("GenerationService", () => {
 
       const enemySidePanel = PanelRepository.find(pos(2, 0))!;
       PanelRepository.update(
-        new Panel({
+        createPanel({
           ...enemySidePanel,
           player: Player.SELF,
           resource: RESOURCE_THRESHOLD_FOR_GENERATION + 1,
@@ -301,15 +309,23 @@ describe("GenerationService", () => {
       const panel20 = PanelRepository.find(pos(-2, 0))!;
       const panel21 = PanelRepository.find(pos(-2, 1))!;
       PanelRepository.update(
-        new Panel({ ...panel20, player: Player.SELF, resource: RESOURCE_THRESHOLD_FOR_GENERATION }),
+        createPanel({
+          ...panel20,
+          player: Player.SELF,
+          resource: RESOURCE_THRESHOLD_FOR_GENERATION,
+        }),
       );
       PanelRepository.update(
-        new Panel({ ...panel21, player: Player.SELF, resource: RESOURCE_THRESHOLD_FOR_GENERATION }),
+        createPanel({
+          ...panel21,
+          player: Player.SELF,
+          resource: RESOURCE_THRESHOLD_FOR_GENERATION,
+        }),
       );
       // Fill home base so it's not a candidate
       for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
         PiecesRepository.add(
-          new Piece({
+          createPiece({
             id: i + 10,
             panelPosition: pos(-3, 0),
             player: Player.SELF,
@@ -343,7 +359,7 @@ describe("GenerationService", () => {
       });
       GenerationService.generate(PieceType.INFANTRY);
       const newResources = TurnRepository.get().resources[String(Player.SELF)];
-      expect(newResources).toBe(initialResources - PieceType.INFANTRY.config.cost);
+      expect(newResources).toBe(initialResources - pieceConfig(PieceType.INFANTRY).cost);
     });
 
     test("places piece on the generation panel", () => {
@@ -366,7 +382,7 @@ describe("GenerationService", () => {
 
       const frontPanel = PanelRepository.find(pos(-2, 0))!;
       PanelRepository.update(
-        new Panel({
+        createPanel({
           ...frontPanel,
           player: Player.SELF,
           resource: RESOURCE_THRESHOLD_FOR_GENERATION,
@@ -376,11 +392,11 @@ describe("GenerationService", () => {
       const forcedPosition = pos(-3, 0);
       const generatedPosition = GenerationService.generate(PieceType.INFANTRY, forcedPosition);
 
-      expect(generatedPosition?.equals(forcedPosition)).toBe(true);
+      expect(samePos(generatedPosition, forcedPosition)).toBe(true);
 
       const pieces = PiecesRepository.getAll();
       expect(pieces).toHaveLength(1);
-      expect(pieces[0].panelPosition.equals(forcedPosition)).toBe(true);
+      expect(samePos(pieces[0].panelPosition, forcedPosition)).toBe(true);
     });
 
     test("does nothing when resources are insufficient", () => {
@@ -396,7 +412,7 @@ describe("GenerationService", () => {
       // Fill home base (only qualified panel) with non-mergeable Rooks
       for (let i = 0; i < DEFAULT_MAX_PIECES_PER_PANEL; i++) {
         PiecesRepository.add(
-          new Piece({
+          createPiece({
             id: i + 1,
             panelPosition: pos(-3, 0),
             player: Player.SELF,
@@ -446,7 +462,7 @@ describe.each([Player.SELF, Player.OPPONENT])(
 
     const ownPanel = (position: PanelPosition, resource: number) => {
       const panel = PanelRepository.find(position)!;
-      PanelRepository.update(new Panel({ ...panel, player, resource }));
+      PanelRepository.update(createPanel({ ...panel, player, resource }));
     };
 
     const addPiece = (
@@ -455,7 +471,7 @@ describe.each([Player.SELF, Player.OPPONENT])(
       pieceType: PieceType,
       targetPosition?: PanelPosition,
     ) => {
-      PiecesRepository.add(new Piece({ id, panelPosition, player, pieceType, targetPosition }));
+      PiecesRepository.add(createPiece({ id, panelPosition, player, pieceType, targetPosition }));
     };
 
     beforeEach(() => {
@@ -470,11 +486,11 @@ describe.each([Player.SELF, Player.OPPONENT])(
       addPiece(2, neighbor, PieceType.NOBLE, home);
 
       const result = GenerationService.findGenerationPanel(player, PieceType.ROOK);
-      expect(result?.equals(nextCandidate)).toBe(true);
+      expect(samePos(result, nextCandidate)).toBe(true);
 
       expect(GameApi.generatePiece(player, PieceType.ROOK).ok).toBe(true);
       const spawned = PiecesRepository.getAll().find((piece) => piece.id === 3);
-      expect(spawned?.panelPosition.equals(nextCandidate)).toBe(true);
+      expect(samePos(spawned?.panelPosition, nextCandidate)).toBe(true);
     });
 
     test("returns no panel when every candidate is full by projected or current count", () => {
@@ -512,7 +528,7 @@ describe.each([Player.SELF, Player.OPPONENT])(
       const infantry = piecesAtHome.find((piece) => piece.pieceType === PieceType.INFANTRY)!;
       expect(infantry.id).toBe(1);
       expect(infantry.stackCount).toBe(2);
-      expect(infantry.targetPosition?.equals(neighbor)).toBe(true);
+      expect(samePos(infantry.targetPosition, neighbor)).toBe(true);
     });
 
     test("generates on a projected-full panel when the same type flows in, and stays within capacity after endTurn", () => {
@@ -521,7 +537,7 @@ describe.each([Player.SELF, Player.OPPONENT])(
       expect(GameApi.assignMove(player, 2, home).ok).toBe(true);
 
       expect(GenerationService.findGenerationPanel(player, PieceType.ROOK)).toBeNull();
-      expect(GenerationService.findGenerationPanel(player, PieceType.INFANTRY)?.equals(home)).toBe(
+      expect(samePos(GenerationService.findGenerationPanel(player, PieceType.INFANTRY), home)).toBe(
         true,
       );
 
@@ -541,7 +557,7 @@ describe.each([Player.SELF, Player.OPPONENT])(
       addPiece(2, neighbor, PieceType.NOBLE, home);
 
       // Only the home base qualifies: archer merges with the inflowing archer, cavalry does not.
-      expect(GenerationService.findGenerationPanel(player, PieceType.ARCHER)?.equals(home)).toBe(
+      expect(samePos(GenerationService.findGenerationPanel(player, PieceType.ARCHER), home)).toBe(
         true,
       );
       expect(GenerationService.findGenerationPanel(player, PieceType.CAVALRY)).toBeNull();
@@ -550,25 +566,25 @@ describe.each([Player.SELF, Player.OPPONENT])(
 
       // With a second candidate, cavalry falls through to it while archer stays on home.
       ownPanel(nextCandidate, RESOURCE_THRESHOLD_FOR_GENERATION);
-      expect(GenerationService.findGenerationPanel(player, PieceType.ARCHER)?.equals(home)).toBe(
+      expect(samePos(GenerationService.findGenerationPanel(player, PieceType.ARCHER), home)).toBe(
         true,
       );
       expect(
-        GenerationService.findGenerationPanel(player, PieceType.CAVALRY)?.equals(nextCandidate),
+        samePos(GenerationService.findGenerationPanel(player, PieceType.CAVALRY), nextCandidate),
       ).toBe(true);
     });
   },
 );
 
 type PositionTuple = [number, number];
-type PanelRow = [number, number, PanelStateSnapshot, PlayerSnapshot, number, number];
+type PanelRow = [number, number, PanelState, Player, number, number];
 // id, position, target, player, type, hp, stackCount, maxHp, movementPoints
 type PieceRow = [
   number,
   PositionTuple,
   PositionTuple | null,
-  ControllablePlayerSnapshot,
-  PieceTypeSnapshot,
+  Side,
+  PieceType,
   number,
   number,
   number,
@@ -579,7 +595,7 @@ type PieceRow = [
  * Board from issue #85 after steps 1-7 (before generating the cavalry), with SELF to move:
  * the recorded "before" board without cavalry#15 and with its cost refunded.
  */
-const issue85Snapshot = (): GameStateSnapshot => {
+const issue85Snapshot = (): GameState => {
   const panelRows: PanelRow[] = [
     [-4, 0, "occupied", "self", 5, 10],
     [-3, 0, "occupied", "self", 2, 1],
@@ -620,7 +636,7 @@ const issue85Snapshot = (): GameStateSnapshot => {
     [13, [3, 0], null, "opponent", "archer", 8, 1, 8, 0],
     [14, [4, 0], null, "opponent", "infantry", 10, 1, 10, 1],
   ];
-  const toPosition = ([h, v]: PositionTuple): PanelPositionSnapshot => ({
+  const toPosition = ([h, v]: PositionTuple): PanelPosition => ({
     horizontalLayer: h,
     verticalLayer: v,
   });
@@ -650,7 +666,7 @@ const issue85Snapshot = (): GameStateSnapshot => {
     turn: {
       num: 11,
       player: "self",
-      resources: { self: 3 + PieceType.CAVALRY.config.cost, opponent: 1 },
+      resources: { self: 3 + pieceConfig(PieceType.CAVALRY).cost, opponent: 1 },
       maxPiecesPerPanel: { self: 2, opponent: 2 },
       generationMode: { self: "front", opponent: "front" },
       winner: null,
@@ -664,10 +680,10 @@ const issue85Snapshot = (): GameStateSnapshot => {
 };
 
 /** Swaps the two sides of a snapshot (players and horizontal positions). */
-const mirrorSnapshot = (snapshot: GameStateSnapshot): GameStateSnapshot => {
-  const swap = <T extends PlayerSnapshot>(owner: T): T =>
+const mirrorSnapshot = (snapshot: GameState): GameState => {
+  const swap = <T extends Player>(owner: T): T =>
     (owner === "self" ? "opponent" : owner === "opponent" ? "self" : owner) as T;
-  const flip = (position: PanelPositionSnapshot): PanelPositionSnapshot => ({
+  const flip = (position: PanelPosition): PanelPosition => ({
     horizontalLayer: -position.horizontalLayer,
     verticalLayer: position.verticalLayer,
   });
@@ -727,7 +743,7 @@ describe.each([Player.SELF, Player.OPPONENT])("regression: issue #85 board (%s)"
     expect(GameApi.generatePiece(player, PieceType.ARCHER).ok).toBe(true);
     const spawned = PiecesRepository.getAll().find((piece) => piece.id === 15);
     expect(spawned?.pieceType).toBe(PieceType.ARCHER);
-    expect(spawned?.panelPosition.equals(home)).toBe(true);
+    expect(samePos(spawned?.panelPosition, home)).toBe(true);
 
     expect(GameApi.endTurn(player).ok).toBe(true);
     const violations = InvariantService.check(GameApi.getGameState());

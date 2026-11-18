@@ -1,15 +1,19 @@
-import { describe, test, expect, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+afterEach(() => vi.restoreAllMocks());
 import { MovementRulesService, type TurnStep } from "#lib/services/MovementRulesService.ts";
 import { GameApi } from "#lib/api/GameApi.ts";
-import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
-import { Piece } from "#lib/domain/entities/Piece.ts";
-import { Panel } from "#lib/domain/entities/Panel.ts";
-import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
-import { PieceType } from "#lib/domain/enums/PieceType.ts";
-import { Player } from "#lib/domain/enums/Player.ts";
-
-const pos = (h: number, v: number) => new PanelPosition({ horizontalLayer: h, verticalLayer: v });
+import { PanelRepository, PiecesRepository } from "#lib/store.svelte.ts";
+import {
+  type PanelPosition,
+  type Piece,
+  PieceType,
+  Player,
+  pos,
+  samePos,
+  createPiece,
+  createPanel,
+  canAttack,
+} from "#lib/domain/model.ts";
 
 function addPiece(
   id: number,
@@ -23,7 +27,7 @@ function addPiece(
     orderSequence?: number;
   } = {},
 ): Piece {
-  const piece = new Piece({
+  const piece = createPiece({
     id,
     panelPosition: position,
     player,
@@ -41,7 +45,7 @@ function setPanel(position: PanelPosition, player: Player, castle: number = 0) {
   const existing = PanelRepository.find(position);
   if (existing) {
     PanelRepository.update(
-      new Panel({
+      createPanel({
         panelPosition: position,
         panelState: existing.panelState,
         player,
@@ -170,7 +174,7 @@ describe("MovementRulesService", () => {
     });
 
     test("piece with 0 attack power cannot move to enemy panel", () => {
-      const noble = new Piece({
+      const noble = createPiece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
@@ -192,13 +196,12 @@ describe("MovementRulesService", () => {
       // No shipped unit type currently has defense > 2, so exercise the gate directly at the
       // MovementRulesService level with a hand-built defender. This is a canary for Phase E,
       // when Heavy (defense=2) and Siege (defense=3) land.
-      const highDefenseDefender = new Piece({
+      const highDefenseDefender = createPiece({
         id: 50,
         panelPosition: pos(1, 0),
         player: Player.OPPONENT,
-        pieceType: PieceType.NOBLE,
+        pieceType: PieceType.SIEGE,
       });
-      Object.defineProperty(highDefenseDefender, "defense", { value: 3 });
       expect(MovementRulesService.canDefeatAllDefenders(attacker, [highDefenseDefender])).toBe(
         false,
       );
@@ -212,20 +215,19 @@ describe("MovementRulesService", () => {
     });
 
     test("merge (stackCount) never affects the defense gate — only the raw config attack power counts", () => {
-      const mergedAttacker = new Piece({
+      const mergedAttacker = createPiece({
         id: 1,
         panelPosition: pos(0, 0),
         player: Player.SELF,
         pieceType: PieceType.ROOK, // atk=2
         stackCount: 3,
       });
-      const highDefenseDefender = new Piece({
+      const highDefenseDefender = createPiece({
         id: 50,
         panelPosition: pos(1, 0),
         player: Player.OPPONENT,
-        pieceType: PieceType.NOBLE,
+        pieceType: PieceType.SIEGE,
       });
-      Object.defineProperty(highDefenseDefender, "defense", { value: 3 });
       expect(
         MovementRulesService.canDefeatAllDefenders(mergedAttacker, [highDefenseDefender]),
       ).toBe(false);
@@ -236,7 +238,7 @@ describe("MovementRulesService", () => {
       setPanel(pos(1, 0), Player.OPPONENT, 5);
       const wallAttacker = addPiece(2, pos(0, 1), Player.SELF, { pieceType: PieceType.ROOK });
       expect(MovementRulesService.canMoveTo(pos(1, 0), Player.SELF, wallAttacker.id)).toBe(true);
-      expect(attacker.canAttack).toBe(false); // sanity: unrelated to the wall-only assertion above
+      expect(canAttack(attacker)).toBe(false); // sanity: unrelated to the wall-only assertion above
     });
   });
 
@@ -369,7 +371,7 @@ describe("MovementRulesService", () => {
 
       test("starts moving into the first step toward a distant target", () => {
         const step = stepOf(addHeavy({ targetPosition: beyond }));
-        expect(step.kind === "startTransit" && step.hop.equals(hop)).toBe(true);
+        expect(step.kind === "startTransit" && samePos(step.hop, hop)).toBe(true);
       });
 
       test("keeps moving into the panel it is in transit to, whatever the final target", () => {
@@ -379,7 +381,7 @@ describe("MovementRulesService", () => {
           movementPoints: 0.5,
         });
         const step = stepOf(heavy);
-        expect(step.kind === "enter" && step.path[0].equals(hop)).toBe(true);
+        expect(step.kind === "enter" && samePos(step.path[0], hop)).toBe(true);
       });
     });
 
@@ -429,17 +431,17 @@ describe("MovementRulesService", () => {
         const heavy = addHeavy({ targetPosition: hop, movementPoints: 0.5 });
         const ordered = MovementRulesService.withOrder(heavy, beyond);
 
-        expect(ordered.targetPosition?.equals(beyond)).toBe(true);
+        expect(samePos(ordered.targetPosition, beyond)).toBe(true);
         expect(ordered.movementPoints).toBe(0);
-        expect(heavy.targetPosition?.equals(hop)).toBe(true);
+        expect(samePos(heavy.targetPosition, hop)).toBe(true);
       });
 
       test("keeps the hop in progress of a slow piece in transit", () => {
         const heavy = addHeavy({ targetPosition: hop, transitPosition: hop, movementPoints: 0.5 });
         const ordered = MovementRulesService.withOrder(heavy, beyond);
 
-        expect(ordered.targetPosition?.equals(beyond)).toBe(true);
-        expect(ordered.transitPosition?.equals(hop)).toBe(true);
+        expect(samePos(ordered.targetPosition, beyond)).toBe(true);
+        expect(samePos(ordered.transitPosition, hop)).toBe(true);
         expect(ordered.movementPoints).toBe(0.5);
       });
 
@@ -523,7 +525,7 @@ describe("MovementRulesService", () => {
         addHeavy({ targetPosition: hop, movementPoints: 0 });
 
         expect(MovementRulesService.canCancelMove(player, 1)).toBe(true);
-        expect(findPiece(1).targetPosition?.equals(hop)).toBe(true);
+        expect(samePos(findPiece(1).targetPosition, hop)).toBe(true);
       });
     });
   });
@@ -548,8 +550,8 @@ describe("MovementRulesService", () => {
     }
 
     /** Gives the enemy piece <piece> a defense no shipped piece type can defeat. */
-    function makeUndefeatable(piece: Piece): void {
-      Object.defineProperty(piece, "defense", { value: 99 });
+    function makeUndefeatable(): void {
+      vi.spyOn(MovementRulesService, "canDefeatAllDefenders").mockReturnValue(false);
     }
 
     function expectNoPanelOverCapacity(): void {
@@ -700,7 +702,8 @@ describe("MovementRulesService", () => {
           transitPosition: detour,
           movementPoints: 0,
         });
-        makeUndefeatable(addPiece(20, detour, opponent));
+        addPiece(20, detour, opponent);
+        makeUndefeatable();
 
         expect(stepOf(1)).toEqual({ kind: "blocked", path: [] });
       });
@@ -825,7 +828,7 @@ describe("MovementRulesService", () => {
 
     describe("canPlaceNewPiece", () => {
       const newRook = (position: PanelPosition) =>
-        new Piece({ id: 99, panelPosition: position, player, pieceType: PieceType.ROOK });
+        createPiece({ id: 99, panelPosition: position, player, pieceType: PieceType.ROOK });
 
       test("is true on a panel with room at the end of the turn", () => {
         addPiece(10, onRoute, player, { pieceType: PieceType.NOBLE });

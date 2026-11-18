@@ -1,22 +1,21 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
-import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
-import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-import { SelectedPanelRepository } from "#lib/data/repositories/SelectedPanelRepository.ts";
-import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
-import { Piece } from "#lib/domain/entities/Piece.ts";
-import { PanelState } from "#lib/domain/enums/PanelState.ts";
-import { PieceType } from "#lib/domain/enums/PieceType.ts";
-import { Player } from "#lib/domain/enums/Player.ts";
+import { PanelRepository, PiecesRepository, SelectionRepository } from "#lib/store.svelte.ts";
+import {
+  type PanelPosition,
+  PanelState,
+  type Piece,
+  PieceType,
+  Player,
+  pos,
+  samePos,
+  createPiece,
+} from "#lib/domain/model.ts";
 import { InteractionService } from "#lib/services/InteractionService.ts";
 import { PanelsService } from "#lib/services/PanelService.ts";
-import { RangedAttackModeRepository } from "#lib/data/repositories/RangedAttackModeRepository.ts";
-
-const pos = (horizontalLayer: number, verticalLayer: number) =>
-  new PanelPosition({ horizontalLayer, verticalLayer });
 
 function setupSelfPiece(position: PanelPosition, id = 1): Piece {
-  const piece = new Piece({
+  const piece = createPiece({
     id,
     panelPosition: position,
     initialPosition: position,
@@ -28,7 +27,7 @@ function setupSelfPiece(position: PanelPosition, id = 1): Piece {
 }
 
 function setupSelfArcher(position: PanelPosition, id = 1): Piece {
-  const piece = new Piece({
+  const piece = createPiece({
     id,
     panelPosition: position,
     initialPosition: position,
@@ -52,7 +51,7 @@ function getPiece(id: number): Piece {
 describe("InteractionService", () => {
   beforeEach(() => {
     GameApi.initializeGame({ layer: 4 });
-    SelectedPanelRepository.set(undefined);
+    SelectionRepository.setPieceId(undefined);
   });
 
   describe("pieceChange", () => {
@@ -63,8 +62,8 @@ describe("InteractionService", () => {
       GameApi.assignMove(Player.SELF, 1, target);
       InteractionService.pieceChange(getPiece(1));
 
-      expect(getPiece(1).targetPosition?.equals(target)).toBe(true);
-      expect(SelectedPanelRepository.getPieceId()).toBe(1);
+      expect(samePos(getPiece(1).targetPosition, target)).toBe(true);
+      expect(SelectionRepository.getPieceId()).toBe(1);
       expect(PanelRepository.find(pos(0, 0))?.panelState).toBe(PanelState.SELECTED);
       expect(PanelRepository.find(target)?.panelState).toBe(PanelState.MOVABLE);
     });
@@ -82,7 +81,7 @@ describe("InteractionService", () => {
       InteractionService.pieceChange(getPiece(1));
       InteractionService.pieceChange(getPiece(1));
 
-      expect(SelectedPanelRepository.getPieceId()).toBeUndefined();
+      expect(SelectionRepository.getPieceId()).toBeUndefined();
       expect(hasHighlight()).toBe(false);
     });
 
@@ -93,7 +92,7 @@ describe("InteractionService", () => {
       InteractionService.pieceChange(getPiece(1));
       InteractionService.pieceChange(getPiece(2));
 
-      expect(SelectedPanelRepository.getPieceId()).toBe(2);
+      expect(SelectionRepository.getPieceId()).toBe(2);
       expect(PanelRepository.find(pos(0, 1))?.panelState).toBe(PanelState.SELECTED);
       expect(PanelRepository.find(pos(0, 0))?.panelState).not.toBe(PanelState.SELECTED);
     });
@@ -105,7 +104,7 @@ describe("InteractionService", () => {
       InteractionService.pieceChange(getPiece(1));
       InteractionService.pieceChange(getPiece(2));
 
-      expect(SelectedPanelRepository.getPieceId()).toBe(2);
+      expect(SelectionRepository.getPieceId()).toBe(2);
       expect(PanelRepository.find(pos(0, 0))?.panelState).toBe(PanelState.SELECTED);
     });
 
@@ -115,7 +114,7 @@ describe("InteractionService", () => {
       InteractionService.pieceChange(getPiece(1));
       InteractionService.panelChange(pos(0, 0));
 
-      expect(SelectedPanelRepository.getPieceId()).toBeUndefined();
+      expect(SelectionRepository.getPieceId()).toBeUndefined();
       expect(hasHighlight()).toBe(false);
     });
 
@@ -125,8 +124,8 @@ describe("InteractionService", () => {
       InteractionService.pieceChange(getPiece(1));
       InteractionService.panelChange(pos(0, 1));
 
-      expect(getPiece(1).targetPosition?.equals(pos(0, 1))).toBe(true);
-      expect(SelectedPanelRepository.getPieceId()).toBeUndefined();
+      expect(samePos(getPiece(1).targetPosition, pos(0, 1))).toBe(true);
+      expect(SelectionRepository.getPieceId()).toBeUndefined();
     });
   });
 
@@ -139,7 +138,7 @@ describe("InteractionService", () => {
 
       InteractionService.panelChange(pos(0, 0));
 
-      expect(SelectedPanelRepository.getPieceId()).toBe(2);
+      expect(SelectionRepository.getPieceId()).toBe(2);
     });
 
     test("OCCUPIED background click selects the first reserved piece when all are reserved", () => {
@@ -151,12 +150,12 @@ describe("InteractionService", () => {
 
       InteractionService.panelChange(pos(0, 0));
 
-      expect(SelectedPanelRepository.getPieceId()).toBe(1);
+      expect(SelectionRepository.getPieceId()).toBe(1);
     });
 
     test("OCCUPIED background click does nothing for opponent-only panels", () => {
       PiecesRepository.add(
-        new Piece({
+        createPiece({
           id: 1,
           panelPosition: pos(0, 0),
           initialPosition: pos(0, 0),
@@ -168,7 +167,7 @@ describe("InteractionService", () => {
 
       InteractionService.panelChange(pos(0, 0));
 
-      expect(SelectedPanelRepository.getPieceId()).toBeUndefined();
+      expect(SelectionRepository.getPieceId()).toBeUndefined();
     });
 
     test("cancels a pending move when the selected source panel is clicked", () => {
@@ -181,7 +180,7 @@ describe("InteractionService", () => {
       InteractionService.panelChange(source);
 
       expect(getPiece(1).targetPosition).toBeUndefined();
-      expect(SelectedPanelRepository.getPieceId()).toBeUndefined();
+      expect(SelectionRepository.getPieceId()).toBeUndefined();
       expect(PanelRepository.find(source)?.panelState).toBe(PanelState.OCCUPIED);
     });
 
@@ -194,7 +193,7 @@ describe("InteractionService", () => {
       InteractionService.pieceChange(getPiece(1));
       InteractionService.panelChange(nextTarget);
 
-      expect(getPiece(1).targetPosition?.equals(nextTarget)).toBe(true);
+      expect(samePos(getPiece(1).targetPosition, nextTarget)).toBe(true);
       expect(PanelRepository.find(pos(0, 0))?.panelState).toBe(PanelState.OCCUPIED);
     });
   });
@@ -215,12 +214,12 @@ describe("InteractionService", () => {
       const noble = getPiece(1);
       // A noble's movement points must be its own (the piece was built as an infantry).
       PiecesRepository.update(
-        new Piece({ ...noble, pieceType: PieceType.NOBLE, movementPoints: 1 }),
+        createPiece({ ...noble, pieceType: PieceType.NOBLE, movementPoints: 1 }),
       );
 
       const adjacentEnemyPosition = pos(-2, 0);
       PiecesRepository.add(
-        new Piece({
+        createPiece({
           id: 2,
           panelPosition: adjacentEnemyPosition,
           initialPosition: adjacentEnemyPosition,
@@ -234,19 +233,18 @@ describe("InteractionService", () => {
 
       const panelState = PanelRepository.find(adjacentEnemyPosition)?.panelState;
       expect(panelState).not.toBe(PanelState.MOVABLE);
-      expect(panelState).not.toBe(PanelState.IMMOVABLE);
     });
 
     test("marks a distant enemy panel MOVABLE even for a piece that cannot attack (a distant target can always be ordered)", () => {
       setupSelfPiece(pos(-3, 0));
       const noble = getPiece(1);
       PiecesRepository.update(
-        new Piece({ ...noble, pieceType: PieceType.NOBLE, movementPoints: 1 }),
+        createPiece({ ...noble, pieceType: PieceType.NOBLE, movementPoints: 1 }),
       );
 
       const distantEnemyPosition = pos(0, 0);
       PiecesRepository.add(
-        new Piece({
+        createPiece({
           id: 2,
           panelPosition: distantEnemyPosition,
           initialPosition: distantEnemyPosition,
@@ -265,14 +263,14 @@ describe("InteractionService", () => {
   describe("ranged attack mode", () => {
     test("toggleRangedAttackMode does nothing when no piece is selected", () => {
       InteractionService.toggleRangedAttackMode();
-      expect(RangedAttackModeRepository.isActive()).toBe(false);
+      expect(SelectionRepository.isRangedAttackMode()).toBe(false);
     });
 
     test("panelChange fires assignRangedAttack when attack mode is active, then exits the mode", () => {
       setupSelfArcher(pos(0, 0));
       const target = pos(2, 0);
       PiecesRepository.add(
-        new Piece({
+        createPiece({
           id: 2,
           panelPosition: target,
           initialPosition: target,
@@ -283,14 +281,14 @@ describe("InteractionService", () => {
 
       InteractionService.pieceChange(getPiece(1));
       InteractionService.toggleRangedAttackMode();
-      expect(RangedAttackModeRepository.isActive()).toBe(true);
+      expect(SelectionRepository.isRangedAttackMode()).toBe(true);
 
       InteractionService.panelChange(target);
 
-      expect(RangedAttackModeRepository.isActive()).toBe(false);
-      expect(getPiece(1).rangedAttackTargetPosition?.equals(target)).toBe(true);
+      expect(SelectionRepository.isRangedAttackMode()).toBe(false);
+      expect(samePos(getPiece(1).rangedAttackTargetPosition, target)).toBe(true);
       // The archer never moves when assigning a ranged attack.
-      expect(getPiece(1).panelPosition.equals(pos(0, 0))).toBe(true);
+      expect(samePos(getPiece(1).panelPosition, pos(0, 0))).toBe(true);
     });
 
     test("selecting a different piece exits ranged attack mode", () => {
@@ -299,10 +297,10 @@ describe("InteractionService", () => {
 
       InteractionService.pieceChange(getPiece(1));
       InteractionService.toggleRangedAttackMode();
-      expect(RangedAttackModeRepository.isActive()).toBe(true);
+      expect(SelectionRepository.isRangedAttackMode()).toBe(true);
 
       InteractionService.pieceChange(getPiece(2));
-      expect(RangedAttackModeRepository.isActive()).toBe(false);
+      expect(SelectionRepository.isRangedAttackMode()).toBe(false);
     });
   });
 });

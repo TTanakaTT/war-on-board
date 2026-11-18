@@ -20,12 +20,7 @@ import target from "@material-symbols/svg-400/outlined/target.svg?raw";
 import taskAlt from "@material-symbols/svg-400/outlined/task_alt.svg?raw";
 import trophy from "@material-symbols/svg-400/outlined/trophy.svg?raw";
 
-/**
- * Material Symbols (outlined, weight 400) used by the UI, keyed by icon name.
- * `Icon.svelte` draws them as inline SVG, so only these icons reach the
- * bundle. To use another icon, import its SVG from
- * `@material-symbols/svg-400/outlined/` and add it here.
- */
+/** Material Symbols (outlined, 400) used by the UI. Add an icon by importing its SVG here. */
 const MATERIAL_ICON_SOURCES = {
   arrow_back: arrowBack,
   arrow_downward: arrowDownward,
@@ -50,18 +45,37 @@ const MATERIAL_ICON_SOURCES = {
   trophy,
 };
 
-/** The viewBox every Material Symbols SVG is drawn in. */
 export const MATERIAL_ICON_VIEW_BOX = "0 -960 960 960";
 
-function pathData(name: string, svg: string): string {
-  const d = /<path d="([^"]+)"/.exec(svg)?.[1];
-  if (d === undefined) {
-    throw new Error(`Material Symbols icon "${name}" has no path`);
-  }
-  return d;
-}
-
-/** The `d` attribute of each icon's single `<path>`. */
+/** The `d` of each icon's single path. */
 export const MATERIAL_ICON_PATHS: Readonly<Partial<Record<string, string>>> = Object.fromEntries(
-  Object.entries(MATERIAL_ICON_SOURCES).map(([name, svg]) => [name, pathData(name, svg)]),
+  Object.entries(MATERIAL_ICON_SOURCES).map(([name, svg]) => {
+    const d = /<path d="([^"]+)"/.exec(svg)?.[1];
+    if (d === undefined) throw new Error(`Material Symbols icon "${name}" has no path`);
+    return [name, d];
+  }),
 );
+
+/** Piece icons without a Material Symbols equivalent, drawn in a 24x24 viewBox. */
+export type IconShape =
+  | { type: "path"; d: string; strokeWidth: number }
+  | { type: "line"; x1: number; y1: number; x2: number; y2: number; strokeWidth: number }
+  | { type: "polygon"; points: string }
+  | { type: "circle"; cx: number; cy: number; r: number };
+
+export const CUSTOM_PIECE_ICONS: Record<string, IconShape[]> = {
+  archer: [
+    { type: "path", d: "M7,2 C3,7 3,17 7,22", strokeWidth: 1.5 },
+    { type: "path", d: "M7,2 L13,12 L7,22", strokeWidth: 1 },
+    { type: "line", x1: 7, y1: 12, x2: 21, y2: 12, strokeWidth: 1.5 },
+    { type: "polygon", points: "21,8.5 21,15.5 24,12" },
+    { type: "path", d: "M7,12 L4,9.5 M7,12 L4,14.5", strokeWidth: 1.5 },
+  ],
+  siege: [
+    { type: "line", x1: 4, y1: 20, x2: 12, y2: 4, strokeWidth: 1.5 },
+    { type: "line", x1: 20, y1: 20, x2: 12, y2: 4, strokeWidth: 1.5 },
+    { type: "line", x1: 4, y1: 20, x2: 20, y2: 20, strokeWidth: 1.5 },
+    { type: "line", x1: 10, y1: 13, x2: 19, y2: 4, strokeWidth: 1.5 },
+    { type: "circle", cx: 19, cy: 4, r: 1.8 },
+  ],
+};

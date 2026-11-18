@@ -10,7 +10,7 @@
     DRAWER_WIDTH_TRANSITION_MS,
     EXPANDED_GAME_DRAWER_WIDTH_UNITS,
     MOBILE_DRAWER_WIDTH_UNITS,
-  } from "#lib/presentation/constants/UiConstants.ts";
+  } from "#lib/presentation/layout.ts";
   import { initializeThemePreference } from "#lib/presentation/themePreference.ts";
   import { tick } from "svelte";
   import type { Snippet } from "svelte";
