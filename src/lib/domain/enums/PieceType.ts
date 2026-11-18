@@ -36,6 +36,12 @@ interface PieceConfig {
    * attack power — see Piece.attackPowerAgainstPiece/attackPowerAgainstWall.
    */
   readonly mergeable: boolean;
+  /**
+   * Whether this piece is a combat unit: only combat units count toward a
+   * player's army power (the total cost of their combat units, shown in the info
+   * panel). Support pieces whose role is a passive effect on their panel are not.
+   */
+  readonly isCombatUnit: boolean;
 }
 
 const CONFIGS: Record<PIECETYPE, PieceConfig> = {
@@ -49,6 +55,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     movement: 1,
     attackRange: 1,
     mergeable: true,
+    isCombatUnit: true,
   },
   [PIECETYPE.ROOK]: {
     iconName: "chess_rook",
@@ -60,6 +67,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     movement: 1,
     attackRange: 1,
     mergeable: false,
+    isCombatUnit: false,
   },
   [PIECETYPE.NOBLE]: {
     iconName: "chess_bishop_2",
@@ -71,6 +79,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     movement: 1,
     attackRange: 0,
     mergeable: false,
+    isCombatUnit: false,
   },
   [PIECETYPE.ARCHER]: {
     iconName: "archer",
@@ -82,6 +91,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     movement: 1,
     attackRange: 2,
     mergeable: true,
+    isCombatUnit: true,
   },
   [PIECETYPE.CAVALRY]: {
     iconName: "chess_knight",
@@ -93,6 +103,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     movement: 2,
     attackRange: 1,
     mergeable: true,
+    isCombatUnit: true,
   },
   [PIECETYPE.HEAVY]: {
     iconName: "shield",
@@ -104,6 +115,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     movement: 0.5,
     attackRange: 1,
     mergeable: true,
+    isCombatUnit: true,
   },
   [PIECETYPE.SIEGE]: {
     iconName: "siege",
@@ -115,6 +127,7 @@ const CONFIGS: Record<PIECETYPE, PieceConfig> = {
     movement: 1,
     attackRange: 1,
     mergeable: true,
+    isCombatUnit: true,
   },
 } as const;
 

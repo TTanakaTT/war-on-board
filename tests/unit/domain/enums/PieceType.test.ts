@@ -149,5 +149,15 @@ describe("PieceType", () => {
       expect(PieceType.HEAVY.config.mergeable).toBe(true);
       expect(PieceType.SIEGE.config.mergeable).toBe(true);
     });
+
+    test("isCombatUnit is true for fighting pieces and false for nobles and rooks", () => {
+      expect(PieceType.INFANTRY.config.isCombatUnit).toBe(true);
+      expect(PieceType.ARCHER.config.isCombatUnit).toBe(true);
+      expect(PieceType.CAVALRY.config.isCombatUnit).toBe(true);
+      expect(PieceType.HEAVY.config.isCombatUnit).toBe(true);
+      expect(PieceType.SIEGE.config.isCombatUnit).toBe(true);
+      expect(PieceType.NOBLE.config.isCombatUnit).toBe(false);
+      expect(PieceType.ROOK.config.isCombatUnit).toBe(false);
+    });
   });
 });

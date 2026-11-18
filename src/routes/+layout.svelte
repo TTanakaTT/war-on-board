@@ -9,6 +9,7 @@
     DESKTOP_NAVIGATION_BREAKPOINT_PX,
     DRAWER_WIDTH_TRANSITION_MS,
     EXPANDED_GAME_DRAWER_WIDTH_UNITS,
+    MOBILE_DRAWER_WIDTH_UNITS,
   } from "#lib/presentation/constants/UiConstants.ts";
   import { initializeThemePreference } from "#lib/presentation/themePreference.ts";
   import { tick } from "svelte";
@@ -28,11 +29,15 @@
   let isWideGameDrawerLayout = $state(false);
   let hasLoadedGameDrawerPreference = $state(false);
   let isGameDrawerTransitioning = $state(false);
-  let drawerWidthUnits = $derived(
-    isNav && isGamePage && isGameDrawerExpanded
+  let drawerWidthUnits = $derived.by(() => {
+    if (!isNav) {
+      return MOBILE_DRAWER_WIDTH_UNITS;
+    }
+
+    return isGamePage && isGameDrawerExpanded
       ? EXPANDED_GAME_DRAWER_WIDTH_UNITS
-      : DEFAULT_DRAWER_WIDTH_UNITS,
-  );
+      : DEFAULT_DRAWER_WIDTH_UNITS;
+  });
 
   let mainPaddingStyle = $derived.by(() => {
     if (!isNav || !open) {
