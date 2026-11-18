@@ -2,6 +2,7 @@ import { GameApiClient } from "#lib/api/GameApiClient.ts";
 import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
 import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
 import { DEFAULT_AUTOMATION_TURN_LIMIT } from "#lib/domain/constants/GameConstants.ts";
+import type { Turn } from "#lib/domain/entities/Turn.ts";
 import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
 import { Player } from "#lib/domain/enums/Player.ts";
 import type {
@@ -184,7 +185,7 @@ export class MatchService {
       return;
     }
 
-    let matchControl = MatchControlRepository.get();
+    const matchControl = MatchControlRepository.get();
     const currentTurn = TurnRepository.get();
 
     if (currentTurn.winner) {
@@ -210,16 +211,43 @@ export class MatchService {
       currentTurn.player,
       matchControl.aiStrengths,
     );
-    AiService.doAiTurn(
-      currentTurn.player,
-      currentAiStrength,
-      this.getAiRandomSource(currentTurn.player, matchControl.aiSeeds),
-    );
+    let aiFailure: { error: unknown } | null = null;
+    try {
+      AiService.doAiTurn(
+        currentTurn.player,
+        currentAiStrength,
+        this.getAiRandomSource(currentTurn.player, matchControl.aiSeeds),
+      );
+    } catch (error) {
+      aiFailure = { error };
+    }
     const postTurn = TurnRepository.get();
 
-    if (postTurn.num > currentTurn.num) {
-      matchControl = this.incrementAutomatedTurns(matchControl);
+    const turnEnded = postTurn.player !== currentTurn.player || postTurn.winner !== null;
+    if (turnEnded) {
+      this.finishAutomatedTurn(runToken, matchControl, currentTurn, postTurn);
+    } else {
+      // The CPU could not end its turn; halt instead of retrying the same turn forever.
+      this.haltAutomation();
     }
+
+    if (aiFailure) {
+      // Rethrown from the timer callback so it surfaces as an uncaught exception.
+      throw aiFailure.error;
+    }
+  }
+
+  /** Records a CPU turn that ended and schedules the next step when the next player is a CPU. */
+  private static finishAutomatedTurn(
+    runToken: number,
+    previousMatchControl: MatchControl,
+    currentTurn: Turn,
+    postTurn: Turn,
+  ): void {
+    const matchControl =
+      postTurn.num > currentTurn.num
+        ? this.incrementAutomatedTurns(previousMatchControl)
+        : previousMatchControl;
 
     MatchControlRepository.set(matchControl);
 

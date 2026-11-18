@@ -4,6 +4,7 @@ import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
 import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
 import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
 import { Player } from "#lib/domain/enums/Player.ts";
+import { AiService } from "#lib/services/AiService.ts";
 import { MatchService } from "#lib/services/MatchService.ts";
 
 describe("MatchService", () => {
@@ -226,6 +227,82 @@ describe("MatchService", () => {
       expect(TurnRepository.get().num).toBe(3);
       expect(MatchControlRepository.get().automation.automatedTurns).toBe(2);
       expect(MatchControlRepository.get().automation.stopReason).toBe("turn-limit");
+    });
+  });
+
+  describe("when the cpu turn fails", () => {
+    const cpuVsCpuOptions = {
+      controllers: { self: "cpu", opponent: "cpu" },
+      layer: 4,
+      automationTurnLimit: 10,
+      aiStrengths: { self: AiStrength.STRENGTH_1, opponent: AiStrength.STRENGTH_1 },
+      aiSeeds: { self: 1, opponent: 2 },
+    } as const;
+    const stepDelayMs = MatchService.getAutomationStepDelayMs();
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    test("rethrows and keeps running when the turn ended before the exception", async () => {
+      const failure = new Error("cpu failed after ending the turn");
+      const realDoAiTurn = AiService.doAiTurn.bind(AiService);
+      const doAiTurn = vi
+        .spyOn(AiService, "doAiTurn")
+        .mockImplementationOnce((player, strength, random) => {
+          realDoAiTurn(player, strength, random);
+          throw failure;
+        });
+      MatchService.startMatch(cpuVsCpuOptions);
+
+      await expect(vi.advanceTimersByTimeAsync(stepDelayMs)).rejects.toThrow(failure);
+
+      expect(TurnRepository.get().player).toBe(Player.OPPONENT);
+      expect(MatchControlRepository.get().automation.status).toBe("running");
+
+      await vi.advanceTimersByTimeAsync(stepDelayMs);
+
+      expect(doAiTurn).toHaveBeenCalledTimes(2);
+      expect(doAiTurn).toHaveBeenLastCalledWith(
+        Player.OPPONENT,
+        expect.anything(),
+        expect.anything(),
+      );
+    });
+
+    test("rethrows and halts when the exception came before the turn ended", async () => {
+      const failure = new Error("cpu failed before ending the turn");
+      const doAiTurn = vi.spyOn(AiService, "doAiTurn").mockImplementation(() => {
+        throw failure;
+      });
+      MatchService.startMatch(cpuVsCpuOptions);
+
+      await expect(vi.advanceTimersByTimeAsync(stepDelayMs)).rejects.toThrow(failure);
+
+      const { automation } = MatchControlRepository.get();
+      expect(automation.status).toBe("idle");
+      expect(automation.stopReason).toBeNull();
+
+      await vi.runAllTimersAsync();
+
+      expect(doAiTurn).toHaveBeenCalledTimes(1);
+      expect(TurnRepository.get().player).toBe(Player.SELF);
+    });
+
+    test("halts instead of retrying forever when the turn could not be ended", async () => {
+      const doAiTurn = vi.spyOn(AiService, "doAiTurn").mockImplementation(() => {});
+      MatchService.startMatch(cpuVsCpuOptions);
+
+      await vi.advanceTimersByTimeAsync(stepDelayMs);
+
+      const { automation } = MatchControlRepository.get();
+      expect(automation.status).toBe("idle");
+      expect(automation.stopReason).toBeNull();
+
+      await vi.runAllTimersAsync();
+
+      expect(doAiTurn).toHaveBeenCalledTimes(1);
+      expect(TurnRepository.get().player).toBe(Player.SELF);
     });
   });
 
