@@ -74,17 +74,23 @@ export class MatchHistoryService {
     return {
       capturedAtTurn: entry.capturedAtTurn,
       turnPlayer,
-      unitTotals: this.countPieces(entry.snapshot),
+      unitTotals: this.countUnits(entry.snapshot),
       resources: this.readResources(entry.snapshot),
       wallTotals: this.sumOwnedPanels(entry.snapshot, (panel) => panel.castle),
       occupiedPanels: this.sumOwnedPanels(entry.snapshot, () => 1),
     };
   }
 
-  private static countPieces(snapshot: GameStateSnapshot): MatchHistoryMetricPair {
+  /** Units per player. A merged piece counts as its stackCount. */
+  private static countUnits(snapshot: GameStateSnapshot): MatchHistoryMetricPair {
+    const unitsOf = (player: ControllablePlayerSnapshot): number =>
+      snapshot.pieces
+        .filter((piece) => piece.player === player)
+        .reduce((sum, piece) => sum + piece.stackCount, 0);
+
     return {
-      self: snapshot.pieces.filter((piece) => piece.player === "self").length,
-      opponent: snapshot.pieces.filter((piece) => piece.player === "opponent").length,
+      self: unitsOf("self"),
+      opponent: unitsOf("opponent"),
     };
   }
 

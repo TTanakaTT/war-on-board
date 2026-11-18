@@ -10,9 +10,9 @@
   import { pieceTypeLabel } from "#lib/presentation/piecePresentation.ts";
   import { playerDisplayName, playerInfoOrder } from "#lib/presentation/matchPresentation.ts";
   import {
-    armyValue,
-    deadUnitCounts,
-    liveUnitCounts,
+    armyPower,
+    deadCombatUnitCounts,
+    liveCombatUnitCounts,
     visiblePieceTypeCounts,
     type PieceTypeCount,
   } from "#lib/presentation/playerInfoPresentation.ts";
@@ -26,8 +26,8 @@
     totalCastle: number;
     totalBuiltCastle: number;
     occupiedPanels: number;
-    armyValue: number;
-    lostArmyValue: number;
+    armyPower: number;
+    lostArmyPower: number;
     visibleLiveUnitCounts: PieceTypeCount[];
     visibleDeadUnitCounts: PieceTypeCount[];
   }
@@ -50,8 +50,8 @@
     const ownedPanels = panels.filter((panel) => panel.player === player);
     const ownedPieces = pieces.filter((piece) => piece.player === player);
     const playerStats = matchStats[playerId];
-    const liveCounts = liveUnitCounts(ownedPieces);
-    const deadCounts = deadUnitCounts(playerStats.deadUnitCounts);
+    const liveCounts = liveCombatUnitCounts(ownedPieces);
+    const deadCounts = deadCombatUnitCounts(playerStats.deadUnitCounts);
 
     return {
       id: playerId,
@@ -62,8 +62,8 @@
       totalCastle: ownedPanels.reduce((sum, panel) => sum + panel.castle, 0),
       totalBuiltCastle: playerStats.totalBuiltCastle,
       occupiedPanels: ownedPanels.length,
-      armyValue: armyValue(liveCounts),
-      lostArmyValue: armyValue(deadCounts),
+      armyPower: armyPower(liveCounts),
+      lostArmyPower: armyPower(deadCounts),
       visibleLiveUnitCounts: visiblePieceTypeCounts(liveCounts),
       visibleDeadUnitCounts: visiblePieceTypeCounts(deadCounts),
     };
@@ -91,19 +91,50 @@
   );
 </script>
 
-{#snippet unitCountList(cardId: PlayerInfoCard["id"], counts: PieceTypeCount[])}
-  <dd class="rounded-xl border p-3 text-sm {unitPanelClass(cardId)}">
-    <div class="grid gap-2">
-      {#each counts as pieceTypeCount (pieceTypeCount.pieceType)}
-        <div class="flex items-center justify-between gap-4">
-          <span title={pieceTypeLabel(pieceTypeCount.pieceType)}>
-            <Icon icon={pieceTypeCount.pieceType.config.iconName} size={20} />
-          </span>
-          <span class="font-semibold">{pieceTypeCount.count}</span>
-        </div>
-      {/each}
+{#snippet unitCountRows(counts: PieceTypeCount[])}
+  {#each counts as pieceTypeCount (pieceTypeCount.pieceType)}
+    <div class="flex items-center justify-between gap-4">
+      <span title={pieceTypeLabel(pieceTypeCount.pieceType)}>
+        <Icon icon={pieceTypeCount.pieceType.config.iconName} size={20} />
+      </span>
+      <span class="font-semibold">{pieceTypeCount.count}</span>
     </div>
-  </dd>
+  {/each}
+{/snippet}
+
+<!-- PROTOTYPE ONLY: layout A — the total on its own row, the breakdown box below it. -->
+{#snippet armyPowerLayoutA(
+  cardId: PlayerInfoCard["id"],
+  label: string,
+  total: number,
+  counts: PieceTypeCount[],
+)}
+  <div class="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2">
+    <dt>{label}</dt>
+    <dd class="font-semibold">{total}</dd>
+    <dd
+      class="col-span-2 grid gap-2 justify-self-end rounded-xl border p-3 {unitPanelClass(cardId)}"
+    >
+      {@render unitCountRows(counts)}
+    </dd>
+  </div>
+{/snippet}
+
+<!-- PROTOTYPE ONLY: layout B — the total at the top of the breakdown box. -->
+{#snippet armyPowerLayoutB(
+  cardId: PlayerInfoCard["id"],
+  label: string,
+  total: number,
+  counts: PieceTypeCount[],
+)}
+  <div class="flex items-center justify-between gap-4">
+    <dt>{label}</dt>
+    <dd class="grid gap-2 rounded-xl border p-3 {unitPanelClass(cardId)}">
+      <div class="text-end font-semibold">{total}</div>
+      <div class="border-t"></div>
+      {@render unitCountRows(counts)}
+    </dd>
+  </div>
 {/snippet}
 
 <div class={containerClass}>
@@ -144,22 +175,33 @@
           <dt>{m.occupied_panels_label()}</dt>
           <dd class="font-semibold">{card.occupiedPanels}</dd>
         </div>
-        <div class="flex items-center justify-between gap-4">
-          <dt>{m.army_value_label()}</dt>
-          <dd class="font-semibold">{card.armyValue}</dd>
-        </div>
-        <div class="flex items-center justify-between gap-4">
-          <dt>{m.unit_count_label()}</dt>
-          {@render unitCountList(card.id, card.visibleLiveUnitCounts)}
-        </div>
-        <div class="flex items-center justify-between gap-4">
-          <dt>{m.lost_army_value_label()}</dt>
-          <dd class="font-semibold">{card.lostArmyValue}</dd>
-        </div>
-        <div class="flex items-center justify-between gap-4">
-          <dt>{m.dead_unit_count_label()}</dt>
-          {@render unitCountList(card.id, card.visibleDeadUnitCounts)}
-        </div>
+        <!-- PROTOTYPE ONLY: both layouts are shown for comparison. -->
+        <p class="text-xs {infoLabelClass(card.id)}">案A</p>
+        {@render armyPowerLayoutA(
+          card.id,
+          m.army_power_label(),
+          card.armyPower,
+          card.visibleLiveUnitCounts,
+        )}
+        {@render armyPowerLayoutA(
+          card.id,
+          m.lost_army_power_label(),
+          card.lostArmyPower,
+          card.visibleDeadUnitCounts,
+        )}
+        <p class="text-xs {infoLabelClass(card.id)}">案B</p>
+        {@render armyPowerLayoutB(
+          card.id,
+          m.army_power_label(),
+          card.armyPower,
+          card.visibleLiveUnitCounts,
+        )}
+        {@render armyPowerLayoutB(
+          card.id,
+          m.lost_army_power_label(),
+          card.lostArmyPower,
+          card.visibleDeadUnitCounts,
+        )}
       </dl>
     </section>
   {/each}

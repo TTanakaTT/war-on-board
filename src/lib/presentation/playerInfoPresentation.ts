@@ -8,9 +8,14 @@ export interface PieceTypeCount {
   count: number;
 }
 
-/** Units per piece type in display order. A merged piece counts as its stackCount. */
-export function liveUnitCounts(pieces: readonly Piece[]): PieceTypeCount[] {
-  return PIECE_TYPE_DISPLAY_ORDER.map((pieceType) => ({
+/** Combat unit types (see PieceType config `isCombatUnit`) in display order. */
+const COMBAT_UNIT_TYPES = PIECE_TYPE_DISPLAY_ORDER.filter(
+  (pieceType) => pieceType.config.isCombatUnit,
+);
+
+/** Units on the board per combat unit type. A merged piece counts as its stackCount. */
+export function liveCombatUnitCounts(pieces: readonly Piece[]): PieceTypeCount[] {
+  return COMBAT_UNIT_TYPES.map((pieceType) => ({
     pieceType,
     count: pieces
       .filter((piece) => piece.pieceType === pieceType)
@@ -18,12 +23,12 @@ export function liveUnitCounts(pieces: readonly Piece[]): PieceTypeCount[] {
   }));
 }
 
-/** Dead units per piece type in display order. */
-export function deadUnitCounts(deadUnitCountsByKey: PieceTypeMatchStats): PieceTypeCount[] {
-  return PIECE_TYPE_DISPLAY_ORDER.map((pieceType) => ({
+/** Dead units per combat unit type. */
+export function deadCombatUnitCounts(deadUnitCounts: PieceTypeMatchStats): PieceTypeCount[] {
+  return COMBAT_UNIT_TYPES.map((pieceType) => ({
     pieceType,
     // Every PieceType's string value matches its deadUnitCounts field name directly.
-    count: deadUnitCountsByKey[String(pieceType) as MatchStatsPieceKey],
+    count: deadUnitCounts[String(pieceType) as MatchStatsPieceKey],
   }));
 }
 
@@ -40,12 +45,10 @@ export function visiblePieceTypeCounts(counts: readonly PieceTypeCount[]): Piece
   return counts.slice(0, 1);
 }
 
-/** Total cost of the combat units in `counts` (see PieceType config `isCombatUnit`). */
-export function armyValue(counts: readonly PieceTypeCount[]): number {
-  return counts
-    .filter((pieceTypeCount) => pieceTypeCount.pieceType.config.isCombatUnit)
-    .reduce(
-      (sum, pieceTypeCount) => sum + pieceTypeCount.pieceType.config.cost * pieceTypeCount.count,
-      0,
-    );
+/** Army power: the total cost of the units in `counts`. */
+export function armyPower(counts: readonly PieceTypeCount[]): number {
+  return counts.reduce(
+    (sum, pieceTypeCount) => sum + pieceTypeCount.pieceType.config.cost * pieceTypeCount.count,
+    0,
+  );
 }
