@@ -102,36 +102,37 @@
   {/each}
 {/snippet}
 
-<!-- PROTOTYPE ONLY: layout A — the total on its own row, the breakdown box below it. -->
-{#snippet armyPowerLayoutA(
+<!-- PROTOTYPE ONLY: layout 1 — label and total on one line at the left, the breakdown box at the right. -->
+{#snippet armyPowerLayout1(
   cardId: PlayerInfoCard["id"],
   label: string,
   total: number,
   counts: PieceTypeCount[],
 )}
-  <div class="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2">
-    <dt>{label}</dt>
+  <div class="flex items-center gap-4">
+    <dt class="whitespace-nowrap">{label}</dt>
     <dd class="font-semibold">{total}</dd>
-    <dd
-      class="col-span-2 grid gap-2 justify-self-end rounded-xl border p-3 {unitPanelClass(cardId)}"
-    >
+    <dd class="ms-auto grid gap-2 rounded-xl border p-3 {unitPanelClass(cardId)}">
       {@render unitCountRows(counts)}
     </dd>
   </div>
 {/snippet}
 
-<!-- PROTOTYPE ONLY: layout B — the total at the top of the breakdown box. -->
-{#snippet armyPowerLayoutB(
+<!-- PROTOTYPE ONLY: layout 2 — total under the label at the left, the breakdown box at the right. -->
+{#snippet armyPowerLayout2(
   cardId: PlayerInfoCard["id"],
   label: string,
   total: number,
   counts: PieceTypeCount[],
 )}
-  <div class="flex items-center justify-between gap-4">
-    <dt>{label}</dt>
-    <dd class="grid gap-2 rounded-xl border p-3 {unitPanelClass(cardId)}">
-      <div class="text-end font-semibold">{total}</div>
-      <div class="border-t"></div>
+  <div class="grid grid-cols-[1fr_auto] items-center gap-x-4">
+    <dt class="self-end whitespace-nowrap">{label}</dt>
+    <dd class="row-start-2 self-start text-base font-semibold">{total}</dd>
+    <dd
+      class="col-start-2 row-span-2 row-start-1 grid gap-2 rounded-xl border p-3 {unitPanelClass(
+        cardId,
+      )}"
+    >
       {@render unitCountRows(counts)}
     </dd>
   </div>
@@ -176,27 +177,27 @@
           <dd class="font-semibold">{card.occupiedPanels}</dd>
         </div>
         <!-- PROTOTYPE ONLY: both layouts are shown for comparison. -->
-        <p class="text-xs {infoLabelClass(card.id)}">案A</p>
-        {@render armyPowerLayoutA(
+        <p class="text-xs {infoLabelClass(card.id)}">案1</p>
+        {@render armyPowerLayout1(
           card.id,
           m.army_power_label(),
           card.armyPower,
           card.visibleLiveUnitCounts,
         )}
-        {@render armyPowerLayoutA(
+        {@render armyPowerLayout1(
           card.id,
           m.lost_army_power_label(),
           card.lostArmyPower,
           card.visibleDeadUnitCounts,
         )}
-        <p class="text-xs {infoLabelClass(card.id)}">案B</p>
-        {@render armyPowerLayoutB(
+        <p class="text-xs {infoLabelClass(card.id)}">案2</p>
+        {@render armyPowerLayout2(
           card.id,
           m.army_power_label(),
           card.armyPower,
           card.visibleLiveUnitCounts,
         )}
-        {@render armyPowerLayoutB(
+        {@render armyPowerLayout2(
           card.id,
           m.lost_army_power_label(),
           card.lostArmyPower,
