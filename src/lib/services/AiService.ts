@@ -23,6 +23,18 @@ export class AiService {
    * 3. End the turn via GameApi.
    *
    * Whenever several choices share the best score, <random> picks one of them.
+   *
+   * Rejected commands (`ok: false`) only give up that one action:
+   * - `assignMove`: the piece keeps its current orders and the next piece is handled.
+   * - `setGenerationMode`: ignored; the turn carries on.
+   * - `generatePiece`: stops generating for the rest of this turn.
+   *
+   * If deciding the turn (assigning moves, choosing the generation mode, generating pieces)
+   * throws, the remaining decisions are skipped, while the orders and pieces already issued
+   * stay as they are. `endTurn` is then called exactly once either way, without retrying:
+   * - When it is rejected, this returns quietly; MatchService decides whether to halt.
+   * - When it throws, that exception propagates (a decision exception is dropped).
+   * - Otherwise the decision exception, if any, is rethrown after the turn has ended.
    */
   static doAiTurn(player: Player, strength: AiStrength, random: RandomSource) {
     const gameState = GameApi.getGameState();
@@ -30,10 +42,20 @@ export class AiService {
 
     const profile = getStrengthProfile(strength);
 
-    this.assignMoves(player, profile, random);
-    this.applyGenerationMode(player, profile);
-    this.generatePiece(player, profile, random);
+    let decisionFailure: { error: unknown } | null = null;
+    try {
+      this.assignMoves(player, profile, random);
+      this.applyGenerationMode(player, profile);
+      this.generatePiece(player, profile, random);
+    } catch (error) {
+      decisionFailure = { error };
+    }
+
     GameApiClient.endTurn(player);
+
+    if (decisionFailure) {
+      throw decisionFailure.error;
+    }
   }
 
   private static assignMoves(
@@ -60,7 +82,11 @@ export class AiService {
         random,
       );
 
-      GameApiClient.assignMove(player, piece.id, selectedTarget);
+      const assignResult = GameApiClient.assignMove(player, piece.id, selectedTarget);
+      if (!assignResult.ok) {
+        // Rejected: leave this piece with its current orders and handle the next one.
+        continue;
+      }
     }
   }
 
@@ -87,6 +113,7 @@ export class AiService {
 
       const generationResult = GameApiClient.generatePiece(player, preferredPieceType);
       if (!generationResult.ok) {
+        // Rejected: give up generating for the rest of this turn.
         return;
       }
     }
@@ -95,7 +122,11 @@ export class AiService {
   private static applyGenerationMode(player: Player, profile: AiStrengthProfile): void {
     const gameState = GameApi.getGameState();
     const generationMode = selectGenerationMode(gameState, player, profile);
-    GameApiClient.setGenerationMode(player, generationMode);
+    const modeResult = GameApiClient.setGenerationMode(player, generationMode);
+    if (!modeResult.ok) {
+      // Rejected: keep the current generation mode and carry on with the turn.
+      return;
+    }
   }
 
   private static selectTarget(
