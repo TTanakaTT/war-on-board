@@ -28,9 +28,7 @@ pnpm-debug.log*
 .svelte-kit/
 
 # Playwright
-tests/e2e/screenshots/
 test-results/
-playwright-report/
 simulation-results/
 
 # Misc

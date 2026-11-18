@@ -1,48 +1,29 @@
-# 言語
+# War on Board
 
-ユーザーとの会話、説明、質問はすべて**日本語**で行ってください。スキルやツールの本体が英語で書かれていても、ユーザーへの応答は必ず日本語にしてください。
+SvelteKit + Svelte 5 のヘックス盤ターン制ストラテジー。ユーザーへの応答・説明は日本語で行う。
 
-### CSS / スタイルルール
+コマンド: `pnpm check`（型）/ `pnpm test`（unit）/ `pnpm lint`・`pnpm format` / `pnpm build`（Paraglide 生成物も更新）
 
-- レイアウト・スペーシングなどのマジックナンバーは極力避け、共通トークン化（ユーティリティ化/変数化）を検討する。
+## 構成（src/lib）
 
-### 表示文言 / i18n (Paraglide) ルール
+- `domain/config.ts` ユニット性能・コスト・初期値などのバランス値。**人間が調整する領域。依頼がない限り値を変えない**
+- `domain/model.ts` 型・定数（Player, PieceType, PanelState, ActionError…）と位置/駒ヘルパー。状態はすべて JSON 互換のプレーンデータ
+- `domain/types.ts` 対局制御・統計・履歴・不変条件の型
+- `store.svelte.ts` 全リアクティブ状態（`XxxRepository`）。値はイミュータブル: 取得した値を変更せず置き換える
+- `api/GameApi.ts` ゲーム状態を変える唯一の入口（冒頭コメントがルール概要）。UI/CPU は `GameApiClient` 経由で呼ぶ
+- `services/` MovementRules（ターン終了時の移動計画）, Piece（ターン終了処理）, Combat, Generation, Panel（盤・経路）, Interaction（盤クリック）, Match（対局・CPU 自動進行）, AiService + `ai/`, Invariant/DebugMode（dev 専用監視）, MatchHistory
+- `presentation/` Svelte コンポーネント, `labels.ts`（表示名）, `layout.ts`（盤座標・UI 寸法）, `icons.ts`
+- `tests/unit` vitest（`helpers.ts` を使う）。`tests/simulation` AI 対戦で不変条件を検査（CI の main のみ）
 
-- 画面に表示されるテキストは、Paraglide 経由で提供すること。
-- 反映手順:
-  1.  `messages/ja.json` / `messages/en.json` にキーを追加・更新
-  2.  `pnpm build` を実行して Paraglide の生成物を更新
-  3.  コード側では `import { m } from '#lib/paraglide/messages.js'` を用い `m.key()` を呼び出して表示
-- 例外: 開発ビルド専用のデバッグ表示（`$app/env` の `dev` が true のときだけ読み込まれる UI）は本番コードではないため、Paraglide を使わず英語の文字列を直接書く。
+## ルール
 
-### 型・命名・ファイル配置
+- ゲーム状態の変更は GameApi 経由のみ。UI 状態（選択・ダイアログ等）は store を直接更新してよい
+- プレイヤー対称性: ルール処理は SELF/OPPONENT を同一コードパスで扱い、特定プレイヤーをハードコードしない（オンライン対戦のため）。テストは `describe.each(SIDES)` で両者を検証
+- 表示文言は Paraglide: `messages/{ja,en}.json` にキー追加 → `pnpm build` → `import { m } from "#lib/paraglide/messages.js"` の `m.key()`。dev 専用のデバッグ UI は英語直書き
+- スタイルは Tailwind のみ（`<style>` 禁止）。色は `app.css` の `@theme` の `--color-*` を使う（直書き禁止）。寸法などのマジックナンバーは定数化
+- コメントは非自明な理由だけを短く書く。仕様をコメントに書き写さない
+- テストは domain/services/api が対象。1 ルール 1 テスト程度に絞る。AI の判断内容は詳細にテストしない
 
-- ファイル配置・ディレクトリ構成は [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) の File Map に従うこと。
+## 用語（日本語 = コード）
 
-### UI / スタイル（Tailwind）
-
-- `<style>` タグ禁止。Tailwind ユーティリティのみ使用。
-- 色は `@theme` の `--color-*` 変数を定義して `text-*` 等で参照（直書き禁止）。
-
-### データ/CSV の扱い
-
-- csvはヘッダー行を必須とし、コメントの使用は禁止。
-
-### プレイヤー対称性
-
-- 初期化・ターン進行など、ゲームルールに関わるロジックは `Player.SELF` / `Player.OPPONENT` を対称に扱うこと（オンラインプレイで破綻するため）。
-- 特定プレイヤーをハードコードせず、`turn.player` や引数の `player` を通じて処理を共通化する。
-- 初期リソース・収入・パッシブ成長などのルール適用は、同一コードパスで両プレイヤーに適用されること。
-
-## 仕様の所在地 (Canonical Source)
-
-仕様の二重管理を防ぐため、各種情報の正式な所在地を以下に定める。md ファイルに具体的な処理・値・フローは記載しない。
-
-| 種別             | 場所                                       | 備考                                       |
-| ---------------- | ------------------------------------------ | ------------------------------------------ |
-| 用語集           | `docs/GLOSSARY.md` / `docs/GLOSSARY_JA.md` | ドキュメント用語の定義                     |
-| フォルダ構成・層 | `docs/ARCHITECTURE.md`                     | 構成と役割のみ。具体的な処理・値は書かない |
-
-## テスト記述ルール
-
-- AIの挙動の詳細なテストは行わない。
+対局=match, 自軍/敵軍=SELF/OPPONENT, 手番=turn.player, 操作=controller(human/cpu), CPUのLv.=AiStrength, 盤の大きさ=layer, パネル=Panel, 本拠地=HomeBase, 資源=resource, 防壁=castle, 駒/ユニット=Piece, 歩兵=infantry, 貴族=noble, ルーク=rook, 弓兵=archer, 騎兵=cavalry, 重装=heavy, 攻囲兵器=siege, 防御力=defense, 移動力=movement, 攻撃射程=attackRange, マージ数=stackCount, 生産=generatePiece, 生産方式=generationMode(front/rear), 移動中=transitPosition, 操作順=orderSequence, 戦力=armyPower
