@@ -19,7 +19,7 @@ export class Piece {
    * The piece still belongs to `panelPosition` — it defends that panel, applies its
    * passive effect there and counts there for the capacity invariant — while its own
    * side also treats `transitPosition` as taken (see
-   * MovementRulesService.endOfTurnOccupancy). `movementPoints` holds the progress made
+   * MovementRulesService.planEndOfTurn). `movementPoints` holds the progress made
    * along the hop.
    */
   transitPosition?: PanelPosition;

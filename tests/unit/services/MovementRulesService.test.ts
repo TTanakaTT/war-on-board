@@ -75,33 +75,8 @@ describe("MovementRulesService", () => {
     });
   });
 
-  describe("isTransitObstacle", () => {
-    test("returns true when an enemy piece occupies the position", () => {
-      addPiece(100, pos(1, 0), Player.OPPONENT);
-      expect(MovementRulesService.isTransitObstacle(pos(1, 0), Player.SELF)).toBe(true);
-    });
-
-    test("returns true when an enemy-owned castle exists (no enemy pieces)", () => {
-      setPanel(pos(1, 0), Player.OPPONENT, 5);
-      expect(MovementRulesService.isTransitObstacle(pos(1, 0), Player.SELF)).toBe(true);
-    });
-
-    test("returns true when a friendly panel is already at capacity", () => {
-      addPiece(100, pos(1, 0), Player.SELF, { pieceType: PieceType.ROOK });
-      addPiece(101, pos(1, 0), Player.SELF, { pieceType: PieceType.NOBLE });
-      // projected count at (1,0) = 2 >= DEFAULT_MAX_PIECES_PER_PANEL(2)
-      expect(MovementRulesService.isTransitObstacle(pos(1, 0), Player.SELF)).toBe(true);
-    });
-
-    test("returns false for an empty or under-capacity friendly panel", () => {
-      addPiece(100, pos(1, 0), Player.SELF, { pieceType: PieceType.ROOK });
-      expect(MovementRulesService.isTransitObstacle(pos(1, 0), Player.SELF)).toBe(false);
-      expect(MovementRulesService.isTransitObstacle(pos(2, 0), Player.SELF)).toBe(false);
-    });
-  });
-
-  describe("projectedFriendlyStackCount", () => {
-    test("counts multiple incoming mergeable pieces of the same type as one projected stack", () => {
+  describe("planEndOfTurn", () => {
+    test("counts multiple incoming mergeable pieces of the same type as one stack", () => {
       addPiece(100, pos(0, 0), Player.SELF, {
         pieceType: PieceType.INFANTRY,
         targetPosition: pos(1, 0),
@@ -112,7 +87,7 @@ describe("MovementRulesService", () => {
       });
       addPiece(102, pos(1, 1), Player.SELF, { pieceType: PieceType.INFANTRY });
 
-      expect(MovementRulesService.projectedFriendlyStackCount(pos(1, 0), Player.SELF)).toBe(2);
+      expect(MovementRulesService.planEndOfTurn(Player.SELF, 2).stackCount(pos(1, 0))).toBe(2);
     });
   });
 
@@ -269,7 +244,7 @@ describe("MovementRulesService", () => {
       addPiece(100, pos(0, 0), Player.SELF);
       const piece = addPiece(200, pos(0, 0), Player.SELF, { targetPosition: pos(1, 0) });
       // projected at (0,0) without piece 200: counts other(100) at (0,0) = 1; +1 = 2 <= 2
-      expect(MovementRulesService.canCancelMove(pos(0, 0), Player.SELF, piece.id)).toBe(true);
+      expect(MovementRulesService.canCancelMove(Player.SELF, piece.id)).toBe(true);
     });
 
     test("blocks cancel when returning piece would exceed current panel capacity", () => {
@@ -281,7 +256,7 @@ describe("MovementRulesService", () => {
         targetPosition: pos(1, 0),
       });
       // projected stack count at (0,0) without piece 200 is 2; including it makes 3 > 2
-      expect(MovementRulesService.canCancelMove(pos(0, 0), Player.SELF, piece.id)).toBe(false);
+      expect(MovementRulesService.canCancelMove(Player.SELF, piece.id)).toBe(false);
     });
 
     test("allows cancel when returning mergeable piece collapses into an existing stack on a full panel", () => {
@@ -292,7 +267,7 @@ describe("MovementRulesService", () => {
         targetPosition: pos(1, 0),
       });
 
-      expect(MovementRulesService.canCancelMove(pos(0, 0), Player.SELF, piece.id)).toBe(true);
+      expect(MovementRulesService.canCancelMove(Player.SELF, piece.id)).toBe(true);
     });
   });
 
@@ -324,21 +299,27 @@ describe("MovementRulesService", () => {
       addPiece(firstId + 1, position, player, { pieceType: PieceType.NOBLE });
     }
 
-    describe("endOfTurnOccupancy", () => {
+    /** Panels <piece> takes up at the end of the turn (see MovementRulesService.planEndOfTurn). */
+    const occupancyOf = (piece: Piece) =>
+      MovementRulesService.planEndOfTurn(player, 2).get(piece.id)!.occupancy;
+    const stepOf = (piece: Piece) =>
+      MovementRulesService.planEndOfTurn(player, 2).get(piece.id)!.step;
+
+    describe("planEndOfTurn occupancy", () => {
       test("a piece without an order takes up its own panel", () => {
         const heavy = addHeavy();
-        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([origin]);
+        expect(occupancyOf(heavy)).toEqual([origin]);
       });
 
       test("a piece ordered to its own panel takes up its own panel", () => {
         const heavy = addHeavy({ targetPosition: origin });
-        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([origin]);
+        expect(occupancyOf(heavy)).toEqual([origin]);
       });
 
       test("a piece whose next hop has an enemy takes up its own panel", () => {
         addPiece(10, hop, opponent);
         const heavy = addHeavy({ targetPosition: beyond });
-        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([origin]);
+        expect(occupancyOf(heavy)).toEqual([origin]);
       });
 
       test("a piece that reaches its next hop this turn takes up only the hop panel", () => {
@@ -347,12 +328,12 @@ describe("MovementRulesService", () => {
           transitPosition: hop,
           movementPoints: 0.5,
         });
-        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([hop]);
+        expect(occupancyOf(heavy)).toEqual([hop]);
       });
 
       test("a piece that starts its transit this turn takes up its own panel and the hop panel", () => {
         const heavy = addHeavy({ targetPosition: beyond });
-        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([origin, hop]);
+        expect(occupancyOf(heavy)).toEqual([origin, hop]);
       });
 
       test("a piece that stays in transit this turn takes up its own panel and the hop panel", () => {
@@ -362,42 +343,41 @@ describe("MovementRulesService", () => {
           transitPosition: hop,
           movementPoints: 0.25,
         });
-        expect(MovementRulesService.endOfTurnOccupancy(heavy)).toEqual([origin, hop]);
+        expect(occupancyOf(heavy)).toEqual([origin, hop]);
       });
 
       test("a piece that hops once per turn takes up its target, or its own panel when attacking", () => {
         const mover = addPiece(2, origin, player, { targetPosition: hop });
-        expect(MovementRulesService.endOfTurnOccupancy(mover)).toEqual([hop]);
+        expect(occupancyOf(mover)).toEqual([hop]);
 
         addPiece(10, pos(1, 0), opponent);
         const attacker = addPiece(3, origin, player, { targetPosition: pos(1, 0) });
-        expect(MovementRulesService.endOfTurnOccupancy(attacker)).toEqual([origin]);
+        expect(occupancyOf(attacker)).toEqual([origin]);
       });
     });
 
-    describe("gradualHop", () => {
-      test("is undefined without an order", () => {
-        expect(MovementRulesService.gradualHop(addHeavy())).toBeUndefined();
+    describe("planEndOfTurn steps", () => {
+      test("is idle without an order", () => {
+        expect(stepOf(addHeavy())).toEqual({ kind: "idle" });
       });
 
-      test("is the own panel when ordered to stay", () => {
-        expect(MovementRulesService.gradualHop(addHeavy({ targetPosition: origin }))).toEqual(
-          origin,
-        );
+      test("stays when ordered to its own panel", () => {
+        expect(stepOf(addHeavy({ targetPosition: origin }))).toEqual({ kind: "stay" });
       });
 
-      test("is the first step toward a distant target", () => {
-        const heavy = addHeavy({ targetPosition: beyond });
-        expect(MovementRulesService.gradualHop(heavy)?.equals(hop)).toBe(true);
+      test("starts moving into the first step toward a distant target", () => {
+        const step = stepOf(addHeavy({ targetPosition: beyond }));
+        expect(step.kind === "startTransit" && step.hop.equals(hop)).toBe(true);
       });
 
-      test("is the panel being moved into while in transit, whatever the final target", () => {
+      test("keeps moving into the panel it is in transit to, whatever the final target", () => {
         const heavy = addHeavy({
           targetPosition: pos(1, 0),
           transitPosition: hop,
           movementPoints: 0.5,
         });
-        expect(MovementRulesService.gradualHop(heavy)?.equals(hop)).toBe(true);
+        const step = stepOf(heavy);
+        expect(step.kind === "enter" && step.path[0].equals(hop)).toBe(true);
       });
     });
 
@@ -467,25 +447,6 @@ describe("MovementRulesService", () => {
       });
     });
 
-    describe("fitsAtEndOfTurn", () => {
-      test("is true when every panel the piece takes up has room", () => {
-        const heavy = addHeavy({ targetPosition: beyond });
-        expect(MovementRulesService.fitsAtEndOfTurn(heavy, 2)).toBe(true);
-      });
-
-      test("is false when the hop panel a slow piece starts moving into is full", () => {
-        fillPanel(hop, 10);
-        const heavy = addHeavy({ targetPosition: beyond });
-        expect(MovementRulesService.fitsAtEndOfTurn(heavy, 2)).toBe(false);
-      });
-
-      test("is false when the own panel a slow piece stays on is full", () => {
-        fillPanel(origin, 10);
-        const heavy = addHeavy({ targetPosition: beyond });
-        expect(MovementRulesService.fitsAtEndOfTurn(heavy, 2)).toBe(false);
-      });
-    });
-
     describe("canMoveTo", () => {
       test("is false for a piece winding up an attack", () => {
         addPiece(10, hop, opponent);
@@ -495,9 +456,9 @@ describe("MovementRulesService", () => {
         expect(MovementRulesService.canMoveTo(hop, player, 1)).toBe(false);
       });
 
-      test("an attack is refused when the attacker's own panel has no room for it to stay", () => {
+      test("an attack is refused when staying to attack cancels a piece moving into its own panel", () => {
         addPiece(10, hop, opponent);
-        const attacker = addPiece(2, origin, player);
+        const attacker = addPiece(2, origin, player, { targetPosition: pos(-1, 0) });
         addPiece(3, origin, player, { pieceType: PieceType.ROOK });
         addPiece(4, pos(1, 0), player, { pieceType: PieceType.NOBLE, targetPosition: origin });
 
@@ -513,11 +474,18 @@ describe("MovementRulesService", () => {
         expect(MovementRulesService.canMoveTo(hop, player, attacker.id)).toBe(true);
       });
 
-      test("a slow piece is refused when the hop it would start this turn has no room", () => {
+      test("a slow piece is refused when the adjacent panel it would move into has no room", () => {
         fillPanel(hop, 10);
         addHeavy();
 
-        expect(MovementRulesService.canMoveTo(beyond, player, 1)).toBe(false);
+        expect(MovementRulesService.canMoveTo(hop, player, 1)).toBe(false);
+      });
+
+      test("a slow piece may be ordered beyond the adjacent panels even when its next hop has no room", () => {
+        fillPanel(hop, 10);
+        addHeavy();
+
+        expect(MovementRulesService.canMoveTo(beyond, player, 1)).toBe(true);
       });
 
       test("a slow piece is allowed when the hop it would start this turn has room", () => {
@@ -532,13 +500,13 @@ describe("MovementRulesService", () => {
         addPiece(10, hop, opponent);
         addHeavy({ targetPosition: hop, movementPoints: 0.5 });
 
-        expect(MovementRulesService.canCancelMove(origin, player, 1)).toBe(false);
+        expect(MovementRulesService.canCancelMove(player, 1)).toBe(false);
       });
 
       test("is false for a piece in transit already headed only for the panel it is moving into", () => {
         addHeavy({ targetPosition: hop, transitPosition: hop, movementPoints: 0.5 });
 
-        expect(MovementRulesService.canCancelMove(origin, player, 1)).toBe(false);
+        expect(MovementRulesService.canCancelMove(player, 1)).toBe(false);
       });
 
       test("is true for a piece in transit headed farther than the panel it is moving into", () => {
@@ -546,13 +514,13 @@ describe("MovementRulesService", () => {
         fillPanel(origin, 10);
         addHeavy({ targetPosition: beyond, transitPosition: hop, movementPoints: 0.5 });
 
-        expect(MovementRulesService.canCancelMove(origin, player, 1)).toBe(true);
+        expect(MovementRulesService.canCancelMove(player, 1)).toBe(true);
       });
 
       test("is true for a slow piece given an order this turn", () => {
         addHeavy({ targetPosition: hop, movementPoints: 0 });
 
-        expect(MovementRulesService.canCancelMove(origin, player, 1)).toBe(true);
+        expect(MovementRulesService.canCancelMove(player, 1)).toBe(true);
         expect(findPiece(1).targetPosition?.equals(hop)).toBe(true);
       });
     });

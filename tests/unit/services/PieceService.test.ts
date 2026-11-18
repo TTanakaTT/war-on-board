@@ -1,6 +1,7 @@
 import { beforeEach, describe, test, expect } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
 import { PieceService } from "#lib/services/PieceService.ts";
+import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
 import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
 import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
 import { Piece } from "#lib/domain/entities/Piece.ts";
@@ -578,7 +579,7 @@ describe("PieceService", () => {
       expect(current.movementPoints).toBe(0);
     });
 
-    test("cannot merge into a friendly panel already at capacity: stays put and cancels the pending order", () => {
+    test("is blocked by a full friendly panel on its only route: stays put and its order is cancelled", () => {
       const traveler = makePiece({
         id: 1,
         panelPosition: pos(-3, 0),
@@ -610,10 +611,11 @@ describe("PieceService", () => {
       const current = PiecesRepository.getAll().find((p) => p.id === 1)!;
       expect(current.panelPosition.equals(pos(-3, 0))).toBe(true);
       expect(current.targetPosition).toBeUndefined();
-      expect(current.movementPoints).toBe(0);
+      // It did not move, so it spent no movement points.
+      expect(current.movementPoints).toBe(1);
     });
 
-    test("merges into a friendly panel at capacity when its own type is already there, then cancels the pending order", () => {
+    test("stops on a full friendly panel where it merges with its own type, keeping its order", () => {
       const traveler = makePiece({
         id: 1,
         panelPosition: pos(-3, 0),
@@ -623,7 +625,7 @@ describe("PieceService", () => {
         movementPoints: 1,
       });
       // (-2,0) is at capacity, but one of the two occupants is the same mergeable
-      // type as the traveler, so joining doesn't increase the projected slot count.
+      // type as the traveler, so joining doesn't increase its stack count.
       const existingInfantry = makePiece({
         id: 2,
         panelPosition: pos(-2, 0),
@@ -644,7 +646,7 @@ describe("PieceService", () => {
 
       const current = PiecesRepository.getAll().find((p) => p.id === 1)!;
       expect(current.panelPosition.equals(pos(-2, 0))).toBe(true);
-      expect(current.targetPosition).toBeUndefined();
+      expect(current.targetPosition?.equals(pos(0, 0))).toBe(true);
       expect(current.movementPoints).toBe(0);
     });
 
@@ -824,15 +826,18 @@ describe("PieceService", () => {
     });
   });
 
-  describe("previewTravelStop", () => {
+  describe("previewEndOfTurnPoint (pieces that hop at most once per turn)", () => {
+    const onPanel = (position: PanelPosition) => ({ from: position, to: position, progress: 0 });
+
     test("returns the piece's own position when it has no targetPosition", () => {
       const piece = makePiece({
         panelPosition: pos(1, 1),
         player: Player.SELF,
         pieceType: PieceType.INFANTRY,
       });
+      PiecesRepository.add(piece);
 
-      expect(PieceService.previewTravelStop(piece).equals(pos(1, 1))).toBe(true);
+      expect(PieceService.previewEndOfTurnPoint(piece)).toEqual(onPanel(pos(1, 1)));
     });
 
     test("returns the target directly when it is adjacent (reached this turn)", () => {
@@ -842,8 +847,9 @@ describe("PieceService", () => {
         player: Player.SELF,
         pieceType: PieceType.INFANTRY,
       });
+      PiecesRepository.add(piece);
 
-      expect(PieceService.previewTravelStop(piece).equals(pos(-2, 0))).toBe(true);
+      expect(PieceService.previewEndOfTurnPoint(piece)).toEqual(onPanel(pos(-2, 0)));
     });
 
     test("returns a this-turn stop position short of a distant target, matching finalizePlayerMoves's actual outcome", () => {
@@ -857,12 +863,12 @@ describe("PieceService", () => {
       });
       PiecesRepository.add(piece);
 
-      const preview = PieceService.previewTravelStop(piece);
-      expect(preview.equals(pos(-2, 0))).toBe(true);
+      const preview = PieceService.previewEndOfTurnPoint(piece);
+      expect(preview).toEqual(onPanel(pos(-2, 0)));
 
       PieceService.finalizePlayerMoves(Player.SELF);
       const actual = PiecesRepository.getAll().find((p) => p.id === 1)!;
-      expect(actual.panelPosition.equals(preview)).toBe(true);
+      expect(actual.panelPosition.equals(preview.to)).toBe(true);
     });
 
     test("advances further with a larger movement budget", () => {
@@ -873,11 +879,12 @@ describe("PieceService", () => {
         pieceType: PieceType.CAVALRY,
         movementPoints: 2,
       });
+      PiecesRepository.add(piece);
 
-      expect(PieceService.previewTravelStop(piece).equals(pos(-1, 0))).toBe(true);
+      expect(PieceService.previewEndOfTurnPoint(piece)).toEqual(onPanel(pos(-1, 0)));
     });
 
-    test("shows the obstacle position itself as this turn's action target, mirroring finalizePlayerMoves", () => {
+    test("stays on its own panel when a full friendly panel blocks its only route", () => {
       const traveler = makePiece({
         panelPosition: pos(-3, 0),
         targetPosition: pos(0, 0),
@@ -885,7 +892,8 @@ describe("PieceService", () => {
         pieceType: PieceType.INFANTRY,
         movementPoints: 1,
       });
-      // (-2,0) is the first hop toward the target and is already at capacity.
+      PiecesRepository.add(traveler);
+      // (-2,0) is the only first hop toward the target and is already at capacity.
       PiecesRepository.add(
         makePiece({
           id: 2,
@@ -903,7 +911,7 @@ describe("PieceService", () => {
         }),
       );
 
-      expect(PieceService.previewTravelStop(traveler).equals(pos(-2, 0))).toBe(true);
+      expect(PieceService.previewEndOfTurnPoint(traveler)).toEqual(onPanel(pos(-3, 0)));
     });
   });
 
@@ -1189,28 +1197,28 @@ describe("PieceService", () => {
       );
     }
 
-    describe("planGradualStep", () => {
+    const stepOf = (piece: Piece) =>
+      MovementRulesService.planEndOfTurn(player, maxPieces).get(piece.id)!.step;
+
+    describe("planEndOfTurn steps", () => {
       test("idle: no order", () => {
-        expect(PieceService.planGradualStep(addHeavy(), maxPieces)).toEqual({ kind: "idle" });
+        expect(stepOf(addHeavy())).toEqual({ kind: "idle" });
       });
 
       test("stay: ordered to its own panel", () => {
         const heavy = addHeavy({ targetPosition: origin });
-        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "stay" });
+        expect(stepOf(heavy)).toEqual({ kind: "stay" });
       });
 
       test("windUp: the next hop has an enemy and the attack is not ready yet", () => {
         addEnemy(10, PieceType.NOBLE, hop);
         const heavy = addHeavy({ targetPosition: hop });
-        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "windUp" });
+        expect(stepOf(heavy)).toEqual({ kind: "windUp", target: hop });
       });
 
       test("startTransit: leaves for a free next hop", () => {
         const heavy = addHeavy({ targetPosition: beyond });
-        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({
-          kind: "startTransit",
-          hop,
-        });
+        expect(stepOf(heavy)).toEqual({ kind: "startTransit", hop });
       });
 
       test("continueTransit: in transit and the hop is not complete this turn", () => {
@@ -1219,13 +1227,13 @@ describe("PieceService", () => {
           transitPosition: hop,
           movementPoints: 0.25,
         });
-        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "continueTransit" });
+        expect(stepOf(heavy)).toEqual({ kind: "continueTransit" });
       });
 
       test("blocked: the next hop has no room", () => {
         fillPanel(hop, 10);
         const heavy = addHeavy({ targetPosition: beyond });
-        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "blocked" });
+        expect(stepOf(heavy)).toEqual({ kind: "blocked", path: [] });
       });
 
       test("enter: the hop completes this turn into a panel without enemies", () => {
@@ -1234,13 +1242,13 @@ describe("PieceService", () => {
           transitPosition: hop,
           movementPoints: 0.5,
         });
-        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "enter", hop });
+        expect(stepOf(heavy)).toEqual({ kind: "enter", path: [hop] });
       });
 
       test("attack: the attack or hop completes this turn into a panel with an enemy", () => {
         addEnemy(10, PieceType.NOBLE, hop);
         const heavy = addHeavy({ targetPosition: hop, movementPoints: 0.5 });
-        expect(PieceService.planGradualStep(heavy, maxPieces)).toEqual({ kind: "attack", hop });
+        expect(stepOf(heavy)).toEqual({ kind: "attack", path: [], target: hop });
       });
     });
 

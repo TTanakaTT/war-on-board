@@ -78,7 +78,7 @@ import { ActionError } from "#lib/domain/enums/ActionError.ts";
  * panel and the adjacent panel it is moving into (`Piece.transitPosition`): it still belongs
  * to the panel it left — it defends that panel and applies its passive effect there — and
  * its own side treats the panel it is moving into as taken as well (see
- * `MovementRulesService.endOfTurnOccupancy`). It winds an attack up over several turns on its
+ * `MovementRulesService.planEndOfTurn`). It winds an attack up over several turns on its
  * own panel instead.
  *
  * ## Combat rules (resolved inside `endTurn`)
@@ -140,10 +140,13 @@ import { ActionError } from "#lib/domain/enums/ActionError.ts";
  *
  * ## Turn flow (executed by `endTurn`)
  *
- *   1. Finalize current player's moves (combat resolution for all pending moves). A unit that
- *      takes several turns per hop advances its progress instead: it goes into transit,
- *      keeps moving, arrives at the panel it is moving into, or winds up / makes an attack
- *      (see `PieceService.finalizePlayerMoves`).
+ *   1. Finalize current player's moves (combat resolution for all pending moves), following the
+ *      end-of-turn plan decided for every piece before anything moves (see
+ *      `MovementRulesService.planEndOfTurn`): pieces walk this turn's panels toward their
+ *      targets, taking another shortest route or stopping with their order cancelled when
+ *      blocked. A unit that takes several turns per hop advances its progress instead: it goes
+ *      into transit, keeps moving, arrives at the panel it is moving into, or winds up / makes
+ *      an attack (see `PieceService.finalizePlayerMoves`).
  *   2. Refresh panel ownership based on piece positions.
  *   3. Check victory (home base capture).
  *   4. Switch to next player.
@@ -240,9 +243,12 @@ export class GameApi {
    * The piece must belong to the acting player. The target no longer needs to be
    * adjacent — any panel on the board may be selected. If it's farther away than
    * the piece can reach in one turn, `endTurn` walks it there over multiple turns,
-   * covering as many panels per turn as its movement stat allows (see
-   * PieceService.finalizePlayerMoves/advanceTravel), stopping early if it meets an
-   * obstacle en route (an enemy panel, or a friendly panel already at capacity).
+   * covering as many panels per turn as its movement stat allows along one of the
+   * shortest routes (see `MovementRulesService.planEndOfTurn`). Each panel it enters,
+   * passing through included, must have room at that point; when every shortest route
+   * is closed (a friendly panel without room, or an enemy panel it cannot attack), it
+   * stops as far as it got and its order is cancelled. An attacker meeting an enemy panel
+   * on its route attacks it instead, which also cancels its order.
    *
    * @param player - The player performing the action.
    * @param pieceId - ID of the piece to move.
@@ -262,13 +268,13 @@ export class GameApi {
    *   `MovementRulesService.isOrderLocked`). While in transit, only its final
    *   destination changes — the hop in progress always completes first.
    * - Target is a real panel on the board.
-   * - Target satisfies movement rules (`MovementRulesService.canMoveTo`): enemy panel =
-   *   allowed if the piece can defeat every defender there and its own panel still has
-   *   room for it (an attacker stays put unless it breaks through); friendly panel =
-   *   projected count + 1 <= maxPiecesPerPanel, and for a slow piece also room on the
-   *   next hop it starts this turn. Only the final destination and this turn's hop are
-   *   validated up front — obstacles farther along are handled turn by turn as they're
-   *   reached.
+   * - Target satisfies movement rules (`MovementRulesService.canMoveTo`): a target beyond
+   *   this turn's reach can always be ordered — what happens on the way is decided turn by
+   *   turn by the end-of-turn plan (`MovementRulesService.planEndOfTurn`): the piece moves
+   *   on, takes another shortest route, attacks an enemy panel in its way, or is blocked and
+   *   has its order cancelled. A target within this turn's reach must be carried out this
+   *   turn (entered, attacked, or moved into by a slow piece) without cancelling another
+   *   piece's order that was being carried out.
    *
    * **Effects:**
    * - Sets `piece.targetPosition` to `target`.
@@ -310,8 +316,8 @@ export class GameApi {
 
     // Target must be a real panel on the board. It no longer needs to be adjacent —
     // a distant target is walked toward over multiple turns (see
-    // PieceService.finalizePlayerMoves/advanceTravel), consistent with movement
-    // points determining how many panels are covered per turn.
+    // MovementRulesService.planEndOfTurn), consistent with movement points
+    // determining how many panels are covered per turn.
     if (!PanelRepository.find(target)) {
       return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
     }
@@ -334,8 +340,9 @@ export class GameApi {
   /**
    * Cancel a piece's pending move.
    *
-   * The piece must have a `targetPosition` set, and cancelling must not
-   * cause the origin panel to exceed its capacity. A piece that takes multiple turns
+   * The piece must have a `targetPosition` set, and cancelling must not cancel another
+   * piece's order that was being carried out at the end of the turn (for example one moving
+   * into the panel this piece was going to leave). A piece that takes multiple turns
    * per hop cannot cancel once it starts winding up an attack, and a piece in transit
    * cancels by stopping at the panel it is moving into (see
    * `MovementRulesService.canCancelMove`).
@@ -347,7 +354,8 @@ export class GameApi {
    * - Game not over.
    * - It is `player`'s turn.
    * - Piece exists, belongs to `player`, and has a pending `targetPosition`.
-   * - Cancelling does not exceed capacity at the piece's current panel.
+   * - Cancelling cancels no other piece's order that was being carried out
+   *   (see `MovementRulesService.canCancelMove`).
    *
    * **Effects:**
    * - Clears `piece.targetPosition` to `undefined` — or, for a piece in transit, sets it
@@ -367,7 +375,7 @@ export class GameApi {
     if (!piece.targetPosition) return { ok: false, error: ActionError.CANNOT_CANCEL };
 
     const maxPieces = turn.maxPiecesPerPanel[String(player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
-    if (!MovementRulesService.canCancelMove(piece.panelPosition, player, pieceId, maxPieces)) {
+    if (!MovementRulesService.canCancelMove(player, pieceId, maxPieces)) {
       return { ok: false, error: ActionError.CANNOT_CANCEL };
     }
 
@@ -768,8 +776,9 @@ export class GameApi {
     // Include the origin itself (stay)
     const candidates = [...adjacentPositions, origin];
 
+    const before = MovementRulesService.planEndOfTurn(piece.player, maxPieces);
     return candidates.filter((pos) =>
-      MovementRulesService.canMoveTo(pos, piece.player, pieceId, maxPieces),
+      MovementRulesService.canMoveTo(pos, piece.player, pieceId, maxPieces, before),
     );
   }
 

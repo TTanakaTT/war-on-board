@@ -146,7 +146,7 @@ export class InteractionService {
    *
    * When a piece is selected (see highlightMovableFromOccupied), every panel
    * on the board is a candidate move target — distance no longer disqualifies
-   * a panel (see PieceService.finalizePlayerMoves/advanceTravel). Panels
+   * a panel (see MovementRulesService.planEndOfTurn). Panels
    * allowed by MovementRulesService.canMoveTo() become MOVABLE (clickable);
    * panels it disallows are left in their current state, unchanged.
    */
@@ -178,11 +178,10 @@ export class InteractionService {
    * Highlight movable panels when a piece on an OCCUPIED panel is selected.
    *
    * Any panel on the board may be selected as a move target — a target
-   * beyond one hop away is walked toward over multiple turns (see
-   * PieceService.finalizePlayerMoves/advanceTravel), so distance no longer
-   * disqualifies a panel. Panels that fail canMoveTo are left in their
-   * current state rather than dimmed, since they may still become reachable
-   * later (e.g. once an occupying stack clears).
+   * beyond this turn's reach is walked toward over multiple turns (see
+   * MovementRulesService.planEndOfTurn) and can always be ordered. Panels that
+   * fail canMoveTo are left in their current state rather than dimmed, since
+   * they may still become reachable later (e.g. once an occupying stack clears).
    */
   private static highlightMovableFromOccupied(panelPosition: PanelPosition, originalPanel: Panel) {
     const selectedPieces = PiecesRepository.getPiecesByPosition(panelPosition);
@@ -202,6 +201,7 @@ export class InteractionService {
       turn.maxPiecesPerPanel[String(selectedPiece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
 
     // Mark each candidate panel as MOVABLE (if movement rules allow)
+    const before = MovementRulesService.planEndOfTurn(selectedPiece.player, maxPieces);
     PanelRepository.getAll()
       .filter((p: Panel) => !p.panelPosition.equals(panelPosition))
       .forEach((targetPanel: Panel) => {
@@ -211,6 +211,7 @@ export class InteractionService {
             selectedPiece.player,
             selectedPiece.id,
             maxPieces,
+            before,
           )
         ) {
           PanelRepository.update(

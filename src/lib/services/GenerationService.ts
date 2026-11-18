@@ -9,7 +9,7 @@ import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
 import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
 import { HomeBaseRepository } from "#lib/data/repositories/HomeBaseRepository.ts";
 import { PieceService } from "#lib/services/PieceService.ts";
-import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
+import { MovementRulesService, type EndOfTurnPlan } from "#lib/services/MovementRulesService.ts";
 import {
   RESOURCE_THRESHOLD_FOR_GENERATION,
   DEFAULT_MAX_PIECES_PER_PANEL,
@@ -32,8 +32,8 @@ export class GenerationService {
    * and enough capacity for the new piece (see `hasCapacityForNewPiece`), which takes
    * reserved moves into and out of the panel into account.
    *
-   * Candidates are filtered by these conditions and the first one in priority order is
-   * returned, so a full first choice falls through to the next candidate. When
+   * The first candidate in priority order that meets these conditions is returned, so a full
+   * first choice falls through to the next candidate. When
    * `pieceType` is omitted, the new piece is treated as non-mergeable.
    *
    * @returns The chosen panel position, or `null` when no panel qualifies.
@@ -46,13 +46,9 @@ export class GenerationService {
     const opponentHomeBase = HomeBaseRepository.getByPlayer(opponent);
     const mode = turn.generationMode[String(player)] ?? "rear";
 
-    const candidates = PanelRepository.getAll().filter((panel) => {
-      if (panel.player !== player) return false;
-      if (panel.resource < RESOURCE_THRESHOLD_FOR_GENERATION) return false;
-      return this.hasCapacityForNewPiece(panel.panelPosition, player, maxPieces, pieceType);
-    });
-
-    if (candidates.length === 0) return null;
+    const candidates = PanelRepository.getAll().filter(
+      (panel) => panel.player === player && panel.resource >= RESOURCE_THRESHOLD_FOR_GENERATION,
+    );
 
     candidates.sort((a, b) => {
       // Home base priority only in rear mode
@@ -81,7 +77,13 @@ export class GenerationService {
       return a.panelPosition.verticalLayer - b.panelPosition.verticalLayer;
     });
 
-    return candidates[0].panelPosition;
+    // Capacity is checked in priority order, planning the current board at most once.
+    let plan: EndOfTurnPlan | undefined;
+    const currentPlan = () => (plan ??= MovementRulesService.planEndOfTurn(player, maxPieces));
+    const chosen = candidates.find((panel) =>
+      this.hasCapacityForNewPiece(panel.panelPosition, player, maxPieces, currentPlan, pieceType),
+    );
+    return chosen?.panelPosition ?? null;
   }
 
   /**
@@ -89,15 +91,17 @@ export class GenerationService {
    *
    * - Mergeable type with a same-type piece of `player` already on the panel (and not in
    *   transit): always fits, because the new piece merges into it right after generation.
-   * - Otherwise both must stay within the limit:
-   *   - the player's pieces currently on the panel + 1, and
-   *   - the projected end-of-turn stack count including the new piece staying on the panel
-   *     (MovementRulesService.projectedFriendlyStackCount).
+   * - Otherwise the player's pieces currently on the panel + 1 must stay within the limit,
+   *   and the end-of-turn plan with the new piece staying on the panel must keep the panel
+   *   within the limit and cancel no other piece's order that was being carried out
+   *   (MovementRulesService.canPlaceNewPiece). Without `pieceType`, the new piece counts as
+   *   a non-mergeable piece.
    */
   private static hasCapacityForNewPiece(
     position: PanelPosition,
     player: Player,
     maxPieces: number,
+    currentPlan: () => EndOfTurnPlan,
     pieceType?: PieceType,
   ): boolean {
     const ownPiecesAtPanel = PiecesRepository.getPiecesByPosition(position).filter(
@@ -111,16 +115,14 @@ export class GenerationService {
     }
     if (ownPiecesAtPanel.length + 1 > maxPieces) return false;
 
-    const projectedStackCount = pieceType
-      ? MovementRulesService.projectedFriendlyStackCount(
-          position,
-          player,
-          undefined,
-          undefined,
-          pieceType,
-        )
-      : MovementRulesService.projectedFriendlyStackCount(position, player) + 1;
-    return projectedStackCount <= maxPieces;
+    const newPiece = new Piece({
+      id: PieceService.generateNextId(),
+      panelPosition: position,
+      player,
+      // Any non-mergeable type stands in for a piece of unknown type.
+      pieceType: pieceType ?? PieceTypeClass.ROOK,
+    });
+    return MovementRulesService.canPlaceNewPiece(newPiece, maxPieces, currentPlan());
   }
 
   /**

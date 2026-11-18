@@ -19,6 +19,14 @@ export class PanelRepository {
     panelsState.remove(panel);
   }
 
+  /**
+   * A number that changes whenever the set of panel positions on the board may have changed
+   * (setAll, remove). Updating a panel keeps its position, so it leaves this unchanged.
+   */
+  static getLayoutVersion(): number {
+    return panelsState.getLayoutVersion();
+  }
+
   static find(panelPosition: PanelPosition): Panel | undefined {
     return this.getAll().find((x) => x.panelPosition.equals(panelPosition));
   }

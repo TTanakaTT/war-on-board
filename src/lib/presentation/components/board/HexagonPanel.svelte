@@ -54,15 +54,15 @@
     if (selectedPieceId === undefined) return undefined;
     return PiecesRepository.getAll().find((p) => p.id === selectedPieceId);
   });
-  // A MOVABLE panel beyond one hop from the selected piece takes multiple
-  // turns to reach (see PieceService.finalizePlayerMoves/advanceTravel) —
+  // A MOVABLE panel beyond this turn's reach of the selected piece (see
+  // MovementRulesService.isWithinThisTurnsReach) takes multiple turns to reach —
   // shown in a distinct color so the player can tell it apart from a
   // this-turn-reachable panel at a glance.
   let isDistantMovable = $derived(
     Boolean(
       selectedPiece &&
       !panelPosition.equals(selectedPiece.panelPosition) &&
-      !panelPosition.isAdjacent(selectedPiece.panelPosition),
+      !MovementRulesService.isWithinThisTurnsReach(selectedPiece, panelPosition),
     ),
   );
   // While ranged-attack mode is active, a panel this reachable-by-fire (see

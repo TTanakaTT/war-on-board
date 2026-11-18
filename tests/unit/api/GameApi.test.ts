@@ -1992,7 +1992,7 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.NOBLE,
+          pieceType: PieceType.ARCHER,
           hp: 5,
         }),
       );
@@ -2004,14 +2004,14 @@ describe("GameApi.endTurn", () => {
       const defender1 = PiecesRepository.getAll().find((p) => p.id === 50)!;
       const defender2 = PiecesRepository.getAll().find((p) => p.id === 51)!;
 
-      // Defenders: aggregated defense = 1 (both INFANTRY, def=1). Attacker damage = Rook(2-1)*1 + Noble(0-1→0)*1 = 1,
-      // split by HP over 20 total → 0.5 each → hp = 10-0.5 = 9.5.
+      // Defenders: aggregated defense = 1 (both INFANTRY, def=1). Attacker damage = Rook(2-1)*1 + Archer(4-1)*1 = 4,
+      // split by HP over 20 total → 2 each → hp = 10-2 = 8.
       // Attackers: aggregated defense = (1*10 + 0*5)/15 = 2/3. Defender damage = 2*(5-2/3)*1 = 26/3,
-      // split by attacker HP (10:5 of 15) → Rook 52/9, Noble 26/9.
+      // split by attacker HP (10:5 of 15) → Rook 52/9, Archer 26/9.
       expect(piece1.hp).toBeCloseTo(10 - 52 / 9);
       expect(piece2.hp).toBeCloseTo(5 - 26 / 9);
-      expect(defender1.hp).toBeCloseTo(9.5);
-      expect(defender2.hp).toBeCloseTo(9.5);
+      expect(defender1.hp).toBeCloseTo(8);
+      expect(defender2.hp).toBeCloseTo(8);
       expect(piece1.panelPosition.equals(origin)).toBe(true);
       expect(piece2.panelPosition.equals(origin)).toBe(true);
     });
@@ -2050,7 +2050,8 @@ describe("GameApi.endTurn", () => {
           initialPosition: origin,
           targetPosition: target,
           player: Player.SELF,
-          pieceType: PieceType.NOBLE,
+          pieceType: PieceType.ARCHER,
+          hp: 5,
         }),
       );
       PiecesRepository.add(
@@ -2066,22 +2067,22 @@ describe("GameApi.endTurn", () => {
 
       GameApi.endTurn(Player.SELF);
 
-      // Defenders (Rook+Infantry, both def=1): aggregated defense=1. Attacker damage = Noble(0-1→0)*1 + Rook(2-1)*1 = 1,
-      // split by HP over 20 total → 0.5 each → hp = 10-0.5 = 9.5.
-      // Attackers (Noble hp5 def0, Rook hp10 def1): aggregated defense = (0*5+1*10)/15 = 2/3.
+      // Defenders (Rook+Infantry, both def=1): aggregated defense=1. Attacker damage = Archer(4-1)*1 + Rook(2-1)*1 = 4,
+      // split by HP over 20 total → 2 each → hp = 10-2 = 8.
+      // Attackers (Archer hp5 def0, Rook hp10 def1): aggregated defense = (0*5+1*10)/15 = 2/3.
       // Defender damage = Rook(2-2/3)*1 + Infantry(5-2/3)*1 = 17/3, split by attacker HP (5:10 of 15).
       const rook = PiecesRepository.getAll().find((p) => p.id === 2);
       expect(rook).toBeDefined();
       expect(rook!.hp).toBeCloseTo(10 - (17 / 3) * (10 / 15));
 
-      const noble = PiecesRepository.getAll().find((p) => p.id === 1);
-      expect(noble).toBeDefined();
-      expect(noble!.hp).toBeCloseTo(5 - (17 / 3) * (5 / 15));
+      const archer = PiecesRepository.getAll().find((p) => p.id === 1);
+      expect(archer).toBeDefined();
+      expect(archer!.hp).toBeCloseTo(5 - (17 / 3) * (5 / 15));
 
       const defenderA = PiecesRepository.getAll().find((p) => p.id === 50);
       const defenderB = PiecesRepository.getAll().find((p) => p.id === 51);
-      expect(defenderA!.hp).toBeCloseTo(9.5);
-      expect(defenderB!.hp).toBeCloseTo(9.5);
+      expect(defenderA!.hp).toBeCloseTo(8);
+      expect(defenderB!.hp).toBeCloseTo(8);
     });
   });
 
@@ -3618,6 +3619,8 @@ describe.each([Player.SELF, Player.OPPONENT])("gradual movement (%s)", (player) 
     addPiece(1, player, PieceType.HEAVY, pos(0, 0));
     addPiece(2, player, PieceType.ROOK, pos(0, 0));
     addPiece(3, player, PieceType.NOBLE, pos(1, 0));
+    // With movement points, (0,0) is within this turn's reach, so its room is checked.
+    PiecesRepository.update(new Piece({ ...findPiece(3), movementPoints: 1 }));
     GameApi.assignMove(player, 1, pos(0, 1));
 
     expect(MovementRulesService.canMoveTo(pos(0, 0), player, 3)).toBe(false);

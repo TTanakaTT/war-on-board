@@ -210,10 +210,39 @@ describe("InteractionService", () => {
       expect(PanelRepository.find(distantTarget)?.panelState).toBe(PanelState.MOVABLE);
     });
 
-    test("leaves a distant panel unchanged when canMoveTo disallows it (piece cannot attack at all)", () => {
+    test("leaves an adjacent enemy panel unchanged when canMoveTo disallows it (piece cannot attack at all)", () => {
       setupSelfPiece(pos(-3, 0));
       const noble = getPiece(1);
-      PiecesRepository.update(new Piece({ ...noble, pieceType: PieceType.NOBLE }));
+      // A noble's movement points must be its own (the piece was built as an infantry).
+      PiecesRepository.update(
+        new Piece({ ...noble, pieceType: PieceType.NOBLE, movementPoints: 1 }),
+      );
+
+      const adjacentEnemyPosition = pos(-2, 0);
+      PiecesRepository.add(
+        new Piece({
+          id: 2,
+          panelPosition: adjacentEnemyPosition,
+          initialPosition: adjacentEnemyPosition,
+          player: Player.OPPONENT,
+          pieceType: PieceType.INFANTRY,
+        }),
+      );
+      PanelsService.refreshPanelStates();
+
+      InteractionService.pieceChange(getPiece(1));
+
+      const panelState = PanelRepository.find(adjacentEnemyPosition)?.panelState;
+      expect(panelState).not.toBe(PanelState.MOVABLE);
+      expect(panelState).not.toBe(PanelState.IMMOVABLE);
+    });
+
+    test("marks a distant enemy panel MOVABLE even for a piece that cannot attack (a distant target can always be ordered)", () => {
+      setupSelfPiece(pos(-3, 0));
+      const noble = getPiece(1);
+      PiecesRepository.update(
+        new Piece({ ...noble, pieceType: PieceType.NOBLE, movementPoints: 1 }),
+      );
 
       const distantEnemyPosition = pos(0, 0);
       PiecesRepository.add(
@@ -229,9 +258,7 @@ describe("InteractionService", () => {
 
       InteractionService.pieceChange(getPiece(1));
 
-      const panelState = PanelRepository.find(distantEnemyPosition)?.panelState;
-      expect(panelState).not.toBe(PanelState.MOVABLE);
-      expect(panelState).not.toBe(PanelState.IMMOVABLE);
+      expect(PanelRepository.find(distantEnemyPosition)?.panelState).toBe(PanelState.MOVABLE);
     });
   });
 
