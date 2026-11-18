@@ -3,29 +3,33 @@
   import { MatchStatsRepository } from "#lib/data/repositories/MatchStatsRepository.ts";
   import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
   import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-  import type { PieceType } from "#lib/domain/enums/PieceType.ts";
+  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
   import { Player } from "#lib/domain/enums/Player.ts";
-  import type { MatchStatsPieceKey } from "#lib/domain/types/matchStats.ts";
   import { m } from "#lib/paraglide/messages.js";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
-  import { PIECE_TYPE_DISPLAY_ORDER, pieceTypeLabel } from "#lib/presentation/piecePresentation.ts";
+  import { pieceTypeLabel } from "#lib/presentation/piecePresentation.ts";
   import { playerDisplayName, playerInfoOrder } from "#lib/presentation/matchPresentation.ts";
-
-  type PieceCounter = {
-    pieceType: PieceType;
-    liveCount: number;
-    deadCount: number;
-  };
+  import {
+    armyValue,
+    deadUnitCounts,
+    liveUnitCounts,
+    visiblePieceTypeCounts,
+    type PieceTypeCount,
+  } from "#lib/presentation/playerInfoPresentation.ts";
 
   interface PlayerInfoCard {
     id: "self" | "opponent";
     label: string;
+    resources: number;
     resourceIncome: number;
     totalProducedResources: number;
     totalCastle: number;
     totalBuiltCastle: number;
     occupiedPanels: number;
-    pieceCounters: PieceCounter[];
+    armyValue: number;
+    lostArmyValue: number;
+    visibleLiveUnitCounts: PieceTypeCount[];
+    visibleDeadUnitCounts: PieceTypeCount[];
   }
 
   interface Props {
@@ -39,31 +43,29 @@
   let matchStats = $derived(MatchStatsRepository.get());
   let panels = $derived(PanelRepository.getAll());
   let pieces = $derived(PiecesRepository.getAll());
-
-  function deadCountByType(cardId: PlayerInfoCard["id"], pieceType: PieceType): number {
-    // Every PieceType's string value matches its deadUnitCounts field name directly.
-    return matchStats[cardId].deadUnitCounts[String(pieceType) as MatchStatsPieceKey];
-  }
+  let turn = $derived(TurnRepository.get());
 
   function buildPlayerInfo(player: Player): PlayerInfoCard {
     const playerId = player === Player.SELF ? "self" : "opponent";
     const ownedPanels = panels.filter((panel) => panel.player === player);
     const ownedPieces = pieces.filter((piece) => piece.player === player);
     const playerStats = matchStats[playerId];
+    const liveCounts = liveUnitCounts(ownedPieces);
+    const deadCounts = deadUnitCounts(playerStats.deadUnitCounts);
 
     return {
       id: playerId,
       label: playerDisplayName(player, matchControl.controllers, matchControl.aiStrengths),
+      resources: turn.resources[String(player)] ?? 0,
       resourceIncome: ownedPanels.reduce((sum, panel) => sum + panel.resource, 0),
       totalProducedResources: playerStats.totalProducedResources,
       totalCastle: ownedPanels.reduce((sum, panel) => sum + panel.castle, 0),
       totalBuiltCastle: playerStats.totalBuiltCastle,
       occupiedPanels: ownedPanels.length,
-      pieceCounters: PIECE_TYPE_DISPLAY_ORDER.map((pieceType) => ({
-        pieceType,
-        liveCount: ownedPieces.filter((piece) => piece.pieceType === pieceType).length,
-        deadCount: deadCountByType(playerId, pieceType),
-      })),
+      armyValue: armyValue(liveCounts),
+      lostArmyValue: armyValue(deadCounts),
+      visibleLiveUnitCounts: visiblePieceTypeCounts(liveCounts),
+      visibleDeadUnitCounts: visiblePieceTypeCounts(deadCounts),
     };
   }
 
@@ -89,6 +91,21 @@
   );
 </script>
 
+{#snippet unitCountList(cardId: PlayerInfoCard["id"], counts: PieceTypeCount[])}
+  <dd class="rounded-xl border p-3 text-sm {unitPanelClass(cardId)}">
+    <div class="grid gap-2">
+      {#each counts as pieceTypeCount (pieceTypeCount.pieceType)}
+        <div class="flex items-center justify-between gap-4">
+          <span title={pieceTypeLabel(pieceTypeCount.pieceType)}>
+            <Icon icon={pieceTypeCount.pieceType.config.iconName} size={20} />
+          </span>
+          <span class="font-semibold">{pieceTypeCount.count}</span>
+        </div>
+      {/each}
+    </div>
+  </dd>
+{/snippet}
+
 <div class={containerClass}>
   {#each playerCards as card (card.id)}
     <section class="min-w-0 {panelClass(card.id, isWideLayout)}">
@@ -101,7 +118,7 @@
           <dt class="flex items-center gap-2 {infoLabelClass(card.id)}">
             <Icon icon="home" size={18} />
           </dt>
-          <dd class="font-semibold">+{card.resourceIncome}</dd>
+          <dd class="font-semibold">{card.resources} (+{card.resourceIncome})</dd>
         </div>
         <div class="flex items-center justify-between gap-4">
           <dt class="flex items-center gap-2 {infoLabelClass(card.id)}">
@@ -128,36 +145,20 @@
           <dd class="font-semibold">{card.occupiedPanels}</dd>
         </div>
         <div class="flex items-center justify-between gap-4">
+          <dt>{m.army_value_label()}</dt>
+          <dd class="font-semibold">{card.armyValue}</dd>
+        </div>
+        <div class="flex items-center justify-between gap-4">
           <dt>{m.unit_count_label()}</dt>
-
-          <dd class="rounded-xl border p-3 text-sm {unitPanelClass(card.id)}">
-            <div class="grid gap-2">
-              {#each card.pieceCounters as pieceCounter (pieceCounter.pieceType)}
-                <div class="flex items-center justify-between gap-4">
-                  <span title={pieceTypeLabel(pieceCounter.pieceType)}>
-                    <Icon icon={pieceCounter.pieceType.config.iconName} size={20} />
-                  </span>
-                  <span class="font-semibold">{pieceCounter.liveCount}</span>
-                </div>
-              {/each}
-            </div>
-          </dd>
+          {@render unitCountList(card.id, card.visibleLiveUnitCounts)}
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <dt>{m.lost_army_value_label()}</dt>
+          <dd class="font-semibold">{card.lostArmyValue}</dd>
         </div>
         <div class="flex items-center justify-between gap-4">
           <dt>{m.dead_unit_count_label()}</dt>
-
-          <dd class="rounded-xl border p-3 text-sm {unitPanelClass(card.id)}">
-            <div class="grid gap-2">
-              {#each card.pieceCounters as pieceCounter (pieceCounter.pieceType)}
-                <div class="flex items-center justify-between gap-4">
-                  <span title={pieceTypeLabel(pieceCounter.pieceType)}>
-                    <Icon icon={pieceCounter.pieceType.config.iconName} size={20} />
-                  </span>
-                  <span class="font-semibold">{pieceCounter.deadCount}</span>
-                </div>
-              {/each}
-            </div>
-          </dd>
+          {@render unitCountList(card.id, card.visibleDeadUnitCounts)}
         </div>
       </dl>
     </section>
