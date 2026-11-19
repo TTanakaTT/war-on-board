@@ -8,7 +8,9 @@
     HISTORY_CHART_DASH_ARRAY,
     HISTORY_CHART_HEIGHT_PX,
     HISTORY_CHART_LABEL_GAP_PX,
+    HISTORY_CHART_LEGEND_DASH_ARRAY,
     HISTORY_CHART_LEGEND_LINE_PX,
+    HISTORY_CHART_LEGEND_LINE_WIDTH_PX,
     HISTORY_CHART_LINE_WIDTH_PX,
     HISTORY_CHART_MIN_X_TICK_SPACING_PX,
     HISTORY_CHART_PADDING_PX,
@@ -249,16 +251,18 @@
                     <span class="bg-player-card-surface inline-flex rounded p-1">
                       <svg
                         width={HISTORY_CHART_LEGEND_LINE_PX}
-                        height={HISTORY_CHART_LINE_WIDTH_PX}
+                        height={HISTORY_CHART_LEGEND_LINE_WIDTH_PX}
                       >
                         <line
                           x1="0"
-                          y1={HISTORY_CHART_LINE_WIDTH_PX / 2}
+                          y1={HISTORY_CHART_LEGEND_LINE_WIDTH_PX / 2}
                           x2={HISTORY_CHART_LEGEND_LINE_PX}
-                          y2={HISTORY_CHART_LINE_WIDTH_PX / 2}
+                          y2={HISTORY_CHART_LEGEND_LINE_WIDTH_PX / 2}
                           class={lineClass(side)}
-                          stroke-width={HISTORY_CHART_LINE_WIDTH_PX}
-                          stroke-dasharray={metric.dashed ? HISTORY_CHART_DASH_ARRAY : undefined}
+                          stroke-width={HISTORY_CHART_LEGEND_LINE_WIDTH_PX}
+                          stroke-dasharray={metric.dashed
+                            ? HISTORY_CHART_LEGEND_DASH_ARRAY
+                            : undefined}
                         />
                       </svg>
                     </span>

@@ -33,7 +33,7 @@
   "history_download": "Download",
   "history_turn_label": "Turn",
   "history_chart_mode_label": "Chart type",
-  "history_chart_mode_totals": "Gains",
+  "history_chart_mode_totals": "Growth",
   "history_chart_mode_army": "Army",
   "history_chart_mode_territory": "Territory",
   "history_metric_total_produced_resources": "Total Resources Gained",
