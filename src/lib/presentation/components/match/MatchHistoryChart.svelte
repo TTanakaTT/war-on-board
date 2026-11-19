@@ -4,6 +4,7 @@
   import { m } from "#lib/paraglide/messages.js";
   import { seatLabel } from "#lib/presentation/labels.ts";
   import {
+    HISTORY_CHART_AXIS_TITLE_GAP_PX,
     HISTORY_CHART_DASH_ARRAY,
     HISTORY_CHART_HEIGHT_PX,
     HISTORY_CHART_LABEL_GAP_PX,
@@ -13,7 +14,6 @@
     HISTORY_CHART_PADDING_PX,
     HISTORY_CHART_POINT_RADIUS_PX,
     HISTORY_CHART_TARGET_Y_TICKS,
-    HISTORY_CHART_TOOLTIP_OFFSET_PX,
   } from "#lib/presentation/layout.ts";
   import HorizontalRadioGroup from "#lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
 
@@ -31,14 +31,24 @@
     dashed: boolean;
   }
 
+  interface ChartModeDefinition {
+    label: () => string;
+    axisTitles: Partial<Record<Axis, () => string>>;
+    metrics: Metric[];
+  }
+
   interface AxisScale {
     ticks: number[];
     max: number;
   }
 
-  const CHART_MODES: Record<ChartMode, { label: () => string; metrics: Metric[] }> = {
+  const CHART_MODES: Record<ChartMode, ChartModeDefinition> = {
     totals: {
       label: m.history_chart_mode_totals,
+      axisTitles: {
+        left: m.history_metric_total_produced_resources,
+        right: m.history_metric_total_built_castle,
+      },
       metrics: [
         {
           key: "totalProducedResources",
@@ -56,6 +66,7 @@
     },
     army: {
       label: m.history_chart_mode_army,
+      axisTitles: { left: m.army_power_label },
       metrics: [
         { key: "armyPower", label: m.army_power_label, axis: "left", dashed: false },
         { key: "lostArmyPower", label: m.lost_army_power_label, axis: "left", dashed: true },
@@ -63,6 +74,7 @@
     },
     territory: {
       label: m.history_chart_mode_territory,
+      axisTitles: { left: m.occupied_panels_label, right: m.history_metric_wall_total },
       metrics: [
         { key: "occupiedPanels", label: m.occupied_panels_label, axis: "left", dashed: false },
         { key: "wallTotals", label: m.history_metric_wall_total, axis: "right", dashed: true },
@@ -81,7 +93,8 @@
   let hoveredIndex = $state<number | null>(null);
 
   let entries = $derived(matchHistory.entries);
-  let metrics = $derived(CHART_MODES[mode].metrics);
+  let chartMode = $derived(CHART_MODES[mode]);
+  let metrics = $derived(chartMode.metrics);
   let hasRightAxis = $derived(metrics.some((metric) => metric.axis === "right"));
   let plotLeft = PAD.axis;
   let plotRight = $derived(width - (hasRightAxis ? PAD.axis : PAD.edge));
@@ -128,6 +141,9 @@
     );
   });
 
+  // The readout shows the last entry until a point is hovered.
+  let shownIndex = $derived(hoveredIndex ?? entries.length - 1);
+  let shownEntry = $derived(entries[shownIndex]);
   let hoveredEntry = $derived(hoveredIndex === null ? undefined : entries[hoveredIndex]);
 
   function niceStep(rough: number): number {
@@ -153,6 +169,15 @@
     return plotBottom - (value / max) * (plotBottom - plotTop);
   }
 
+  // The winning endTurn adds an entry without passing the turn, so it repeats the previous
+  // entry's turn and player; it is labelled as the final state instead.
+  function pointLabel(index: number, entry: Entry): string {
+    const isFinal = index === entries.length - 1 && matchHistory.metadata.winner !== null;
+    return isFinal
+      ? m.history_point_final({ turn: entry.capturedAtTurn })
+      : m.history_point_turn({ turn: entry.capturedAtTurn, player: seatLabel(entry.turnPlayer) });
+  }
+
   function lineClass(side: Side): string {
     return side === "self" ? "stroke-player-self" : "stroke-player-opponent";
   }
@@ -163,8 +188,7 @@
       : "fill-player-opponent stroke-player-self";
   }
 
-  function legendLabel(metric: Metric): string {
-    if (!hasRightAxis) return metric.label();
+  function metricHeader(metric: Metric): string {
     return metric.axis === "left"
       ? m.history_axis_left({ label: metric.label() })
       : m.history_axis_right({ label: metric.label() });
@@ -182,15 +206,6 @@
   function clearHoveredIndex(event: PointerEvent): void {
     if (event.pointerType === "mouse") hoveredIndex = null;
   }
-
-  function tooltipPosition(index: number): string {
-    const x = xAt(index);
-    const horizontal =
-      x > width / 2
-        ? `right: ${width - x + HISTORY_CHART_TOOLTIP_OFFSET_PX}px;`
-        : `left: ${x + HISTORY_CHART_TOOLTIP_OFFSET_PX}px;`;
-    return `${horizontal} top: ${plotTop}px;`;
-  }
 </script>
 
 <div class="grid gap-3">
@@ -202,43 +217,52 @@
     onChange={(value) => (mode = value as ChartMode)}
   />
 
-  <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-    {#each SIDES as side (side)}
-      <span class="inline-flex items-center gap-1.5">
-        <span class="bg-player-card-surface inline-flex rounded p-1">
-          <svg width={HISTORY_CHART_LEGEND_LINE_PX} height={HISTORY_CHART_LINE_WIDTH_PX}>
-            <line
-              x1="0"
-              y1={HISTORY_CHART_LINE_WIDTH_PX / 2}
-              x2={HISTORY_CHART_LEGEND_LINE_PX}
-              y2={HISTORY_CHART_LINE_WIDTH_PX / 2}
-              class={lineClass(side)}
-              stroke-width={HISTORY_CHART_LINE_WIDTH_PX}
-            />
-          </svg>
-        </span>
-        {seatLabel(side)}
-      </span>
-    {/each}
-    {#each metrics as metric (metric.key)}
-      <span class="inline-flex items-center gap-1.5">
-        <svg width={HISTORY_CHART_LEGEND_LINE_PX} height={HISTORY_CHART_LINE_WIDTH_PX}>
-          <line
-            x1="0"
-            y1={HISTORY_CHART_LINE_WIDTH_PX / 2}
-            x2={HISTORY_CHART_LEGEND_LINE_PX}
-            y2={HISTORY_CHART_LINE_WIDTH_PX / 2}
-            class="stroke-onsurface dark:stroke-onsurface-dark"
-            stroke-width={HISTORY_CHART_LINE_WIDTH_PX}
-            stroke-dasharray={metric.dashed ? HISTORY_CHART_DASH_ARRAY : undefined}
-          />
-        </svg>
-        {legendLabel(metric)}
-      </span>
-    {/each}
-  </div>
+  {#if shownEntry}
+    <table class="w-full border-collapse text-xs">
+      <caption class="pb-1 text-left font-semibold tabular-nums">
+        {pointLabel(shownIndex, shownEntry)}
+      </caption>
+      <thead>
+        <tr class="border-outline dark:border-outline-dark border-b">
+          <td></td>
+          {#each metrics as metric (metric.key)}
+            <th scope="col" class="px-2 py-1 text-right font-medium">{metricHeader(metric)}</th>
+          {/each}
+        </tr>
+      </thead>
+      <tbody>
+        {#each SIDES as side (side)}
+          <tr>
+            <th scope="row" class="py-1 pr-2 text-left font-medium whitespace-nowrap">
+              {seatLabel(side)}
+            </th>
+            {#each metrics as metric (metric.key)}
+              <td class="px-2 py-1">
+                <span class="flex items-center justify-end gap-2">
+                  <span class="bg-player-card-surface inline-flex rounded p-1">
+                    <svg width={HISTORY_CHART_LEGEND_LINE_PX} height={HISTORY_CHART_LINE_WIDTH_PX}>
+                      <line
+                        x1="0"
+                        y1={HISTORY_CHART_LINE_WIDTH_PX / 2}
+                        x2={HISTORY_CHART_LEGEND_LINE_PX}
+                        y2={HISTORY_CHART_LINE_WIDTH_PX / 2}
+                        class={lineClass(side)}
+                        stroke-width={HISTORY_CHART_LINE_WIDTH_PX}
+                        stroke-dasharray={metric.dashed ? HISTORY_CHART_DASH_ARRAY : undefined}
+                      />
+                    </svg>
+                  </span>
+                  <span class="font-semibold tabular-nums">{shownEntry[metric.key][side]}</span>
+                </span>
+              </td>
+            {/each}
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
 
-  <div class="relative" bind:clientWidth={width}>
+  <div bind:clientWidth={width}>
     {#if width > 0}
       <svg
         bind:this={svg}
@@ -246,7 +270,7 @@
         height={HISTORY_CHART_HEIGHT_PX}
         class="block text-xs select-none"
         role="img"
-        aria-label={CHART_MODES[mode].label()}
+        aria-label={chartMode.label()}
       >
         <rect
           x={plotLeft}
@@ -255,6 +279,24 @@
           height={plotBottom - plotTop}
           class="fill-player-card-surface"
         />
+
+        {#if chartMode.axisTitles.left}
+          <text
+            x="0"
+            y={plotTop - HISTORY_CHART_AXIS_TITLE_GAP_PX}
+            class="fill-onsurface dark:fill-onsurface-dark font-semibold"
+            >{chartMode.axisTitles.left()}</text
+          >
+        {/if}
+        {#if chartMode.axisTitles.right}
+          <text
+            x={width}
+            y={plotTop - HISTORY_CHART_AXIS_TITLE_GAP_PX}
+            text-anchor="end"
+            class="fill-onsurface dark:fill-onsurface-dark font-semibold"
+            >{chartMode.axisTitles.right()}</text
+          >
+        {/if}
 
         {#each axes.left?.ticks ?? [] as tick (tick)}
           <line
@@ -296,7 +338,8 @@
           y={HISTORY_CHART_HEIGHT_PX}
           text-anchor="end"
           dominant-baseline="text-after-edge"
-          class="fill-onsurface dark:fill-onsurface-dark">{m.history_turn_label()}</text
+          class="fill-onsurface dark:fill-onsurface-dark font-semibold"
+          >{m.history_turn_label()}</text
         >
 
         {#each series as line (line.id)}
@@ -343,46 +386,6 @@
           onpointerleave={clearHoveredIndex}
         />
       </svg>
-
-      {#if hoveredEntry && hoveredIndex !== null}
-        <div
-          class="border-outline dark:border-outline-dark bg-background dark:bg-background-dark text-onbackground dark:text-onbackground-dark pointer-events-none absolute rounded-lg border px-3 py-2 text-xs shadow-lg"
-          style={tooltipPosition(hoveredIndex)}
-        >
-          <div class="mb-1 font-semibold whitespace-nowrap">
-            {m.history_tooltip_title({
-              turn: hoveredEntry.capturedAtTurn,
-              player: seatLabel(hoveredEntry.turnPlayer),
-            })}
-          </div>
-          <table class="border-separate border-spacing-x-2">
-            <thead>
-              <tr>
-                <th></th>
-                {#each SIDES as side (side)}
-                  <th scope="col" class="text-right font-medium whitespace-nowrap">
-                    {seatLabel(side)}
-                  </th>
-                {/each}
-              </tr>
-            </thead>
-            <tbody>
-              {#each metrics as metric (metric.key)}
-                <tr>
-                  <th scope="row" class="text-left font-normal whitespace-nowrap">
-                    {metric.label()}
-                  </th>
-                  {#each SIDES as side (side)}
-                    <td class="text-right font-semibold tabular-nums">
-                      {hoveredEntry[metric.key][side]}
-                    </td>
-                  {/each}
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {/if}
     {/if}
   </div>
 </div>
