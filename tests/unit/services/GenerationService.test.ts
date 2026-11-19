@@ -112,10 +112,10 @@ describe.each(SIDES)("GenerationService (%s)", (player) => {
   });
 
   test("generate spends the cost and keeps the panel's values", () => {
-    setPanel(home, { castle: 3 });
+    setPanel(home, { wall: 3 });
     expect(G.generate(PieceType.ARCHER, home)).toEqual(home);
     expect(PiecesRepository.getAll()[0]).toMatchObject({ pieceType: PieceType.ARCHER, player });
-    expect(panel(home)).toMatchObject({ castle: 3, resource: 5, panelState: "occupied" });
+    expect(panel(home)).toMatchObject({ wall: 3, resource: 5, panelState: "occupied" });
     setResources(player, 0);
     expect(G.generate()).toBeNull();
   });

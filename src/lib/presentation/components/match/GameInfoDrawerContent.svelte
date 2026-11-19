@@ -26,8 +26,8 @@
     resources: number;
     resourceIncome: number;
     totalGainedResources: number;
-    totalCastle: number;
-    totalBuiltCastle: number;
+    totalWall: number;
+    totalBuiltWall: number;
     occupiedPanels: number;
     armyPower: number;
     lostArmyPower: number;
@@ -62,8 +62,8 @@
       resources: turn.resources[String(player)] ?? 0,
       resourceIncome: ownedPanels.reduce((sum, panel) => sum + panel.resource, 0),
       totalGainedResources: playerStats.totalGainedResources,
-      totalCastle: ownedPanels.reduce((sum, panel) => sum + panel.castle, 0),
-      totalBuiltCastle: playerStats.totalBuiltCastle,
+      totalWall: ownedPanels.reduce((sum, panel) => sum + panel.wall, 0),
+      totalBuiltWall: playerStats.totalBuiltWall,
       occupiedPanels: ownedPanels.length,
       armyPower: armyPower(liveCounts),
       lostArmyPower: armyPower(lostCounts),
@@ -142,12 +142,12 @@
         <div class="flex items-center justify-between gap-4">
           <dt
             class="flex items-center gap-2 {infoLabelClass(card.id)}"
-            title={m.total_castle_label()}
+            title={m.total_wall_label()}
           >
-            <span class="sr-only">{m.total_castle_label()}</span>
+            <span class="sr-only">{m.total_wall_label()}</span>
             <Icon icon="castle" size={18} />
           </dt>
-          <dd class="font-semibold">{card.totalCastle}</dd>
+          <dd class="font-semibold">{card.totalWall}</dd>
         </div>
         <div class="flex items-center justify-between gap-4">
           <dt class="flex items-center gap-2 {infoLabelClass(card.id)}">
@@ -158,10 +158,10 @@
         </div>
         <div class="flex items-center justify-between gap-4">
           <dt class="flex items-center gap-2 {infoLabelClass(card.id)}">
-            <span>{m.total_built_castle_label()}</span>
+            <span>{m.total_built_wall_label()}</span>
             <Icon icon="castle" size={18} />
           </dt>
-          <dd class="font-semibold">{card.totalBuiltCastle}</dd>
+          <dd class="font-semibold">{card.totalBuiltWall}</dd>
         </div>
         <div class="flex items-center justify-between gap-4">
           <dt>{m.occupied_panels_label()}</dt>

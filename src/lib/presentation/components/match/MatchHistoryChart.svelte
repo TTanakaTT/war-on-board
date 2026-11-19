@@ -60,8 +60,8 @@
           dashed: false,
         },
         {
-          key: "totalBuiltCastle",
-          label: m.total_built_castle_label,
+          key: "totalBuiltWall",
+          label: m.total_built_wall_label,
           icon: "castle",
           axis: "right",
           dashed: true,
@@ -80,8 +80,8 @@
       metrics: [
         { key: "occupiedPanels", label: m.occupied_panels_label, axis: "left", dashed: false },
         {
-          key: "totalCastle",
-          label: m.total_castle_label,
+          key: "totalWall",
+          label: m.total_wall_label,
           icon: "castle",
           iconOnly: true,
           axis: "right",

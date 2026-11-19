@@ -45,7 +45,7 @@
   --color-panel-immovable: var(--color-orange-100);
   --color-panel-immovable-dark: var(--color-orange-900);
 
-  --color-castle: var(--color-slate-500);
+  --color-wall: var(--color-slate-500);
   --color-resource: var(--color-lime-500);
   --color-player-self: var(--color-white);
   --color-player-opponent: var(--color-black);

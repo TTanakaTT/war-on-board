@@ -45,7 +45,7 @@
 
   let panel = $derived(PanelRepository.find(panelPosition));
   let player = $derived(panel?.player);
-  let castle = $derived(panel?.castle);
+  let wall = $derived(panel?.wall);
   let resource = $derived(panel?.resource);
 
   let panelState = $derived(panel?.panelState);
@@ -190,9 +190,9 @@
 
   <div class="pointer-events-none absolute inset-0 z-1 flex rotate-90 flex-col lg:rotate-0">
     <div class="pointer-events-none flex flex-1 items-start">
-      {#if castle && castle > 0}
+      {#if wall && wall > 0}
         <div
-          class="bg-castle flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
+          class="bg-wall flex items-center justify-center gap-0.5 rounded-lg border pr-1.5 pl-0.5 {resourceColor}"
         >
           <Icon
             icon="castle"
@@ -201,7 +201,7 @@
             transitionParams={{ duration: 500, axis: "y" }}
           />
 
-          <div>{castle}</div>
+          <div>{wall}</div>
         </div>
       {/if}
     </div>

@@ -71,7 +71,7 @@ export interface Panel {
   panelState: PanelState;
   player: Player;
   resource: number;
-  castle: number;
+  wall: number;
 }
 
 export interface Piece {
@@ -170,7 +170,7 @@ export function createPanel(init: Pick<Panel, "panelPosition"> & Partial<Panel>)
     panelState: PanelState.UNOCCUPIED,
     player: Player.UNKNOWN,
     resource: 0,
-    castle: 0,
+    wall: 0,
     ...init,
   };
 }

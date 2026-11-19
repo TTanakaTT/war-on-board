@@ -40,7 +40,7 @@ export interface StartMatchOptions {
 
 export interface PlayerMatchStats {
   totalGainedResources: number;
-  totalBuiltCastle: number;
+  totalBuiltWall: number;
   lostUnitCounts: Record<PieceType, number>;
 }
 
@@ -70,8 +70,8 @@ export interface MatchHistoryExport {
     turnPlayer: Player;
     resources: BySide<number>;
     totalGainedResources: BySide<number>;
-    totalCastle: BySide<number>;
-    totalBuiltCastle: BySide<number>;
+    totalWall: BySide<number>;
+    totalBuiltWall: BySide<number>;
     occupiedPanels: BySide<number>;
     armyPower: BySide<number>;
     lostArmyPower: BySide<number>;

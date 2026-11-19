@@ -1,4 +1,4 @@
-import { PASSIVE_CASTLE_CAP, PASSIVE_RESOURCE_CAP } from "#lib/domain/config.ts";
+import { PASSIVE_RESOURCE_CAP, PASSIVE_WALL_CAP } from "#lib/domain/config.ts";
 import {
   pieceConfig,
   samePos,
@@ -29,7 +29,7 @@ export interface ScoredTarget {
 }
 
 type Assertiveness = Record<AiStrengthProfile["combatAssertiveness"], number>;
-const REMAINING_CASTLE_PENALTY: Assertiveness = { standard: 8, aggressive: 1 };
+const REMAINING_WALL_PENALTY: Assertiveness = { standard: 8, aggressive: 1 };
 const HOSTILE_MARGIN_WEIGHT: Assertiveness = { standard: 8, aggressive: 1 };
 const OVERFLOW_MARGIN_WEIGHT: Assertiveness = { standard: 6, aggressive: 1 };
 const MUTUAL_DESTRUCTION_PENALTY: Assertiveness = { standard: 140, aggressive: 0 };
@@ -77,14 +77,14 @@ export function scoreTarget(
   const at = state.pieces.filter((p) => samePos(p.panelPosition, target));
   const enemies = at.filter((p) => p.player !== piece.player);
   const friends = at.filter((p) => p.id !== piece.id && p.player === piece.player);
-  const hasEnemyCastle =
-    panel.player !== piece.player && panel.player !== "unknown" && panel.castle > 0;
+  const hasEnemyWall =
+    panel.player !== piece.player && panel.player !== "unknown" && panel.wall > 0;
   const isEnemyHome = state.homeBases.some(
     (h) => h.player !== piece.player && samePos(h.panelPosition, target),
   );
 
-  if (isEnemyHome && panel.castle === 0 && enemies.length === 0) return 1000;
-  if (enemies.length > 0 || hasEnemyCastle) {
+  if (isEnemyHome && panel.wall === 0 && enemies.length === 0) return 1000;
+  if (enemies.length > 0 || hasEnemyWall) {
     return scoreAttackTarget(piece, panel, enemies, isEnemyHome, profile);
   }
   const base = scoreNonCombatTarget(piece, panel, friends, target);
@@ -113,8 +113,8 @@ function scoreHomeSideGrowth(
   const type = piece.pieceType;
   if (type !== "rook" && type !== "noble") return 0;
 
-  const cap = type === "rook" ? PASSIVE_CASTLE_CAP : PASSIVE_RESOURCE_CAP;
-  const growth = (p: Panel) => (type === "rook" ? p.castle : p.resource);
+  const cap = type === "rook" ? PASSIVE_WALL_CAP : PASSIVE_RESOURCE_CAP;
+  const growth = (p: Panel) => (type === "rook" ? p.wall : p.resource);
   const priority = (p: Panel) =>
     (cap - growth(p)) * 24 - homeDistance(state, piece.player, p.panelPosition) * 12;
   const advanceFromHome = () =>
@@ -164,15 +164,15 @@ function scoreAttackTarget(
   );
   let score = panel.player !== piece.player ? 12 + panel.resource * 2 : 0;
 
-  if (panel.castle > 0) {
+  if (panel.wall > 0) {
     if (stats.attackPowerAgainstWall <= 0) return -120;
-    const remainingCastle = Math.max(0, panel.castle - stats.attackPowerAgainstWall);
+    const remainingWall = Math.max(0, panel.wall - stats.attackPowerAgainstWall);
     const overflowRatio =
-      Math.max(0, stats.attackPowerAgainstWall - panel.castle) / stats.attackPowerAgainstWall;
+      Math.max(0, stats.attackPowerAgainstWall - panel.wall) / stats.attackPowerAgainstWall;
     const overflowDamage = stats.attackPowerAgainstPiece * overflowRatio;
-    score += 18 - remainingCastle * REMAINING_CASTLE_PENALTY[mode] + overflowDamage * 4;
+    score += 18 - remainingWall * REMAINING_WALL_PENALTY[mode] + overflowDamage * 4;
 
-    if (remainingCastle === 0 && enemies.length === 0) return isEnemyHome ? 1000 : score + 80;
+    if (remainingWall === 0 && enemies.length === 0) return isEnemyHome ? 1000 : score + 80;
     // Defenders only fight back once wall damage overflows.
     if (enemies.length > 0 && overflowDamage > 0) {
       score += (overflowDamage - enemyHp) * OVERFLOW_MARGIN_WEIGHT[mode];

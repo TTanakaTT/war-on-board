@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
 import {
-  HOME_BASE_INIT_CASTLE,
   HOME_BASE_INIT_RESOURCE,
+  HOME_BASE_INIT_WALL,
   PLAYER_INIT_RESOURCE,
 } from "#lib/domain/config.ts";
 import {
@@ -49,10 +49,10 @@ describe("initializeGame", () => {
     expect(panel(pos(-3, 0))).toMatchObject({
       player: Player.SELF,
       resource: HOME_BASE_INIT_RESOURCE,
-      castle: HOME_BASE_INIT_CASTLE,
+      wall: HOME_BASE_INIT_WALL,
     });
     expect(panel(pos(3, 0)).player).toBe(Player.OPPONENT);
-    expect(panel(pos(0, 0))).toMatchObject({ player: Player.UNKNOWN, resource: 0, castle: 0 });
+    expect(panel(pos(0, 0))).toMatchObject({ player: Player.UNKNOWN, resource: 0, wall: 0 });
     expect(TurnRepository.get()).toMatchObject({ num: 1, player: Player.SELF, winner: null });
     expect(TurnRepository.get().resources).toEqual({
       self: PLAYER_INIT_RESOURCE + HOME_BASE_INIT_RESOURCE,
@@ -151,7 +151,7 @@ describe("assignMove", () => {
     add(1, pos(0, 0));
     add(2, pos(-1, 0));
     add(3, pos(0, 1), Player.OPPONENT);
-    setPanel(pos(1, 0), { player: Player.OPPONENT, castle: 3 });
+    setPanel(pos(1, 0), { player: Player.OPPONENT, wall: 3 });
     expect(GameApi.assignMove(Player.SELF, 1, pos(0, 1)).ok).toBe(true);
     expect(GameApi.assignMove(Player.SELF, 2, pos(0, 0)).ok).toBe(true);
     add(4, pos(1, 1));
@@ -205,9 +205,9 @@ describe("ranged attacks", () => {
     expect(assign(1)).toEqual(fail(ActionError.TARGET_NOT_REACHABLE));
     add(4, pos(0, 2), Player.OPPONENT);
     expect(assign(2)).toEqual(fail(ActionError.TARGET_NOT_REACHABLE));
-    setPanel(pos(0, 2), { player: Player.OPPONENT, castle: 1 });
+    setPanel(pos(0, 2), { player: Player.OPPONENT, wall: 1 });
     expect(assign(1)).toEqual(fail(ActionError.TARGET_NOT_REACHABLE));
-    setPanel(pos(0, 2), { castle: 0 });
+    setPanel(pos(0, 2), { wall: 0 });
     expect(assign(1).ok).toBe(true);
     expect(piece(1).rangedAttackTargetPosition).toEqual(pos(0, 2));
   });
@@ -310,13 +310,13 @@ describe.each(SIDES)("endTurn (%s)", (player) => {
 
   test("attackers hit the wall first and stay", () => {
     start();
-    setPanel(pos(0, 1), { player: enemy, castle: 3 });
+    setPanel(pos(0, 1), { player: enemy, wall: 3 });
     add(1, pos(0, 0), player);
     add(2, pos(-1, 0), player);
     GameApi.assignMove(player, 1, pos(0, 1));
     GameApi.assignMove(player, 2, pos(0, 1));
     const result = GameApi.endTurn(player);
-    expect(panel(pos(0, 1)).castle).toBe(1);
+    expect(panel(pos(0, 1)).wall).toBe(1);
     expect(piece(1).panelPosition).toEqual(pos(0, 0));
     expect(result.ok && result.value.combatOutcomes).toEqual([
       { targetPosition: pos(0, 1), destroyedPieceIds: [], entered: false, wallDamageDealt: 2 },
@@ -325,7 +325,7 @@ describe.each(SIDES)("endTurn (%s)", (player) => {
 
   test("wall overflow scales attacker damage; defenders counter in full", () => {
     start();
-    setPanel(pos(0, 1), { player: enemy, castle: 0.5 });
+    setPanel(pos(0, 1), { player: enemy, wall: 0.5 });
     add(1, pos(0, 0), player);
     add(2, pos(0, 1), enemy);
     GameApi.assignMove(player, 1, pos(0, 1));
@@ -355,7 +355,7 @@ describe.each(SIDES)("endTurn (%s)", (player) => {
   test("capturing the enemy home base wins", () => {
     start();
     const enemyHome = player === Player.SELF ? pos(3, 0) : pos(-3, 0);
-    setPanel(enemyHome, { castle: 0 });
+    setPanel(enemyHome, { wall: 0 });
     add(1, player === Player.SELF ? pos(2, 0) : pos(-2, 0), player);
     GameApi.assignMove(player, 1, enemyHome);
     const result = GameApi.endTurn(player);
@@ -367,8 +367,8 @@ describe.each(SIDES)("endTurn (%s)", (player) => {
   test("passes the turn, then applies passives and income for the next player", () => {
     start();
     setPanel(pos(0, 0), { resource: 4 });
-    setPanel(pos(0, 1), { castle: 4 });
-    setPanel(pos(1, 0), { castle: 7 });
+    setPanel(pos(0, 1), { wall: 4 });
+    setPanel(pos(1, 0), { wall: 7 });
     add(1, pos(0, 0), enemy, { pieceType: PieceType.NOBLE });
     add(2, pos(0, 1), enemy, { pieceType: PieceType.ROOK });
     add(3, pos(1, 0), enemy, { pieceType: PieceType.ROOK });
@@ -380,14 +380,14 @@ describe.each(SIDES)("endTurn (%s)", (player) => {
     expect(turn.player).toBe(enemy);
     expect(turn.num).toBe(player === Player.OPPONENT ? before.num + 1 : before.num);
     expect(panel(pos(0, 0)).resource).toBe(5);
-    expect(panel(pos(0, 1)).castle).toBe(5);
-    expect(panel(pos(1, 0)).castle).toBe(7);
+    expect(panel(pos(0, 1)).wall).toBe(5);
+    expect(panel(pos(1, 0)).wall).toBe(7);
     expect(panel(pos(0, 2)).player).toBe(enemy);
     const income = PanelRepository.getAll()
       .filter((p) => p.player === enemy)
       .reduce((sum, p) => sum + p.resource, 0);
     expect(turn.resources[enemy]).toBe(before.resources[enemy] + income);
-    expect(MatchStatsRepository.get()[enemy].totalBuiltCastle).toBe(HOME_BASE_INIT_CASTLE + 1);
+    expect(MatchStatsRepository.get()[enemy].totalBuiltWall).toBe(HOME_BASE_INIT_WALL + 1);
   });
 
   test("same-type pieces meeting on a panel merge", () => {
@@ -582,7 +582,7 @@ describe("state snapshots", () => {
     expect(afterEndTurn[player].lostUnitCounts[PieceType.INFANTRY]).toBe(1);
     expect(GameApi.getGameStateHistory()[1].stats).toEqual(afterEndTurn);
 
-    MatchStatsRepository.addBuiltCastle(player, 5);
+    MatchStatsRepository.addBuiltWall(player, 5);
     const history = GameApi.getGameStateHistory();
     expect(history[0].stats).toEqual(atStart);
     expect(history[1].stats).toEqual(afterEndTurn);

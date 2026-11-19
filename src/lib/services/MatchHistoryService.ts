@@ -39,8 +39,8 @@ export class MatchHistoryService {
         turnPlayer: snapshot.turn.player,
         resources: bySide((side) => snapshot.turn.resources[side] ?? 0),
         totalGainedResources: bySide((side) => stats[side].totalGainedResources),
-        totalCastle: this.sumOwnedPanels(snapshot, (panel) => panel.castle),
-        totalBuiltCastle: bySide((side) => stats[side].totalBuiltCastle),
+        totalWall: this.sumOwnedPanels(snapshot, (panel) => panel.wall),
+        totalBuiltWall: bySide((side) => stats[side].totalBuiltWall),
         occupiedPanels: this.sumOwnedPanels(snapshot, () => 1),
         armyPower: bySide((side) =>
           armyPower(liveCombatUnitCounts(snapshot.pieces.filter((p) => p.player === side))),

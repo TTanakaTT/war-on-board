@@ -2,7 +2,7 @@
 import {
   DEFAULT_AUTOMATION_TURN_LIMIT,
   DEFAULT_MAX_PIECES_PER_PANEL,
-  HOME_BASE_INIT_CASTLE,
+  HOME_BASE_INIT_WALL,
   PLAYER_INIT_RESOURCE,
 } from "#lib/domain/config.ts";
 import {
@@ -68,7 +68,7 @@ let debugMode = $state.raw<{ checksEnabled: boolean; reports: InvariantViolation
 function initialMatchStats(): MatchStats {
   const player = (): PlayerMatchStats => ({
     totalGainedResources: PLAYER_INIT_RESOURCE,
-    totalBuiltCastle: HOME_BASE_INIT_CASTLE,
+    totalBuiltWall: HOME_BASE_INIT_WALL,
     lostUnitCounts: Object.fromEntries(PIECE_TYPES.map((t) => [t, 0])) as Record<PieceType, number>,
   });
   return { self: player(), opponent: player() };
@@ -166,8 +166,8 @@ export const MatchStatsRepository = {
   addGainedResources(player: Player, amount: number) {
     this.add(player, (s) => ({ totalGainedResources: s.totalGainedResources + amount }), amount);
   },
-  addBuiltCastle(player: Player, amount: number) {
-    this.add(player, (s) => ({ totalBuiltCastle: s.totalBuiltCastle + amount }), amount);
+  addBuiltWall(player: Player, amount: number) {
+    this.add(player, (s) => ({ totalBuiltWall: s.totalBuiltWall + amount }), amount);
   },
   addLostUnits(player: Player, pieceType: PieceType, count: number) {
     this.add(

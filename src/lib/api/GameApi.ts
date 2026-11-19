@@ -45,14 +45,14 @@ const isSide = (value: unknown) => value === Player.SELF || value === Player.OPP
 /**
  * The only entry point that changes game state (UI and AI both call it). Rules overview:
  * - Win by capturing the enemy home base. Infantry > Noble > Rook > Infantry macro balance.
- * - Turn start passives: Noble +1 panel resource, Rook +1 castle (both capped, never lowered),
+ * - Turn start passives: Noble +1 panel resource, Rook +1 wall (both capped, never lowered),
  *   other types claim their panel. Income = sum of owned panels' resource.
  * - Orders may target any panel; endTurn walks pieces along shortest routes
  *   (MovementRulesService.planEndOfTurn), attacking enemy panels in the way.
  * - An attacker may only target panels whose every defender has defense <= its raw attack.
- * - Castle first: attackers hit the wall; overflow scales their piece damage. Otherwise both
+ * - Wall first: attackers hit the wall; overflow scales their piece damage. Otherwise both
  *   groups deal max(0, attack - HP-weighted defense) * stackCount simultaneously, split by HP.
- * - Attackers enter only when no enemy pieces and no castle remain, in order sequence, up to
+ * - Attackers enter only when no enemy pieces and no wall remain, in order sequence, up to
  *   maxPiecesPerPanel. Ranged attacks never enter; out-of-range defenders do not counter.
  */
 export class GameApi {
@@ -370,7 +370,7 @@ export class GameApi {
       if (!key || panelKeys.has(key)) return false;
       if (panel.panelState !== PanelState.OCCUPIED && panel.panelState !== PanelState.UNOCCUPIED)
         return false;
-      if (!nonNegative(panel.resource) || !nonNegative(panel.castle)) return false;
+      if (!nonNegative(panel.resource) || !nonNegative(panel.wall)) return false;
       if (!isSide(panel.player) && panel.player !== Player.UNKNOWN) return false;
       panelKeys.add(key);
     }

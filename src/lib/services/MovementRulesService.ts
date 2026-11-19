@@ -473,10 +473,10 @@ export class MovementRulesService {
     return path.length - 1 <= reach;
   }
 
-  /** Enemy pieces or an enemy castle on the panel. */
+  /** Enemy pieces or an enemy wall on the panel. */
   static hasEnemyPresence(position: PanelPosition, player: Player): boolean {
     if (this.enemiesAt(position, player).length > 0) return true;
-    return this.hasEnemyCastle(position, player);
+    return this.hasEnemyWall(position, player);
   }
 
   /** Every defender's defense must be <= the attacker's raw (unmerged) attack. */
@@ -517,7 +517,7 @@ export class MovementRulesService {
   }
 
   /**
-   * Distance 2..attackRange, enemy pieces present, no enemy castle (ranged attacks never
+   * Distance 2..attackRange, enemy pieces present, no enemy wall (ranged attacks never
    * hit walls), and every defender defeatable.
    */
   static canRangedAttack(attackerId: number, targetPosition: PanelPosition): boolean {
@@ -527,7 +527,7 @@ export class MovementRulesService {
     const path = PanelsService.findShortestPath(piece.panelPosition, targetPosition);
     const distance = path ? path.length - 1 : Infinity;
     if (distance <= 1 || distance > pieceConfig(piece.pieceType).attackRange) return false;
-    if (this.hasEnemyCastle(targetPosition, piece.player)) return false;
+    if (this.hasEnemyWall(targetPosition, piece.player)) return false;
 
     const defenders = this.enemiesAt(targetPosition, piece.player);
     return defenders.length > 0 && this.canDefeatAllDefenders(piece, defenders);
@@ -567,10 +567,8 @@ export class MovementRulesService {
     );
   }
 
-  private static hasEnemyCastle(position: PanelPosition, player: Player): boolean {
+  private static hasEnemyWall(position: PanelPosition, player: Player): boolean {
     const panel = PanelRepository.find(position);
-    return (
-      !!panel && panel.player !== player && panel.player !== Player.UNKNOWN && panel.castle > 0
-    );
+    return !!panel && panel.player !== player && panel.player !== Player.UNKNOWN && panel.wall > 0;
   }
 }
