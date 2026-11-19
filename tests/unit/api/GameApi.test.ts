@@ -571,6 +571,23 @@ describe("state snapshots", () => {
     expect(GameApi.getGameStateHistory()[1].snapshot.turn.num).toBe(1);
   });
 
+  test.each(SIDES)("history entries keep the stats at capture time (%s)", (player) => {
+    newGame(4, player);
+    const atStart = MatchStatsRepository.get();
+    expect(GameApi.getGameStateHistory()[0].stats).toEqual(atStart);
+
+    MatchStatsRepository.addDeadUnits(player, PieceType.INFANTRY, 1);
+    GameApi.endTurn(player);
+    const afterEndTurn = MatchStatsRepository.get();
+    expect(afterEndTurn[player].deadUnitCounts[PieceType.INFANTRY]).toBe(1);
+    expect(GameApi.getGameStateHistory()[1].stats).toEqual(afterEndTurn);
+
+    MatchStatsRepository.addBuiltCastle(player, 5);
+    const history = GameApi.getGameStateHistory();
+    expect(history[0].stats).toEqual(atStart);
+    expect(history[1].stats).toEqual(afterEndTurn);
+  });
+
   test("withTemporaryGameState restores state, history and stats", () => {
     newGame();
     add(1, pos(0, 0));

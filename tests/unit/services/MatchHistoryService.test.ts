@@ -1,39 +1,54 @@
 import { describe, expect, test } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
-import { AiStrength, PieceType, Player } from "#lib/domain/model.ts";
+import { AiStrength, opponentOf, PieceType, pos } from "#lib/domain/model.ts";
 import { MatchHistoryService } from "#lib/services/MatchHistoryService.ts";
 import { MatchControlRepository, MatchStatsRepository } from "#lib/store.svelte.ts";
-import { add, newGame, pos } from "../helpers.ts";
+import { add, newGame, SIDES } from "../helpers.ts";
 
-describe("MatchHistoryService", () => {
-  test("exports metadata and per-entry totals (merged pieces count their stack)", () => {
-    newGame(4);
+describe.each(SIDES)("MatchHistoryService (%s)", (player) => {
+  test("exports metadata and per-entry totals for each side", () => {
+    const enemy = opponentOf(player);
+    newGame(4, player);
     MatchControlRepository.set({
       ...MatchControlRepository.get(),
-      controllers: { self: "cpu", opponent: "human" },
-      aiStrengths: { self: AiStrength.STRENGTH_2, opponent: AiStrength.STRENGTH_1 },
-      aiSeeds: { self: 1, opponent: 2 },
+      controllers: { [player]: "cpu", [enemy]: "human" } as never,
+      aiStrengths: { [player]: AiStrength.STRENGTH_2, [enemy]: AiStrength.STRENGTH_1 } as never,
+      aiSeeds: { [player]: 1, [enemy]: 2 } as never,
     });
-    add(1, pos(0, 0), Player.SELF, { stackCount: 3 });
-    MatchStatsRepository.addDeadUnits(Player.OPPONENT, PieceType.INFANTRY, 2);
-    GameApi.endTurn(Player.SELF);
+    add(1, pos(0, 0), player, { stackCount: 3 });
+    MatchStatsRepository.addDeadUnits(enemy, PieceType.INFANTRY, 2);
+    MatchStatsRepository.addProducedResources(player, 7);
+    MatchStatsRepository.addBuiltCastle(enemy, 4);
+    GameApi.endTurn(player);
+    const stats = MatchStatsRepository.get();
+    const snapshot = GameApi.getGameStateHistory()[1].snapshot;
 
     const exported = JSON.parse(MatchHistoryService.toJson());
     expect(exported.metadata).toMatchObject({
       winner: null,
       layer: 4,
-      players: { self: { controller: "cpu", aiStrength: AiStrength.STRENGTH_2, aiSeed: 1 } },
+      players: { [player]: { controller: "cpu", aiStrength: AiStrength.STRENGTH_2, aiSeed: 1 } },
     });
-    expect(exported.entries[1]).toEqual({
-      capturedAtTurn: 1,
-      turnPlayer: "opponent",
-      resources: { self: 10, opponent: 10 },
-      totalProducedResources: { self: 10, opponent: 10 },
-      wallTotals: { self: 10, opponent: 10 },
-      totalBuiltCastle: { self: 10, opponent: 10 },
-      occupiedPanels: { self: 2, opponent: 1 },
-      armyPower: { self: 24, opponent: 0 },
-      lostArmyPower: { self: 0, opponent: 16 },
+    const entry = exported.entries[1];
+    expect(entry).not.toHaveProperty("unitTotals");
+    expect(entry).toEqual({
+      capturedAtTurn: snapshot.turn.num,
+      turnPlayer: enemy,
+      resources: snapshot.turn.resources,
+      totalProducedResources: {
+        [player]: stats[player].totalProducedResources,
+        [enemy]: stats[enemy].totalProducedResources,
+      },
+      wallTotals: { [player]: 10, [enemy]: 10 },
+      totalBuiltCastle: {
+        [player]: stats[player].totalBuiltCastle,
+        [enemy]: stats[enemy].totalBuiltCastle,
+      },
+      occupiedPanels: { [player]: 2, [enemy]: 1 },
+      armyPower: { [player]: 24, [enemy]: 0 },
+      lostArmyPower: { [player]: 0, [enemy]: 16 },
     });
+    expect(entry.totalProducedResources[player]).not.toBe(entry.totalProducedResources[enemy]);
+    expect(entry.totalBuiltCastle[player]).not.toBe(entry.totalBuiltCastle[enemy]);
   });
 });
