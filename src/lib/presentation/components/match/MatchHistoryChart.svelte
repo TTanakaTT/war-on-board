@@ -99,10 +99,10 @@
   let chartMode = $derived(CHART_MODES[mode]);
   let metrics = $derived(chartMode.metrics);
   let hasRightAxis = $derived(metrics.some((metric) => metric.axis === "right"));
-  let plotLeft = PAD.axis;
+  const plotLeft = PAD.axis;
   let plotRight = $derived(width - (hasRightAxis ? PAD.axis : PAD.edge));
-  let plotTop = PAD.top;
-  let plotBottom = HISTORY_CHART_HEIGHT_PX - PAD.bottom;
+  const plotTop = PAD.top;
+  const plotBottom = HISTORY_CHART_HEIGHT_PX - PAD.bottom;
   let plotWidth = $derived(Math.max(0, plotRight - plotLeft));
 
   let axes = $derived.by(() => {
