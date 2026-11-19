@@ -308,13 +308,14 @@
       {/each}
     </div>
 
-    <div bind:clientWidth={width}>
+    <!-- The svg stays out of flow: resizing the measured box from it loops ResizeObserver. -->
+    <div bind:clientWidth={width} class="relative" style:height="{HISTORY_CHART_HEIGHT_PX}px">
       {#if width > 0}
         <svg
           bind:this={svg}
           {width}
           height={HISTORY_CHART_HEIGHT_PX}
-          class="block text-xs select-none"
+          class="absolute inset-0 block text-xs select-none"
           role="img"
           aria-label={chartMode.label()}
         >
