@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
 import {
-  HOME_BASE_INIT_WALL,
   HOME_BASE_INIT_RESOURCE,
+  HOME_BASE_INIT_WALL,
   PLAYER_INIT_RESOURCE,
 } from "#lib/domain/config.ts";
 import {

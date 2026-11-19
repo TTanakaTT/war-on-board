@@ -1,4 +1,4 @@
-import { MOVEMENT_HOP_COST, PASSIVE_WALL_CAP, PASSIVE_RESOURCE_CAP } from "#lib/domain/config.ts";
+import { MOVEMENT_HOP_COST, PASSIVE_RESOURCE_CAP, PASSIVE_WALL_CAP } from "#lib/domain/config.ts";
 import {
   isInTransit,
   PanelState,

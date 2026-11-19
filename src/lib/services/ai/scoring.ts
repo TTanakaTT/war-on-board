@@ -1,4 +1,4 @@
-import { PASSIVE_WALL_CAP, PASSIVE_RESOURCE_CAP } from "#lib/domain/config.ts";
+import { PASSIVE_RESOURCE_CAP, PASSIVE_WALL_CAP } from "#lib/domain/config.ts";
 import {
   pieceConfig,
   samePos,

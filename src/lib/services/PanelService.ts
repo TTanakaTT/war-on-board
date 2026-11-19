@@ -1,4 +1,4 @@
-import { HOME_BASE_INIT_WALL, HOME_BASE_INIT_RESOURCE } from "#lib/domain/config.ts";
+import { HOME_BASE_INIT_RESOURCE, HOME_BASE_INIT_WALL } from "#lib/domain/config.ts";
 import {
   createPanel,
   isAdjacent,
