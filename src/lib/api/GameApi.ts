@@ -17,7 +17,6 @@ import {
   takesMultipleTurnsPerHop,
   type GameActionResult,
   type GameState,
-  type GameStateHistoryEntry,
   type GenerationMode,
   type PanelPosition,
   type Piece,
@@ -25,6 +24,7 @@ import {
   type Result,
   type TurnEndResult,
 } from "#lib/domain/model.ts";
+import type { GameStateHistoryEntry } from "#lib/domain/types.ts";
 import {
   GameStateHistoryRepository,
   HomeBaseRepository,
@@ -332,7 +332,7 @@ export class GameApi {
       ...turn,
       resources: { ...turn.resources, [player]: (turn.resources[player] ?? 0) + total },
     });
-    MatchStatsRepository.addProducedResources(player, total);
+    MatchStatsRepository.addGainedResources(player, total);
   }
 
   /** A home base owned by the other side means that side won. */
@@ -350,6 +350,7 @@ export class GameApi {
       sequence: GameStateHistoryRepository.getAll().length,
       capturedAtTurn: snapshot.turn.num,
       snapshot,
+      stats: MatchStatsRepository.get(),
     });
   }
 

@@ -39,12 +39,19 @@ export interface StartMatchOptions {
 }
 
 export interface PlayerMatchStats {
-  totalProducedResources: number;
+  totalGainedResources: number;
   totalBuiltCastle: number;
-  deadUnitCounts: Record<PieceType, number>;
+  lostUnitCounts: Record<PieceType, number>;
 }
 
 export type MatchStats = BySide<PlayerMatchStats>;
+
+export interface GameStateHistoryEntry {
+  sequence: number;
+  capturedAtTurn: number;
+  snapshot: GameState;
+  stats: MatchStats;
+}
 
 export interface MatchHistoryExport {
   metadata: {
@@ -61,10 +68,13 @@ export interface MatchHistoryExport {
   entries: {
     capturedAtTurn: number;
     turnPlayer: Player;
-    unitTotals: BySide<number>;
     resources: BySide<number>;
-    wallTotals: BySide<number>;
+    totalGainedResources: BySide<number>;
+    totalCastle: BySide<number>;
+    totalBuiltCastle: BySide<number>;
     occupiedPanels: BySide<number>;
+    armyPower: BySide<number>;
+    lostArmyPower: BySide<number>;
   }[];
 }
 

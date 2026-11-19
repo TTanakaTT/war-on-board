@@ -1,10 +1,8 @@
 import {
   AiStrength,
-  PIECE_TYPES,
-  pieceConfig,
   Player,
-  type Piece,
   type PieceType,
+  type PieceTypeCount,
   type Side,
 } from "#lib/domain/model.ts";
 import type { MatchControl, PlayerController } from "#lib/domain/types.ts";
@@ -51,31 +49,8 @@ export function playerDisplayName(
     : m.player_option_ai_strength_numbered({ index, level: AI_LABELS[aiStrengths[side]].level() });
 }
 
-export interface PieceTypeCount {
-  pieceType: PieceType;
-  count: number;
-}
-
-const COMBAT_UNIT_TYPES = PIECE_TYPES.filter((type) => pieceConfig(type).isCombatUnit);
-
-/** A merged piece counts as its stackCount. */
-export const liveCombatUnitCounts = (pieces: readonly Piece[]): PieceTypeCount[] =>
-  COMBAT_UNIT_TYPES.map((pieceType) => ({
-    pieceType,
-    count: pieces
-      .filter((p) => p.pieceType === pieceType)
-      .reduce((sum, p) => sum + p.stackCount, 0),
-  }));
-
-export const deadCombatUnitCounts = (dead: Record<PieceType, number>): PieceTypeCount[] =>
-  COMBAT_UNIT_TYPES.map((pieceType) => ({ pieceType, count: dead[pieceType] }));
-
 /** Non-zero counts only; the first entry (0) when all are zero. */
 export function visiblePieceTypeCounts(counts: readonly PieceTypeCount[]): PieceTypeCount[] {
   const nonZero = counts.filter((c) => c.count > 0);
   return nonZero.length > 0 ? nonZero : counts.slice(0, 1);
 }
-
-/** Total cost of the units. */
-export const armyPower = (counts: readonly PieceTypeCount[]) =>
-  counts.reduce((sum, c) => sum + pieceConfig(c.pieceType).cost * c.count, 0);

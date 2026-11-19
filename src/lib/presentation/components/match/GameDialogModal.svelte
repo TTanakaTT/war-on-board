@@ -50,9 +50,7 @@
   let isLeaveDialog = $derived(resultSignature === null && dialogState.leaveRequested);
   let showModal = $derived(isResultDialog || isLeaveDialog);
   let dialogWidthClass = $derived(
-    isResultDialog
-      ? "w-fit max-w-[calc(100vw-2rem)] sm:min-w-[42rem] sm:max-w-3xl"
-      : "w-fit max-w-[calc(100vw-2rem)]",
+    isResultDialog ? "w-full sm:max-w-3xl" : "w-fit max-w-[calc(100vw-2rem)]",
   );
 
   function downloadHistory(): void {

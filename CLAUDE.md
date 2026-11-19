@@ -24,6 +24,6 @@ SvelteKit + Svelte 5 のヘックス盤ターン制ストラテジー。ユー�
 - コメントは非自明な理由だけを短く書く。仕様をコメントに書き写さない
 - テストは domain/services/api が対象。1 ルール 1 テスト程度に絞る。AI の判断内容は詳細にテストしない
 
-## 用語（日本語 = コード）
+## 用語（日本語 = コード。表示名の各語はコードの語に対応させ、en 表示もコードと同じ語を使う）
 
-対局=match, 自軍/敵軍=SELF/OPPONENT, 手番=turn.player, 操作=controller(human/cpu), CPUのLv.=AiStrength, 盤の大きさ=layer, パネル=Panel, 本拠地=HomeBase, 資源=resource, 防壁=castle, 駒/ユニット=Piece, 歩兵=infantry, 貴族=noble, ルーク=rook, 弓兵=archer, 騎兵=cavalry, 重装=heavy, 攻囲兵器=siege, 防御力=defense, 移動力=movement, 攻撃射程=attackRange, マージ数=stackCount, 生産=generatePiece, 生産方式=generationMode(front/rear), 移動中=transitPosition, 操作順=orderSequence, 戦力=armyPower
+対局=match, 自軍/敵軍=SELF/OPPONENT, 手番=turn.player, 操作=controller(human/cpu), CPUのLv.=AiStrength, 盤の大きさ=layer, パネル=Panel, 本拠地=HomeBase, 資源=resource, 防壁=castle, 駒/ユニット=Piece, 歩兵=infantry, 貴族=noble, ルーク=rook, 弓兵=archer, 騎兵=cavalry, 重装=heavy, 攻囲兵器=siege, 防御力=defense, 移動力=movement, 攻撃射程=attackRange, マージ数=stackCount, 生産=generatePiece, 生産方式=generationMode(front/rear), 移動中=transitPosition, 操作順=orderSequence, 戦力=armyPower, 総獲得資源=totalGainedResources, 総建築防壁=totalBuiltCastle, 合計防壁=totalCastle, 占領パネル=occupiedPanels, 死亡戦力=lostArmyPower, 死亡数=lostUnitCounts

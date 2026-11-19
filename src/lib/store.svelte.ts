@@ -10,7 +10,6 @@ import {
   PIECE_TYPES,
   Player,
   samePos,
-  type GameStateHistoryEntry,
   type HomeBase,
   type Panel,
   type PanelPosition,
@@ -19,6 +18,7 @@ import {
   type Turn,
 } from "#lib/domain/model.ts";
 import type {
+  GameStateHistoryEntry,
   InvariantViolationReport,
   MatchControl,
   MatchStats,
@@ -67,9 +67,9 @@ let debugMode = $state.raw<{ checksEnabled: boolean; reports: InvariantViolation
 
 function initialMatchStats(): MatchStats {
   const player = (): PlayerMatchStats => ({
-    totalProducedResources: PLAYER_INIT_RESOURCE,
+    totalGainedResources: PLAYER_INIT_RESOURCE,
     totalBuiltCastle: HOME_BASE_INIT_CASTLE,
-    deadUnitCounts: Object.fromEntries(PIECE_TYPES.map((t) => [t, 0])) as Record<PieceType, number>,
+    lostUnitCounts: Object.fromEntries(PIECE_TYPES.map((t) => [t, 0])) as Record<PieceType, number>,
   });
   return { self: player(), opponent: player() };
 }
@@ -163,21 +163,17 @@ export const MatchStatsRepository = {
     const side = player === Player.OPPONENT ? "opponent" : "self";
     matchStats = { ...matchStats, [side]: { ...matchStats[side], ...change(matchStats[side]) } };
   },
-  addProducedResources(player: Player, amount: number) {
-    this.add(
-      player,
-      (s) => ({ totalProducedResources: s.totalProducedResources + amount }),
-      amount,
-    );
+  addGainedResources(player: Player, amount: number) {
+    this.add(player, (s) => ({ totalGainedResources: s.totalGainedResources + amount }), amount);
   },
   addBuiltCastle(player: Player, amount: number) {
     this.add(player, (s) => ({ totalBuiltCastle: s.totalBuiltCastle + amount }), amount);
   },
-  addDeadUnits(player: Player, pieceType: PieceType, count: number) {
+  addLostUnits(player: Player, pieceType: PieceType, count: number) {
     this.add(
       player,
       (s) => ({
-        deadUnitCounts: { ...s.deadUnitCounts, [pieceType]: s.deadUnitCounts[pieceType] + count },
+        lostUnitCounts: { ...s.lostUnitCounts, [pieceType]: s.lostUnitCounts[pieceType] + count },
       }),
       count,
     );
