@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
-import { AiStrength, Player } from "#lib/domain/model.ts";
+import { AiStrength, PieceType, Player } from "#lib/domain/model.ts";
 import { MatchHistoryService } from "#lib/services/MatchHistoryService.ts";
-import { MatchControlRepository } from "#lib/store.svelte.ts";
+import { MatchControlRepository, MatchStatsRepository } from "#lib/store.svelte.ts";
 import { add, newGame, pos } from "../helpers.ts";
 
 describe("MatchHistoryService", () => {
@@ -15,6 +15,7 @@ describe("MatchHistoryService", () => {
       aiSeeds: { self: 1, opponent: 2 },
     });
     add(1, pos(0, 0), Player.SELF, { stackCount: 3 });
+    MatchStatsRepository.addDeadUnits(Player.OPPONENT, PieceType.INFANTRY, 2);
     GameApi.endTurn(Player.SELF);
 
     const exported = JSON.parse(MatchHistoryService.toJson());
@@ -26,10 +27,13 @@ describe("MatchHistoryService", () => {
     expect(exported.entries[1]).toEqual({
       capturedAtTurn: 1,
       turnPlayer: "opponent",
-      unitTotals: { self: 3, opponent: 0 },
       resources: { self: 10, opponent: 10 },
+      totalProducedResources: { self: 10, opponent: 10 },
       wallTotals: { self: 10, opponent: 10 },
+      totalBuiltCastle: { self: 10, opponent: 10 },
       occupiedPanels: { self: 2, opponent: 1 },
+      armyPower: { self: 24, opponent: 0 },
+      lostArmyPower: { self: 0, opponent: 16 },
     });
   });
 });

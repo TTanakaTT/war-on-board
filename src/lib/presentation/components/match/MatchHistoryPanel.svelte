@@ -5,7 +5,7 @@
   import { playerDisplayName, seatLabel } from "#lib/presentation/labels.ts";
   import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
-  import MatchHistoryTable from "./MatchHistoryTable.svelte";
+  import MatchHistoryChart from "./MatchHistoryChart.svelte";
 
   let {
     matchHistory,
@@ -82,5 +82,5 @@
     </div>
   </div>
 
-  <MatchHistoryTable {matchHistory} />
+  <MatchHistoryChart {matchHistory} />
 </div>

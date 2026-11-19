@@ -46,6 +46,13 @@ export interface PlayerMatchStats {
 
 export type MatchStats = BySide<PlayerMatchStats>;
 
+export interface GameStateHistoryEntry {
+  sequence: number;
+  capturedAtTurn: number;
+  snapshot: GameState;
+  stats: MatchStats;
+}
+
 export interface MatchHistoryExport {
   metadata: {
     winner: Player | null;
@@ -61,10 +68,13 @@ export interface MatchHistoryExport {
   entries: {
     capturedAtTurn: number;
     turnPlayer: Player;
-    unitTotals: BySide<number>;
     resources: BySide<number>;
+    totalProducedResources: BySide<number>;
     wallTotals: BySide<number>;
+    totalBuiltCastle: BySide<number>;
     occupiedPanels: BySide<number>;
+    armyPower: BySide<number>;
+    lostArmyPower: BySide<number>;
   }[];
 }
 

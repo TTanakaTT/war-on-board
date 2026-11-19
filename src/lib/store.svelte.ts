@@ -10,7 +10,6 @@ import {
   PIECE_TYPES,
   Player,
   samePos,
-  type GameStateHistoryEntry,
   type HomeBase,
   type Panel,
   type PanelPosition,
@@ -19,6 +18,7 @@ import {
   type Turn,
 } from "#lib/domain/model.ts";
 import type {
+  GameStateHistoryEntry,
   InvariantViolationReport,
   MatchControl,
   MatchStats,

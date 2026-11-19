@@ -123,12 +123,6 @@ export interface GameState {
   layer: number;
 }
 
-export interface GameStateHistoryEntry {
-  sequence: number;
-  capturedAtTurn: number;
-  snapshot: GameState;
-}
-
 export interface CombatOutcome {
   targetPosition: PanelPosition;
   destroyedPieceIds: number[];
@@ -212,3 +206,26 @@ export const canAttack = (piece: Piece): boolean => {
   const config = pieceConfig(piece.pieceType);
   return config.attackPowerAgainstPiece > 0 || config.attackPowerAgainstWall > 0;
 };
+
+export interface PieceTypeCount {
+  pieceType: PieceType;
+  count: number;
+}
+
+const COMBAT_UNIT_TYPES = PIECE_TYPES.filter((type) => pieceConfig(type).isCombatUnit);
+
+/** A merged piece counts as its stackCount. */
+export const liveCombatUnitCounts = (pieces: readonly Piece[]): PieceTypeCount[] =>
+  COMBAT_UNIT_TYPES.map((pieceType) => ({
+    pieceType,
+    count: pieces
+      .filter((p) => p.pieceType === pieceType)
+      .reduce((sum, p) => sum + p.stackCount, 0),
+  }));
+
+export const deadCombatUnitCounts = (dead: Record<PieceType, number>): PieceTypeCount[] =>
+  COMBAT_UNIT_TYPES.map((pieceType) => ({ pieceType, count: dead[pieceType] }));
+
+/** Total cost of the units. */
+export const armyPower = (counts: readonly PieceTypeCount[]) =>
+  counts.reduce((sum, c) => sum + pieceConfig(c.pieceType).cost * c.count, 0);

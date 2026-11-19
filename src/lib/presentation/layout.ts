@@ -27,6 +27,18 @@ export const EXPANDED_GAME_DRAWER_WIDTH_UNITS =
   GAME_DRAWER_CHROME_UNITS + 2 * INFO_CARD_WIDTH_UNITS + INFO_CARD_GAP_UNITS;
 export const MOBILE_DRAWER_WIDTH_UNITS = MOBILE_DRAWER_CHROME_UNITS + INFO_CARD_WIDTH_UNITS;
 
+// Match history chart, in px.
+export const HISTORY_CHART_HEIGHT_PX = 240;
+export const HISTORY_CHART_PADDING_PX = { top: 12, bottom: 36, axis: 44, edge: 12 };
+export const HISTORY_CHART_TARGET_Y_TICKS = 4;
+export const HISTORY_CHART_MIN_X_TICK_SPACING_PX = 40;
+export const HISTORY_CHART_LINE_WIDTH_PX = 2;
+export const HISTORY_CHART_DASH_ARRAY = "6 4";
+export const HISTORY_CHART_POINT_RADIUS_PX = 4;
+export const HISTORY_CHART_LABEL_GAP_PX = 6;
+export const HISTORY_CHART_TOOLTIP_OFFSET_PX = 12;
+export const HISTORY_CHART_LEGEND_LINE_PX = 24;
+
 export class BoardLayout {
   static readonly HEIGHT = PANEL_HEIGHT;
   static readonly PANEL_MARGIN = PANEL_MARGIN;

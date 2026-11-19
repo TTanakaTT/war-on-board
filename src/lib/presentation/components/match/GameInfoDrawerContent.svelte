@@ -6,18 +6,19 @@
     PiecesRepository,
     TurnRepository,
   } from "#lib/store.svelte.ts";
-  import { pieceConfig, Player } from "#lib/domain/model.ts";
-  import { m } from "#lib/paraglide/messages.js";
-  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
-  import { pieceTypeLabel } from "#lib/presentation/labels.ts";
-  import { playerDisplayName, playerInfoOrder } from "#lib/presentation/labels.ts";
   import {
     armyPower,
     deadCombatUnitCounts,
     liveCombatUnitCounts,
-    visiblePieceTypeCounts,
+    pieceConfig,
+    Player,
     type PieceTypeCount,
-  } from "#lib/presentation/labels.ts";
+  } from "#lib/domain/model.ts";
+  import { m } from "#lib/paraglide/messages.js";
+  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
+  import { pieceTypeLabel } from "#lib/presentation/labels.ts";
+  import { playerDisplayName, playerInfoOrder } from "#lib/presentation/labels.ts";
+  import { visiblePieceTypeCounts } from "#lib/presentation/labels.ts";
 
   interface PlayerInfoCard {
     id: "self" | "opponent";

@@ -1,5 +1,12 @@
 import { GameApi } from "#lib/api/GameApi.ts";
-import { type GameState, type Panel, type Side } from "#lib/domain/model.ts";
+import {
+  armyPower,
+  deadCombatUnitCounts,
+  liveCombatUnitCounts,
+  type GameState,
+  type Panel,
+  type Side,
+} from "#lib/domain/model.ts";
 import type { BySide, MatchHistoryExport } from "#lib/domain/types.ts";
 import { MatchControlRepository } from "#lib/store.svelte.ts";
 
@@ -27,18 +34,20 @@ export class MatchHistoryService {
         homeBases: latest?.homeBases ?? [],
         players: { self: player("self"), opponent: player("opponent") },
       },
-      entries: history.map(({ capturedAtTurn, snapshot }) => ({
+      entries: history.map(({ capturedAtTurn, snapshot, stats }) => ({
         capturedAtTurn,
         turnPlayer: snapshot.turn.player,
-        // A merged piece counts as its stackCount.
-        unitTotals: bySide((side) =>
-          snapshot.pieces
-            .filter((p) => p.player === side)
-            .reduce((sum, p) => sum + p.stackCount, 0),
-        ),
         resources: bySide((side) => snapshot.turn.resources[side] ?? 0),
+        totalProducedResources: bySide((side) => stats[side].totalProducedResources),
         wallTotals: this.sumOwnedPanels(snapshot, (panel) => panel.castle),
+        totalBuiltCastle: bySide((side) => stats[side].totalBuiltCastle),
         occupiedPanels: this.sumOwnedPanels(snapshot, () => 1),
+        armyPower: bySide((side) =>
+          armyPower(liveCombatUnitCounts(snapshot.pieces.filter((p) => p.player === side))),
+        ),
+        lostArmyPower: bySide((side) =>
+          armyPower(deadCombatUnitCounts(stats[side].deadUnitCounts)),
+        ),
       })),
     };
   }
