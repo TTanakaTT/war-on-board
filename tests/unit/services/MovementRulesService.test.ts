@@ -16,10 +16,10 @@ beforeEach(() => newGame(5));
 afterEach(() => vi.restoreAllMocks());
 
 describe("basic rules", () => {
-  test("enemy presence: enemy pieces or an enemy castle", () => {
+  test("enemy presence: enemy pieces or an enemy wall", () => {
     add(1, pos(1, 0), Player.OPPONENT);
     add(2, pos(0, 1));
-    setPanel(pos(2, 0), { player: Player.OPPONENT, castle: 1 });
+    setPanel(pos(2, 0), { player: Player.OPPONENT, wall: 1 });
     expect(
       [pos(1, 0), pos(2, 0), pos(0, 1), pos(0, 0)].map((p) => M.hasEnemyPresence(p, Player.SELF)),
     ).toEqual([true, true, false, false]);
@@ -37,7 +37,7 @@ describe("basic rules", () => {
   test("pieces that cannot attack never target enemies; walls are not gated by defense", () => {
     add(1, pos(0, 0), Player.SELF, { pieceType: PieceType.NOBLE });
     add(2, pos(1, 0), Player.OPPONENT);
-    setPanel(pos(0, 1), { player: Player.OPPONENT, castle: 5 });
+    setPanel(pos(0, 1), { player: Player.OPPONENT, wall: 5 });
     add(3, pos(-1, 0), Player.SELF, { pieceType: PieceType.ROOK });
     expect(M.canMoveTo(pos(1, 0), Player.SELF, 1)).toBe(false);
     expect(M.canMoveTo(pos(0, 1), Player.SELF, 3)).toBe(true);
@@ -83,7 +83,7 @@ describe("basic rules", () => {
     expect(M.canRangedAttack(1, pos(2, 0))).toBe(true);
     expect(M.canRangedAttack(2, pos(2, 0))).toBe(false);
     expect(M.canRangedAttack(99, pos(2, 0))).toBe(false);
-    setPanel(pos(2, 0), { player: Player.OPPONENT, castle: 5 });
+    setPanel(pos(2, 0), { player: Player.OPPONENT, wall: 5 });
     expect(M.canRangedAttack(1, pos(2, 0))).toBe(false);
   });
 

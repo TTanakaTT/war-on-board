@@ -43,14 +43,14 @@ describe("CombatService", () => {
   });
 
   test("walls take the summed wall power (scaled by stack) and never go below 0", () => {
-    setPanel(pos(0, 1), { player: Player.OPPONENT, castle: 3 });
+    setPanel(pos(0, 1), { player: Player.OPPONENT, wall: 3 });
     const result = C.attackWallMulti(
       [attacker(1, { stackCount: 2 }), attacker(2)],
       panel(pos(0, 1)),
     );
     expect(result).toMatchObject({ wallDestroyed: true, wallDamageDealt: 3, overflowRatio: 0 });
-    expect(panel(pos(0, 1)).castle).toBe(0);
-    setPanel(pos(0, 1), { castle: 0.5 });
+    expect(panel(pos(0, 1)).wall).toBe(0);
+    setPanel(pos(0, 1), { wall: 0.5 });
     expect(C.attackWallMulti([attacker(3)], panel(pos(0, 1)))).toMatchObject({
       overflowRatio: 0.5,
       overflowPieceDamage: 2.5,

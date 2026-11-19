@@ -87,13 +87,13 @@ export class CombatService {
   static attackWallMulti(attackers: Piece[], panel: Panel) {
     const totalWallDamage = attackers.reduce((sum, a) => sum + wallAttackPower(a), 0);
     const totalPieceDamage = attackers.reduce((sum, a) => sum + attackOf(a) * a.stackCount, 0);
-    const overflow = Math.max(0, totalWallDamage - panel.castle);
+    const overflow = Math.max(0, totalWallDamage - panel.wall);
     const overflowRatio = totalWallDamage === 0 ? 0 : overflow / totalWallDamage;
-    const castle = Math.max(0, panel.castle - totalWallDamage);
-    PanelRepository.update({ ...panel, castle });
+    const wall = Math.max(0, panel.wall - totalWallDamage);
+    PanelRepository.update({ ...panel, wall });
     return {
-      wallDestroyed: castle <= 0,
-      wallDamageDealt: Math.min(panel.castle, totalWallDamage),
+      wallDestroyed: wall <= 0,
+      wallDamageDealt: Math.min(panel.wall, totalWallDamage),
       overflowRatio,
       overflowPieceDamage: totalPieceDamage * overflowRatio,
     };

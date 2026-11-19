@@ -147,12 +147,12 @@ export class AiService {
       0,
     );
     const panels = state.panels.reduce(
-      (sum, p) => sum + sign(p.player) * (8 + p.resource * 4 + p.castle * 2),
+      (sum, p) => sum + sign(p.player) * (8 + p.resource * 4 + p.wall * 2),
       0,
     );
     const homes = state.homeBases.reduce((sum, h) => {
       const panel = findPanel(state, h.panelPosition);
-      return panel ? sum + (h.player === player ? 1 : -1) * panel.castle * 3 : sum;
+      return panel ? sum + (h.player === player ? 1 : -1) * panel.wall * 3 : sum;
     }, 0);
     return pieces + panels + homes;
   }

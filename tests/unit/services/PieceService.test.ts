@@ -56,18 +56,18 @@ describe("basics", () => {
     expect([1, 2, 3].map((id) => piece(id).movementPoints)).toEqual([1, 0.5, 0]);
   });
 
-  test("passives: Noble +1 resource (capped), Rook +1 castle (never lowered), others claim", () => {
+  test("passives: Noble +1 resource (capped), Rook +1 wall (never lowered), others claim", () => {
     setPanel(pos(0, 0), { resource: 5 });
-    setPanel(pos(0, 1), { castle: 1 });
-    setPanel(pos(1, 0), { castle: 9 });
+    setPanel(pos(0, 1), { wall: 1 });
+    setPanel(pos(1, 0), { wall: 9 });
     add(1, pos(0, 0), "self", { pieceType: PieceType.NOBLE });
     add(2, pos(0, 1), "self", { pieceType: PieceType.ROOK });
     add(3, pos(1, 0), "self", { pieceType: PieceType.ROOK });
     add(4, pos(0, 2), "self", { pieceType: PieceType.ARCHER });
     PieceService.applyPassiveGains("self");
     expect(panel(pos(0, 0)).resource).toBe(5);
-    expect(panel(pos(0, 1)).castle).toBe(2);
-    expect(panel(pos(1, 0)).castle).toBe(9);
+    expect(panel(pos(0, 1)).wall).toBe(2);
+    expect(panel(pos(1, 0)).wall).toBe(9);
     expect(panel(pos(0, 2)).player).toBe("self");
   });
 });

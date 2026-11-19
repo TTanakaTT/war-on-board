@@ -104,13 +104,13 @@ export const PIECE_CONFIGS = {
 } as const satisfies Record<string, PieceConfig>;
 
 export const HOME_BASE_INIT_RESOURCE = 5;
-export const HOME_BASE_INIT_CASTLE = 10;
+export const HOME_BASE_INIT_WALL = 10;
 export const PLAYER_INIT_RESOURCE = 5;
 export const DEFAULT_GAME_LAYER = 5;
 export const DEFAULT_AUTOMATION_TURN_LIMIT = 100;
 /** Passive growth stops at these caps but never lowers a value already above them. */
 export const PASSIVE_RESOURCE_CAP = 5;
-export const PASSIVE_CASTLE_CAP = 5;
+export const PASSIVE_WALL_CAP = 5;
 export const AI_SUPPORT_PIECE_CAP = 4;
 export const RESOURCE_THRESHOLD_FOR_GENERATION = 5;
 export const DEFAULT_MAX_PIECES_PER_PANEL = 2;

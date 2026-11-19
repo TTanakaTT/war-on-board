@@ -1,4 +1,4 @@
-import { HOME_BASE_INIT_CASTLE, HOME_BASE_INIT_RESOURCE } from "#lib/domain/config.ts";
+import { HOME_BASE_INIT_WALL, HOME_BASE_INIT_RESOURCE } from "#lib/domain/config.ts";
 import {
   createPanel,
   isAdjacent,
@@ -49,7 +49,7 @@ export class PanelsService {
             panelPosition: pos(hl, vl),
             player: !isHomeBase ? Player.UNKNOWN : hl === 1 - layer ? Player.SELF : Player.OPPONENT,
             resource: isHomeBase ? HOME_BASE_INIT_RESOURCE : 0,
-            castle: isHomeBase ? HOME_BASE_INIT_CASTLE : 0,
+            wall: isHomeBase ? HOME_BASE_INIT_WALL : 0,
           }),
         );
       }

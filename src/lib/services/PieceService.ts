@@ -1,4 +1,4 @@
-import { MOVEMENT_HOP_COST, PASSIVE_CASTLE_CAP, PASSIVE_RESOURCE_CAP } from "#lib/domain/config.ts";
+import { MOVEMENT_HOP_COST, PASSIVE_WALL_CAP, PASSIVE_RESOURCE_CAP } from "#lib/domain/config.ts";
 import {
   isInTransit,
   PanelState,
@@ -247,7 +247,7 @@ export class PieceService {
       );
     const defenders = enemies();
 
-    const hadWallCombat = Boolean(isEnemyPanel && targetPanel.castle > 0);
+    const hadWallCombat = Boolean(isEnemyPanel && targetPanel.wall > 0);
     let wallDamageDealt = 0;
     let deadIds = new Set<number>();
 
@@ -272,7 +272,7 @@ export class PieceService {
       !currentPanel ||
       currentPanel.player === attackerPlayer ||
       currentPanel.player === Player.UNKNOWN ||
-      currentPanel.castle <= 0;
+      currentPanel.wall <= 0;
     const canEnter = enemies().length === 0 && noWall;
     const hadAnyCombat = hadWallCombat || hasCombat;
 
@@ -314,7 +314,7 @@ export class PieceService {
     };
   }
 
-  /** Noble +1 resource, Rook +1 castle (capped, never lowered), others claim their panel. */
+  /** Noble +1 resource, Rook +1 wall (capped, never lowered), others claim their panel. */
   static applyPassiveGains(player: Player) {
     for (const piece of PiecesRepository.getPiecesByPlayer(player)) {
       const panel = PanelRepository.find(piece.panelPosition);
@@ -326,9 +326,9 @@ export class PieceService {
           resource: Math.min(PASSIVE_RESOURCE_CAP, panel.resource + 1),
         });
       } else if (piece.pieceType === PieceType.ROOK) {
-        const castle = Math.max(panel.castle, Math.min(PASSIVE_CASTLE_CAP, panel.castle + 1));
-        PanelRepository.update({ ...panel, castle });
-        MatchStatsRepository.addBuiltCastle(piece.player, castle - panel.castle);
+        const wall = Math.max(panel.wall, Math.min(PASSIVE_WALL_CAP, panel.wall + 1));
+        PanelRepository.update({ ...panel, wall });
+        MatchStatsRepository.addBuiltWall(piece.player, wall - panel.wall);
       } else {
         PanelRepository.update({ ...panel, player });
       }
