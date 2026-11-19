@@ -1,10 +1,8 @@
 <script lang="ts">
-  import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-  import { getPieceTokenCoordinates } from "#lib/presentation/PieceTokenLayout.ts";
-  import { BoardLayout } from "#lib/presentation/BoardLayout.ts";
-  import { Player } from "#lib/domain/enums/Player.ts";
-  import type { Piece } from "#lib/domain/entities/Piece.ts";
-  import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+  import { PiecesRepository } from "#lib/store.svelte.ts";
+  import { type PanelPosition, type Piece, Player } from "#lib/domain/model.ts";
+  import { getPieceTokenCoordinates } from "#lib/presentation/layout.ts";
+  import { BoardLayout } from "#lib/presentation/layout.ts";
 
   type Arrow = {
     key: string;

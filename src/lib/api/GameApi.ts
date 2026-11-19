@@ -1,1128 +1,421 @@
-import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
-import type { PieceType } from "#lib/domain/enums/PieceType.ts";
-import type { Player } from "#lib/domain/enums/Player.ts";
-import type { GenerationMode } from "#lib/domain/entities/Turn.ts";
-import type {
-  ControllablePlayerSnapshot,
-  GameActionResult,
-  GameStateHistoryEntry,
-  GameStateSnapshot,
-  HomeBaseSnapshot,
-  PanelPositionSnapshot,
-  PanelSnapshot,
-  PanelStateSnapshot,
-  PieceSnapshot,
-  PieceTypeSnapshot,
-  PlayerSnapshot,
-  Result,
-  TurnSnapshot,
-  TurnEndResult,
-} from "#lib/domain/types/api.ts";
-import { PanelPosition as PanelPositionClass } from "#lib/domain/entities/PanelPosition.ts";
-import { Piece } from "#lib/domain/entities/Piece.ts";
-import { Panel } from "#lib/domain/entities/Panel.ts";
-import { HomeBase } from "#lib/domain/entities/HomeBase.ts";
-import { Player as PlayerClass } from "#lib/domain/enums/Player.ts";
-import { PanelState } from "#lib/domain/enums/PanelState.ts";
-import { PieceType as PieceTypeClass } from "#lib/domain/enums/PieceType.ts";
-import { PanelsService } from "#lib/services/PanelService.ts";
-import { PanelRepository } from "#lib/data/repositories/PanelRepository.ts";
-import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-import { HomeBaseRepository } from "#lib/data/repositories/HomeBaseRepository.ts";
-import { GameStateHistoryRepository } from "#lib/data/repositories/GameStateHistoryRepository.ts";
-import { LayerRepository } from "#lib/data/repositories/LayerRepository.ts";
-import { MatchStatsRepository } from "#lib/data/repositories/MatchStatsRepository.ts";
-import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
-import { PieceService } from "#lib/services/PieceService.ts";
-import { VictoryService } from "#lib/services/VictoryService.ts";
-import { GenerationService } from "#lib/services/GenerationService.ts";
 import {
-  PLAYER_INIT_RESOURCE,
   DEFAULT_MAX_PIECES_PER_PANEL,
   MOVEMENT_HOP_COST,
-} from "#lib/domain/constants/GameConstants.ts";
-import { ActionError } from "#lib/domain/enums/ActionError.ts";
+  PLAYER_INIT_RESOURCE,
+} from "#lib/domain/config.ts";
+import {
+  ActionError,
+  isAdjacent,
+  opponentOf,
+  PanelState,
+  PIECE_TYPES,
+  pieceConfig,
+  Player,
+  SIDES,
+  pos,
+  posKey,
+  takesMultipleTurnsPerHop,
+  type GameActionResult,
+  type GameState,
+  type GameStateHistoryEntry,
+  type GenerationMode,
+  type PanelPosition,
+  type Piece,
+  type PieceType,
+  type Result,
+  type TurnEndResult,
+} from "#lib/domain/model.ts";
+import {
+  GameStateHistoryRepository,
+  HomeBaseRepository,
+  LayerRepository,
+  MatchStatsRepository,
+  PanelRepository,
+  PiecesRepository,
+  TurnRepository,
+} from "#lib/store.svelte.ts";
+import { GenerationService } from "#lib/services/GenerationService.ts";
+import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
+import { PanelsService } from "#lib/services/PanelService.ts";
+import { PieceService } from "#lib/services/PieceService.ts";
+
+const fail = (error: ActionError) => ({ ok: false, error }) as const;
+const isSide = (value: unknown) => value === Player.SELF || value === Player.OPPONENT;
 
 /**
- * GameApi — the sole entry point for all game-state-changing operations.
- *
- * Every action that a player or the AI can perform MUST go through this class.
- * UI components and AI services call GameApi; they never mutate game state directly.
- *
- * ## Game overview
- *
- * Hex-map turn-based strategy game. The three original unit types (Infantry / Noble / Rook)
- * form a rock-paper-scissors macro balance:
- *   - Attack (Infantry) > Economy (Noble): Infantry captures panels, nullifying investment.
- *   - Economy (Noble) > Defence (Rook): accumulated resources fund an army to breach walls.
- *   - Defence (Rook) > Attack (Infantry): auto-repairing walls stall Infantry advances cheaply.
- * Four additional combat unit types (Archer, Cavalry, Heavy, Siege) extend the roster with
- * ranged, fast, high-defense, and wall-specialist roles respectively — see `PieceType.config`.
- *
- * Victory condition: capture the opponent's home base panel.
- *
- * ## Unit types
- *
- * Each type is defined in `PieceType.config` (cost, maxHp, attackPowerAgainstPiece,
- * attackPowerAgainstWall, defense, movement, attackRange). Passive effects are applied at
- * the start of each player's turn by `endTurn`:
- *   - **Infantry** (and all other combat unit types — Archer/Cavalry/Heavy/Siege): claims
- *     ownership of the panel it occupies.
- *   - **Noble**: increases the panel's resource by 1 (capped by PASSIVE_RESOURCE_CAP).
- *   - **Rook**: increases the panel's castle by 1 (capped by PASSIVE_CASTLE_CAP;
- *     never reduces existing values above the cap, e.g. home base castle = 10).
- *
- * A unit whose `movement` is below MOVEMENT_HOP_COST (Heavy) takes several turns per hop
- * (see `Piece.takesMultipleTurnsPerHop`). While it moves it is **in transit** between its
- * panel and the adjacent panel it is moving into (`Piece.transitPosition`): it still belongs
- * to the panel it left — it defends that panel and applies its passive effect there — and
- * its own side treats the panel it is moving into as taken as well (see
- * `MovementRulesService.planEndOfTurn`). It winds an attack up over several turns on its
- * own panel instead.
- *
- * ## Combat rules (resolved inside `endTurn`)
- *
- * ### Attack legality
- * An attacker may only target an enemy-occupied panel if every defender's `defense`
- * is <= the attacker's own raw `attackPowerAgainstPiece` (not merge-adjusted). If even
- * one defender's defense exceeds it, the attacker cannot select that panel at all —
- * a hard block on move/attack selection, distinct from dealing 0 damage. Wall-only
- * panels (no defending pieces) are never gated by this rule.
- *
- * ### Castle-first rule
- * If the target panel has an enemy castle (castle > 0), all attackers first deal their
- * `attackPowerAgainstWall` to the castle.
- *
- * If the total wall damage exceeds the remaining castle value, the overflow ratio
- * `(totalWallDamage - castleBefore) / totalWallDamage` scales the attackers' defense-adjusted
- * piece damage (see below), and that scaled damage is dealt to enemy units on the target
- * panel in the same action.
- *
- * Overflow damage is distributed across all enemy units in proportion to their current HP
- * and may leave fractional HP values. During that same overflow resolution, defenders
- * counterattack with their full defense-adjusted `attackPowerAgainstPiece`; defender damage
- * is not scaled down by the wall overflow ratio and still occurs even if a defender is also removed.
- *
- * ### Multi-unit simultaneous combat
- * When castle = 0 before the attack and enemy pieces are present:
- *   1. **Damage accumulation** — the defending group's defense is aggregated by HP-weighted
- *      average, then each attacker contributes `max(0, attackPowerAgainstPiece - aggregatedDefense)
- *      * stackCount` (merge multiplies attack *count*, not attack power); contributions are
- *      summed into a single total. The same computation runs symmetrically for the counterattack.
- *   2. **Proportional distribution** — each side's incoming total is split across that side's current
- *      units in proportion to their current HP. A defender's own merge count never affects the
- *      damage it takes.
- *   3. **Simultaneous application** — damage is applied at the same time. Units with HP <= 0 are removed.
- *   4. **Fractional HP** — proportional damage may leave fractional HP values on surviving units.
- *
- * ### Entry condition
- * After wall resolution and any resulting unit damage, attackers enter the panel only if ALL of:
- *   - No enemy units remain on the panel.
- *   - Castle value is 0.
- * Otherwise attackers stay at their origin with `targetPosition` cleared.
- *
- * When they may enter, surviving attackers enter one at a time in order sequence
- * (`Piece.orderSequence`, lowest first; pieces without one after those with one; ties by
- * piece ID). A piece that would push the attackers on the panel (counted after merging)
- * above `maxPiecesPerPanel` does not enter: it stays at its origin with `targetPosition`
- * cleared, like a failed attack. Later pieces that still fit (e.g. by merging with one
- * that entered) still enter.
- *
- * ### Ranged attacks (see `assignRangedAttack`)
- * A piece whose `attackRange` reaches farther than adjacent may fire at a target beyond
- * melee range without moving there (see `PieceService.resolveRangedAttacks`, run inside
- * `endTurn` alongside move resolution). Damage uses the same simultaneous multi-unit
- * formula above, but the defending group only counterattacks if its own `attackRange`
- * reaches the actual distance — so a melee-only defender can't strike back at an
- * attacker standing farther away than it can reach. The attacker never enters the
- * target panel regardless of outcome.
- *
- * ## Turn flow (executed by `endTurn`)
- *
- *   1. Finalize current player's moves (combat resolution for all pending moves), following the
- *      end-of-turn plan decided for every piece before anything moves (see
- *      `MovementRulesService.planEndOfTurn`): pieces walk this turn's panels toward their
- *      targets, taking another shortest route or stopping with their order cancelled when
- *      blocked. A unit that takes several turns per hop advances its progress instead: it goes
- *      into transit, keeps moving, arrives at the panel it is moving into, or winds up / makes
- *      an attack (see `PieceService.finalizePlayerMoves`).
- *   2. Refresh panel ownership based on piece positions.
- *   3. Check victory (home base capture).
- *   4. Switch to next player.
- *   5. Reset initial positions + apply passive gains + accrue movement for the next player
- *      (a unit that takes several turns per hop does not accrue — its movement points are
- *      its hop progress).
- *   6. Add resources (sum of owned panels' resource values).
- *
- * ## Resource system
- *
- * - Turn start: player gains resources equal to the sum of `resource` on all owned panels.
- * - Generation requires a panel with `resource >= RESOURCE_THRESHOLD_FOR_GENERATION`,
- *   owned by the player, and not at max piece capacity.
- * - Generation panel priority (mode "rear"): home base first, then highest |horizontalLayer|.
- *   Mode "front": lowest |horizontalLayer| first.
+ * The only entry point that changes game state (UI and AI both call it). Rules overview:
+ * - Win by capturing the enemy home base. Infantry > Noble > Rook > Infantry macro balance.
+ * - Turn start passives: Noble +1 panel resource, Rook +1 castle (both capped, never lowered),
+ *   other types claim their panel. Income = sum of owned panels' resource.
+ * - Orders may target any panel; endTurn walks pieces along shortest routes
+ *   (MovementRulesService.planEndOfTurn), attacking enemy panels in the way.
+ * - An attacker may only target panels whose every defender has defense <= its raw attack.
+ * - Castle first: attackers hit the wall; overflow scales their piece damage. Otherwise both
+ *   groups deal max(0, attack - HP-weighted defense) * stackCount simultaneously, split by HP.
+ * - Attackers enter only when no enemy pieces and no castle remain, in order sequence, up to
+ *   maxPiecesPerPanel. Ranged attacks never enter; out-of-range defenders do not counter.
  */
 export class GameApi {
-  // ── Actions ────────────────────────────────────────────────────
-
-  /**
-   * Initialize a new game.
-   *
-   * Creates the hex board with the given layer count, places home bases symmetrically,
-   * and sets up the initial turn state.
-   *
-   * @param config.layer - Number of layers for the hex board (determines board size).
-   *
-   * **Effects:**
-   * - Board panels created. Home base panels receive initial resource and castle values.
-   * - Turn 1 begins for Player.SELF with initial resource income.
-   */
-  static initializeGame(config: { layer: number }): Result<GameActionResult> {
-    const { layer } = config;
-
-    // Board setup
-    const panels = PanelsService.initialize(layer);
-    PanelRepository.setAll(panels);
+  static initializeGame({ layer }: { layer: number }): Result<GameActionResult> {
+    PanelRepository.setAll(PanelsService.initialize(layer));
     LayerRepository.set(layer);
-
-    // Home bases (use `1 - layer` instead of `-(layer - 1)` to avoid -0 when layer=1)
     HomeBaseRepository.setAll([
-      new HomeBase({
-        player: PlayerClass.SELF,
-        panelPosition: new PanelPositionClass({
-          horizontalLayer: 1 - layer,
-          verticalLayer: 0,
-        }),
-      }),
-      new HomeBase({
-        player: PlayerClass.OPPONENT,
-        panelPosition: new PanelPositionClass({
-          horizontalLayer: layer - 1,
-          verticalLayer: 0,
-        }),
-      }),
+      { player: Player.SELF, panelPosition: pos(1 - layer, 0) },
+      { player: Player.OPPONENT, panelPosition: pos(layer - 1, 0) },
     ]);
-
-    // Clear pieces
     PiecesRepository.setAll([]);
-
-    // Turn state
     TurnRepository.set({
-      player: PlayerClass.SELF,
+      player: Player.SELF,
       num: 1,
-      resources: {
-        [String(PlayerClass.SELF)]: PLAYER_INIT_RESOURCE,
-        [String(PlayerClass.OPPONENT)]: PLAYER_INIT_RESOURCE,
-      },
+      resources: { self: PLAYER_INIT_RESOURCE, opponent: PLAYER_INIT_RESOURCE },
       maxPiecesPerPanel: {
-        [String(PlayerClass.SELF)]: DEFAULT_MAX_PIECES_PER_PANEL,
-        [String(PlayerClass.OPPONENT)]: DEFAULT_MAX_PIECES_PER_PANEL,
+        self: DEFAULT_MAX_PIECES_PER_PANEL,
+        opponent: DEFAULT_MAX_PIECES_PER_PANEL,
       },
-      generationMode: {
-        [String(PlayerClass.SELF)]: "front",
-        [String(PlayerClass.OPPONENT)]: "front",
-      },
+      generationMode: { self: "front", opponent: "front" },
       winner: null,
     });
-
     MatchStatsRepository.reset();
-
-    // Add first player's income
-    this.addResources(PlayerClass.SELF);
-
-    this.resetGameStateHistory();
-    this.recordCurrentGameStateHistory();
-
-    return { ok: true, value: { gameState: this.getGameState() } };
+    this.addResources(Player.SELF);
+    GameStateHistoryRepository.clear();
+    this.recordHistory();
+    return this.ok();
   }
 
   /**
-   * Assign a move target for a piece.
-   *
-   * The piece must belong to the acting player. The target no longer needs to be
-   * adjacent — any panel on the board may be selected. If it's farther away than
-   * the piece can reach in one turn, `endTurn` walks it there over multiple turns,
-   * covering as many panels per turn as its movement stat allows along one of the
-   * shortest routes (see `MovementRulesService.planEndOfTurn`). Each panel it enters,
-   * passing through included, must have room at that point; when every shortest route
-   * is closed (a friendly panel without room, or an enemy panel it cannot attack), it
-   * stops as far as it got and its order is cancelled. An attacker meeting an enemy panel
-   * on its route attacks it instead, which also cancels its order.
-   *
-   * @param player - The player performing the action.
-   * @param pieceId - ID of the piece to move.
-   * @param target - The target panel position.
-   *
-   * **Preconditions:**
-   * - Game not over (`winner === null`).
-   * - It is `player`'s turn.
-   * - Piece exists and belongs to `player`.
-   * - If the piece already has a pending `targetPosition` (mid-transit toward an
-   *   earlier order), redirecting it requires banked `movementPoints` to have
-   *   climbed back to `MOVEMENT_HOP_COST`. An idle piece (no pending target) can
-   *   always be assigned a fresh order regardless of its banked movementPoints.
-   * - A piece that takes multiple turns per hop (see `Piece.takesMultipleTurnsPerHop`)
-   *   follows its own rule instead: its order can be changed freely until the end of
-   *   the turn it was given, and is locked once it starts winding up an attack (see
-   *   `MovementRulesService.isOrderLocked`). While in transit, only its final
-   *   destination changes — the hop in progress always completes first.
-   * - Target is a real panel on the board.
-   * - Target satisfies movement rules (`MovementRulesService.canMoveTo`): a target beyond
-   *   this turn's reach can always be ordered — what happens on the way is decided turn by
-   *   turn by the end-of-turn plan (`MovementRulesService.planEndOfTurn`): the piece moves
-   *   on, takes another shortest route, attacks an enemy panel in its way, or is blocked and
-   *   has its order cancelled. A target within this turn's reach must be carried out this
-   *   turn (entered, attacked, or moved into by a slow piece) without cancelling another
-   *   piece's order that was being carried out.
-   *
-   * **Effects:**
-   * - Sets `piece.targetPosition` to `target`.
-   * - For a piece that takes multiple turns per hop and is not in transit, resets
-   *   `movementPoints` (its hop progress) to 0.
-   * - Sets `piece.orderSequence` to the highest `orderSequence` among all pieces on the
-   *   board (both players) + 1, or 1 when no piece has one — every order, including a
-   *   re-order to the same target, goes to the back of the order sequence. No other
-   *   action changes `orderSequence`.
-   *
-   * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
-   * PIECE_NOT_OWNED, INSUFFICIENT_MOVEMENT_POINTS, TARGET_NOT_REACHABLE.
+   * Orders a piece to any panel. A redirect needs banked movement >= MOVEMENT_HOP_COST
+   * (an idle piece can always be ordered); a slow piece is locked once it winds up an attack.
+   * A target within this turn's reach must be carried out this turn without cancelling another
+   * order (MovementRulesService.canMoveTo). Every order goes to the back of the order sequence.
    */
   static assignMove(
     player: Player,
     pieceId: number,
     target: PanelPosition,
   ): Result<GameActionResult> {
-    const turn = TurnRepository.get();
-    if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
-    if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
-
-    const piece = PiecesRepository.getAll().find((p) => p.id === pieceId);
-    if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
-    if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
-
-    // Redirecting a pending action is blocked while it can no longer change: a piece
-    // that takes multiple turns per hop once it starts winding up an attack, any other
-    // piece until banked movementPoints climb back to MOVEMENT_HOP_COST. An idle piece
-    // (no pending targetPosition yet) has nothing to redirect, so it may always be
-    // given a fresh order this turn regardless of its banked movementPoints —
-    // there must never be a turn where a piece simply cannot be ordered at all.
-    const isRedirectBlocked = piece.takesMultipleTurnsPerHop
+    const piece = this.ownPiece(player, pieceId);
+    if (typeof piece === "string") return fail(piece);
+    const redirectBlocked = takesMultipleTurnsPerHop(piece)
       ? MovementRulesService.isOrderLocked(piece)
       : piece.targetPosition !== undefined && piece.movementPoints < MOVEMENT_HOP_COST;
-    if (isRedirectBlocked) {
-      return { ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS };
+    if (redirectBlocked) return fail(ActionError.INSUFFICIENT_MOVEMENT_POINTS);
+    if (
+      !PanelRepository.find(target) ||
+      !MovementRulesService.canMoveTo(target, player, pieceId, TurnRepository.maxPieces(player))
+    ) {
+      return fail(ActionError.TARGET_NOT_REACHABLE);
     }
-
-    // Target must be a real panel on the board. It no longer needs to be adjacent —
-    // a distant target is walked toward over multiple turns (see
-    // MovementRulesService.planEndOfTurn), consistent with movement points
-    // determining how many panels are covered per turn.
-    if (!PanelRepository.find(target)) {
-      return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
-    }
-
-    // Capacity check for friendly panels
-    const maxPieces = turn.maxPiecesPerPanel[String(player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
-    if (!MovementRulesService.canMoveTo(target, player, pieceId, maxPieces)) {
-      return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
-    }
-
-    PiecesRepository.update(
-      new Piece({
-        ...MovementRulesService.withOrder(piece, target),
-        orderSequence: this.nextOrderSequence(),
-      }),
-    );
-    return { ok: true, value: { gameState: this.getGameState() } };
+    PiecesRepository.update({
+      ...MovementRulesService.withOrder(piece, target),
+      orderSequence: this.nextOrderSequence(),
+    });
+    return this.ok();
   }
 
-  /**
-   * Cancel a piece's pending move.
-   *
-   * The piece must have a `targetPosition` set, and cancelling must not cancel another
-   * piece's order that was being carried out at the end of the turn (for example one moving
-   * into the panel this piece was going to leave). A piece that takes multiple turns
-   * per hop cannot cancel once it starts winding up an attack, and a piece in transit
-   * cancels by stopping at the panel it is moving into (see
-   * `MovementRulesService.canCancelMove`).
-   *
-   * @param player - The player performing the action.
-   * @param pieceId - ID of the piece whose move to cancel.
-   *
-   * **Preconditions:**
-   * - Game not over.
-   * - It is `player`'s turn.
-   * - Piece exists, belongs to `player`, and has a pending `targetPosition`.
-   * - Cancelling cancels no other piece's order that was being carried out
-   *   (see `MovementRulesService.canCancelMove`).
-   *
-   * **Effects:**
-   * - Clears `piece.targetPosition` to `undefined` — or, for a piece in transit, sets it
-   *   to the panel the piece is moving into.
-   *
-   * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
-   * PIECE_NOT_OWNED, CANNOT_CANCEL.
-   */
+  /** A piece in transit cancels by stopping at the panel it is moving into. */
   static cancelMove(player: Player, pieceId: number): Result<GameActionResult> {
-    const turn = TurnRepository.get();
-    if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
-    if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
-
-    const piece = PiecesRepository.getAll().find((p) => p.id === pieceId);
-    if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
-    if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
-    if (!piece.targetPosition) return { ok: false, error: ActionError.CANNOT_CANCEL };
-
-    const maxPieces = turn.maxPiecesPerPanel[String(player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
-    if (!MovementRulesService.canCancelMove(player, pieceId, maxPieces)) {
-      return { ok: false, error: ActionError.CANNOT_CANCEL };
+    const piece = this.ownPiece(player, pieceId);
+    if (typeof piece === "string") return fail(piece);
+    if (
+      !piece.targetPosition ||
+      !MovementRulesService.canCancelMove(player, pieceId, TurnRepository.maxPieces(player))
+    ) {
+      return fail(ActionError.CANNOT_CANCEL);
     }
-
-    PiecesRepository.update(new Piece({ ...piece, targetPosition: piece.transitPosition }));
-    return { ok: true, value: { gameState: this.getGameState() } };
+    PiecesRepository.update({ ...piece, targetPosition: piece.transitPosition });
+    return this.ok();
   }
 
-  /**
-   * Assign a ranged attack for a piece whose attackRange reaches farther than
-   * adjacent (today, only Archer). Unlike assignMove, the piece never moves —
-   * it stays put and fires from its current panel once `endTurn` resolves it
-   * (see PieceService.resolveRangedAttacks).
-   *
-   * @param player - The player performing the action.
-   * @param pieceId - ID of the attacking piece.
-   * @param target - The target panel position.
-   *
-   * **Preconditions:**
-   * - Game not over.
-   * - It is `player`'s turn.
-   * - Piece exists and belongs to `player`. If it already has a pending
-   *   `rangedAttackTargetPosition`, redirecting it requires banked
-   *   `movementPoints` >= `MOVEMENT_HOP_COST` (see assignMove for why an idle
-   *   piece is never blocked by this).
-   * - Target is farther than adjacent but within the piece's `attackRange`, hosts
-   *   enemy pieces, and every defender is defeatable (see
-   *   `MovementRulesService.canRangedAttack`).
-   *
-   * **Effects:**
-   * - Sets `piece.rangedAttackTargetPosition` to `target`.
-   *
-   * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
-   * PIECE_NOT_OWNED, INSUFFICIENT_MOVEMENT_POINTS, TARGET_NOT_REACHABLE.
-   */
   static assignRangedAttack(
     player: Player,
     pieceId: number,
     target: PanelPosition,
   ): Result<GameActionResult> {
-    const turn = TurnRepository.get();
-    if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
-    if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
-
-    const piece = PiecesRepository.getAll().find((p) => p.id === pieceId);
-    if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
-    if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
-
+    const piece = this.ownPiece(player, pieceId);
+    if (typeof piece === "string") return fail(piece);
     if (piece.rangedAttackTargetPosition && piece.movementPoints < MOVEMENT_HOP_COST) {
-      return { ok: false, error: ActionError.INSUFFICIENT_MOVEMENT_POINTS };
+      return fail(ActionError.INSUFFICIENT_MOVEMENT_POINTS);
     }
-
     if (!MovementRulesService.canRangedAttack(pieceId, target)) {
-      return { ok: false, error: ActionError.TARGET_NOT_REACHABLE };
+      return fail(ActionError.TARGET_NOT_REACHABLE);
     }
-
-    PiecesRepository.update(new Piece({ ...piece, rangedAttackTargetPosition: target }));
-    return { ok: true, value: { gameState: this.getGameState() } };
+    PiecesRepository.update({ ...piece, rangedAttackTargetPosition: target });
+    return this.ok();
   }
 
-  /**
-   * Cancel a piece's pending ranged attack.
-   *
-   * Unlike cancelMove, no capacity check is needed — the piece never left its
-   * panel for a ranged attack.
-   *
-   * @param player - The player performing the action.
-   * @param pieceId - ID of the piece whose ranged attack to cancel.
-   *
-   * **Preconditions:**
-   * - Game not over.
-   * - It is `player`'s turn.
-   * - Piece exists, belongs to `player`, and has a pending `rangedAttackTargetPosition`.
-   * - Piece's `movement` is not below `MOVEMENT_HOP_COST` (a committed slow piece's
-   *   action can't be redirected or cancelled until it resolves, same as cancelMove).
-   *
-   * **Effects:**
-   * - Clears `piece.rangedAttackTargetPosition` to `undefined`.
-   *
-   * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, PIECE_NOT_FOUND,
-   * PIECE_NOT_OWNED, CANNOT_CANCEL.
-   */
   static cancelRangedAttack(player: Player, pieceId: number): Result<GameActionResult> {
-    const turn = TurnRepository.get();
-    if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
-    if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
-
-    const piece = PiecesRepository.getAll().find((p) => p.id === pieceId);
-    if (!piece) return { ok: false, error: ActionError.PIECE_NOT_FOUND };
-    if (piece.player !== player) return { ok: false, error: ActionError.PIECE_NOT_OWNED };
-    if (!piece.rangedAttackTargetPosition) return { ok: false, error: ActionError.CANNOT_CANCEL };
-    if (piece.pieceType.config.movement < MOVEMENT_HOP_COST) {
-      return { ok: false, error: ActionError.CANNOT_CANCEL };
+    const piece = this.ownPiece(player, pieceId);
+    if (typeof piece === "string") return fail(piece);
+    if (!piece.rangedAttackTargetPosition || takesMultipleTurnsPerHop(piece)) {
+      return fail(ActionError.CANNOT_CANCEL);
     }
-
-    PiecesRepository.update(new Piece({ ...piece, rangedAttackTargetPosition: undefined }));
-    return { ok: true, value: { gameState: this.getGameState() } };
+    PiecesRepository.update({ ...piece, rangedAttackTargetPosition: undefined });
+    return this.ok();
   }
 
-  /**
-   * Generate (spawn) a new piece for the given player.
-   *
-   * Consumes resources equal to the piece type's cost and places the piece
-   * on the best available generation panel.
-   *
-   * @param player - The player performing the action.
-   * @param pieceType - The type of piece to generate.
-   *
-   * **Preconditions:**
-   * - Game not over.
-   * - It is `player`'s turn.
-   * - Player has resources >= `pieceType.config.cost`.
-   * - At least one panel meets generation requirements
-   *   (`GenerationService.findGenerationPanel`): owned by `player`, enough panel resource,
-   *   and room for the new piece both now and at the end of the turn (reserved moves into
-   *   and out of the panel are counted). A mergeable type always fits on a panel where
-   *   `player` already has a piece of the same type.
-   *
-   * **Effects:**
-   * - Deducts cost from player's resources.
-   * - Creates a new piece on the first qualifying panel in generation-mode priority order,
-   *   then merges it into a same-type piece there (keeping that piece's reserved move).
-   * - Panel state updated to OCCUPIED.
-   *
-   * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN, INSUFFICIENT_RESOURCES,
-   * NO_GENERATION_PANEL.
-   */
+  /** Spawns on the first qualifying panel (GenerationService) and merges with a same type. */
   static generatePiece(player: Player, pieceType: PieceType): Result<GameActionResult> {
-    const turn = TurnRepository.get();
-    if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
-    if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
-
-    const cost = pieceType.config.cost;
-    const currentResources = turn.resources[String(player)] ?? 0;
-    if (currentResources < cost) return { ok: false, error: ActionError.INSUFFICIENT_RESOURCES };
-
-    const generatePosition = GenerationService.findGenerationPanel(player, pieceType);
-    if (!generatePosition) return { ok: false, error: ActionError.NO_GENERATION_PANEL };
-
-    const spawnedPosition = GenerationService.generate(pieceType, generatePosition);
-    if (!spawnedPosition) return { ok: false, error: ActionError.NO_GENERATION_PANEL };
-
-    PieceService.mergePiecesAtPosition(spawnedPosition);
-    return { ok: true, value: { gameState: this.getGameState() } };
+    const error = this.checkTurn(player);
+    if (error) return fail(error);
+    if (!this.canAfford(player, pieceType)) return fail(ActionError.INSUFFICIENT_RESOURCES);
+    const position = GenerationService.findGenerationPanel(player, pieceType);
+    const spawned = position && GenerationService.generate(pieceType, position);
+    if (!spawned) return fail(ActionError.NO_GENERATION_PANEL);
+    PieceService.mergePiecesAtPosition(spawned);
+    return this.ok();
   }
 
-  /**
-   * Switch the generation mode between "front" and "rear" for the given player.
-   *
-   * @param player - The player performing the action.
-   * @param mode - The new generation mode.
-   *
-   * **Preconditions:**
-   * - Game not over.
-   * - It is `player`'s turn.
-   *
-   * **Effects:**
-   * - Updates the player's generation mode in turn state.
-   *
-   * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN.
-   */
   static setGenerationMode(player: Player, mode: GenerationMode): Result<GameActionResult> {
+    const error = this.checkTurn(player);
+    if (error) return fail(error);
     const turn = TurnRepository.get();
-    if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
-    if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
-
-    const newGenerationMode = { ...turn.generationMode, [String(player)]: mode };
-    TurnRepository.set({ ...turn, generationMode: newGenerationMode });
-    return { ok: true, value: { gameState: this.getGameState() } };
+    TurnRepository.set({ ...turn, generationMode: { ...turn.generationMode, [player]: mode } });
+    return this.ok();
   }
 
-  /**
-   * End the current player's turn.
-   *
-   * Executes the full turn-end sequence:
-   *   1. Finalize all pending moves (grouped by target, combat resolved per group).
-   *   2. Refresh panel states.
-   *   3. Check victory condition (home base captured → game ends).
-   *   4. Switch player.
-   *   5. Reset initial positions + apply passive gains + accrue movement for the next player.
-   *   6. Add resource income for the next player.
-   *
-   * See class-level JSDoc for combat rules, passive effects, and entry conditions.
-   *
-   * @param player - The player ending their turn.
-   * @returns TurnEndResult with combat outcomes, winner, and next player.
-   *
-   * **Preconditions:**
-   * - Game not over.
-   * - It is `player`'s turn.
-   *
-   * **Errors:** GAME_ALREADY_OVER, NOT_YOUR_TURN.
-   */
+  /** Resolves moves, checks victory, then starts the next player's turn. */
   static endTurn(player: Player): Result<TurnEndResult> {
-    const turn = TurnRepository.get();
-    if (turn.winner) return { ok: false, error: ActionError.GAME_ALREADY_OVER };
-    if (turn.player !== player) return { ok: false, error: ActionError.NOT_YOUR_TURN };
-
-    // 1. Finalize current player's moves (combat resolution)
+    const error = this.checkTurn(player);
+    if (error) return fail(error);
     const combatOutcomes = [
       ...PieceService.finalizePlayerMoves(player),
       ...PieceService.resolveRangedAttacks(player),
     ];
-
-    // 1b. Merge same-type mergeable units that ended up on the same panel
     PieceService.mergeAllPiecesForPlayer(player);
-
-    // 2. Refresh panel ownership
     PanelsService.refreshPanelStates();
 
-    // 3. Check victory
-    VictoryService.applyVictory();
-    const postVictoryTurn = TurnRepository.get();
-    if (postVictoryTurn.winner) {
-      this.recordCurrentGameStateHistory();
-
-      return {
-        ok: true,
-        value: {
-          combatOutcomes,
-          winner: postVictoryTurn.winner,
-          nextPlayer: undefined,
-          gameState: this.getGameState(),
-        },
-      };
+    const winner = this.findWinner();
+    if (winner) {
+      TurnRepository.set({ ...TurnRepository.get(), winner });
+      this.recordHistory();
+      return this.ok({ combatOutcomes, winner, nextPlayer: undefined });
     }
 
-    // 4. Switch to next player
-    const nextPlayer = player === PlayerClass.SELF ? PlayerClass.OPPONENT : PlayerClass.SELF;
-    const nextNum = player === PlayerClass.OPPONENT ? turn.num + 1 : turn.num;
-
-    // 5. Reset initial positions + apply passive gains + accrue movement for next player
+    const nextPlayer = opponentOf(player);
     PieceService.resetInitialPositions(nextPlayer);
     PieceService.applyPassiveGains(nextPlayer);
     PieceService.accrueMovementForPlayer(nextPlayer);
-
-    // 6. Update turn state
+    const turn = TurnRepository.get();
     TurnRepository.set({
-      ...TurnRepository.get(),
+      ...turn,
       player: nextPlayer,
-      num: nextNum,
+      num: player === Player.OPPONENT ? turn.num + 1 : turn.num,
     });
-
-    // 7. Add resource income for the next player
     this.addResources(nextPlayer);
-
-    this.recordCurrentGameStateHistory();
-
-    return {
-      ok: true,
-      value: {
-        combatOutcomes,
-        winner: null,
-        nextPlayer,
-        gameState: this.getGameState(),
-      },
-    };
+    this.recordHistory();
+    return this.ok({ combatOutcomes, winner: null, nextPlayer });
   }
 
-  /**
-   * Returns a transport-safe snapshot of the current board state.
-   *
-   * The returned snapshot is normalized for persistence and network transport:
-   * UI-only panel highlight states are excluded, and enum-like values are serialized
-   * as plain strings so the snapshot can be JSON encoded and restored later.
-   */
-  static getGameState(): GameStateSnapshot {
-    return {
-      panels: PanelRepository.getAll().map((panel) => this.snapshotPanel(panel)),
-      pieces: PiecesRepository.getAll().map((piece) => this.snapshotPiece(piece)),
-      turn: this.snapshotTurn(),
-      homeBases: HomeBaseRepository.getAll().map((homeBase) => this.snapshotHomeBase(homeBase)),
+  /** JSON-safe copy; panel states are reduced to occupied/unoccupied. */
+  static getGameState(): GameState {
+    const occupied = new Set(PiecesRepository.getAll().map((p) => posKey(p.panelPosition)));
+    return structuredClone({
+      panels: PanelRepository.getAll().map((panel) => ({
+        ...panel,
+        panelState: occupied.has(posKey(panel.panelPosition))
+          ? PanelState.OCCUPIED
+          : PanelState.UNOCCUPIED,
+      })),
+      pieces: PiecesRepository.getAll(),
+      turn: TurnRepository.get(),
+      homeBases: HomeBaseRepository.getAll(),
       layer: LayerRepository.get(),
-    };
+    });
   }
 
-  /**
-   * Replaces the current repositories with a previously exported board snapshot.
-   *
-   * Imported snapshots are validated before application, and panel state is
-   * normalized from actual piece occupancy so transient UI highlight state is
-   * never restored into the game state.
-   */
-  static loadGameState(snapshot: GameStateSnapshot): Result<GameActionResult> {
-    if (!this.isValidGameState(snapshot)) {
-      return { ok: false, error: ActionError.INVALID_GAME_STATE };
-    }
-
-    const occupiedPanelKeys = new Set(
-      snapshot.pieces.map((piece) => this.positionKey(piece.panelPosition)),
-    );
-
-    LayerRepository.set(snapshot.layer);
+  static loadGameState(snapshot: GameState): Result<GameActionResult> {
+    if (!this.isValidGameState(snapshot)) return fail(ActionError.INVALID_GAME_STATE);
+    const state = structuredClone(snapshot);
+    const occupied = new Set(state.pieces.map((p) => posKey(p.panelPosition)));
+    LayerRepository.set(state.layer);
     PanelRepository.setAll(
-      snapshot.panels.map((panel) => this.restorePanel(panel, occupiedPanelKeys)),
+      state.panels.map((panel) => ({
+        ...panel,
+        panelState: occupied.has(posKey(panel.panelPosition))
+          ? PanelState.OCCUPIED
+          : PanelState.UNOCCUPIED,
+      })),
     );
-    HomeBaseRepository.setAll(snapshot.homeBases.map((homeBase) => this.restoreHomeBase(homeBase)));
-    PiecesRepository.setAll(snapshot.pieces.map((piece) => this.restorePiece(piece)));
-    TurnRepository.set(this.restoreTurn(snapshot.turn));
-
-    return { ok: true, value: { gameState: this.getGameState() } };
+    HomeBaseRepository.setAll(state.homeBases);
+    PiecesRepository.setAll(state.pieces);
+    TurnRepository.set(state.turn);
+    return this.ok();
   }
 
-  /**
-   * Runs work against a temporary snapshot and restores the live state afterwards.
-   *
-   * This is intended for internal simulations such as AI lookahead. The callback may
-   * call any regular GameApi mutation, but the current game state, history, and match
-   * stats are restored before returning to the caller. Callback exceptions are converted
-   * into an error Result so callers can treat this helper like any other GameApi action.
-   */
-  static withTemporaryGameState<TResult>(
-    snapshot: GameStateSnapshot,
-    callback: () => TResult,
-  ): Result<TResult> {
-    const originalGameState = this.getGameState();
-    const originalHistory = this.getGameStateHistory();
-    const originalMatchStats = MatchStatsRepository.get();
+  /** Runs <callback> on <snapshot> (e.g. AI lookahead), then restores state, history and stats. */
+  static withTemporaryGameState<T>(snapshot: GameState, callback: () => T): Result<T> {
+    const original = this.getGameState();
+    const originalHistory = GameStateHistoryRepository.getAll();
+    const originalStats = MatchStatsRepository.get();
+    const loaded = this.loadGameState(snapshot);
+    if (!loaded.ok) return loaded;
 
-    const loadResult = this.loadGameState(snapshot);
-    if (!loadResult.ok) {
-      return { ok: false, error: loadResult.error };
-    }
-
-    let callbackValue: TResult | undefined;
+    let value: T | undefined;
     let callbackFailed = false;
-    let restoreFailed: boolean | undefined;
     try {
-      try {
-        callbackValue = callback();
-      } catch {
-        callbackFailed = true;
-      }
-    } finally {
-      try {
-        const restoreResult = this.loadGameState(originalGameState);
-        restoreFailed = !restoreResult.ok;
-      } catch {
-        restoreFailed = true;
-      }
-      MatchStatsRepository.set(originalMatchStats);
-      GameStateHistoryRepository.setAll(originalHistory);
+      value = callback();
+    } catch {
+      callbackFailed = true;
     }
-
-    if (restoreFailed === true) {
-      return { ok: false, error: ActionError.TEMPORARY_GAME_STATE_RESTORE_FAILED };
+    let restoreFailed: boolean;
+    try {
+      restoreFailed = !this.loadGameState(original).ok;
+    } catch {
+      restoreFailed = true;
     }
+    MatchStatsRepository.set(originalStats);
+    GameStateHistoryRepository.setAll(originalHistory);
+    if (restoreFailed) return fail(ActionError.TEMPORARY_GAME_STATE_RESTORE_FAILED);
+    if (callbackFailed) return fail(ActionError.TEMPORARY_GAME_STATE_CALLBACK_FAILED);
+    return { ok: true, value: value as T };
+  }
 
-    if (callbackFailed) {
-      return { ok: false, error: ActionError.TEMPORARY_GAME_STATE_CALLBACK_FAILED };
-    }
+  /** Adjacent panels (and staying) the piece may be ordered to; measured from its transit panel. */
+  static getMovableTargets(pieceId: number): PanelPosition[] {
+    const piece = PiecesRepository.get(pieceId);
+    if (!piece || MovementRulesService.isOrderLocked(piece)) return [];
+    const maxPieces = TurnRepository.maxPieces(piece.player);
+    const origin = piece.transitPosition ?? piece.initialPosition;
+    const candidates = [
+      ...PanelRepository.getAll()
+        .map((p) => p.panelPosition)
+        .filter((p) => isAdjacent(origin, p)),
+      origin,
+    ];
+    const before = MovementRulesService.planEndOfTurn(piece.player, maxPieces);
+    return candidates.filter((p) =>
+      MovementRulesService.canMoveTo(p, piece.player, pieceId, maxPieces, before),
+    );
+  }
 
-    return { ok: true, value: callbackValue as TResult };
+  static canGenerate(player: Player, pieceType: PieceType): boolean {
+    return (
+      this.canAfford(player, pieceType) &&
+      GenerationService.findGenerationPanel(player, pieceType) !== null
+    );
+  }
+
+  /** Captured after initializeGame and every endTurn. */
+  static getGameStateHistory(): GameStateHistoryEntry[] {
+    return structuredClone(GameStateHistoryRepository.getAll());
+  }
+
+  private static ok<T extends object = object>(extra?: T): Result<T & GameActionResult> {
+    return { ok: true, value: { ...(extra as T), gameState: this.getGameState() } };
+  }
+
+  private static checkTurn(player: Player): ActionError | null {
+    const turn = TurnRepository.get();
+    if (turn.winner) return ActionError.GAME_ALREADY_OVER;
+    if (turn.player !== player) return ActionError.NOT_YOUR_TURN;
+    return null;
+  }
+
+  private static ownPiece(player: Player, pieceId: number): Piece | ActionError {
+    const error = this.checkTurn(player);
+    if (error) return error;
+    const piece = PiecesRepository.get(pieceId);
+    if (!piece) return ActionError.PIECE_NOT_FOUND;
+    return piece.player === player ? piece : ActionError.PIECE_NOT_OWNED;
+  }
+
+  private static canAfford(player: Player, pieceType: PieceType): boolean {
+    return (TurnRepository.get().resources[player] ?? 0) >= pieceConfig(pieceType).cost;
   }
 
   private static addResources(player: Player) {
+    const total = PanelRepository.getAll()
+      .filter((p) => p.player === player)
+      .reduce((sum, p) => sum + p.resource, 0);
     const turn = TurnRepository.get();
-    const panels = PanelRepository.getAll().filter((p) => p.player === player);
-    const totalResource = panels.reduce((sum, p) => sum + (p.resource || 0), 0);
-
-    const newResources = { ...turn.resources };
-    newResources[String(player)] = (newResources[String(player)] || 0) + totalResource;
-
-    TurnRepository.set({ ...turn, resources: newResources });
-    MatchStatsRepository.addProducedResources(player, totalResource);
+    TurnRepository.set({
+      ...turn,
+      resources: { ...turn.resources, [player]: (turn.resources[player] ?? 0) + total },
+    });
+    MatchStatsRepository.addProducedResources(player, total);
   }
 
-  // ── Queries ────────────────────────────────────────────────────
-
-  /**
-   * Get all panel positions that a piece can move to.
-   *
-   * Returns adjacent panels that satisfy movement rules:
-   * - Enemy panels (enemy pieces or enemy castle) are always included.
-   * - Friendly/neutral panels are included only if projected piece count + 1 <= maxPiecesPerPanel.
-   *
-   * Also includes the piece's initial position (to allow "staying") if capacity allows.
-   * A piece in transit is measured from the panel it is moving into (where it will be once
-   * its current hop completes), and a piece whose order is locked has no targets.
-   *
-   * @param pieceId - The ID of the piece to query.
-   * @returns Array of reachable PanelPosition, or empty if piece not found.
-   */
-  static getMovableTargets(pieceId: number): PanelPosition[] {
-    const piece = PiecesRepository.getAll().find((p) => p.id === pieceId);
-    if (!piece) return [];
-    if (MovementRulesService.isOrderLocked(piece)) return [];
-
-    const turn = TurnRepository.get();
-    const maxPieces = turn.maxPiecesPerPanel[String(piece.player)] ?? DEFAULT_MAX_PIECES_PER_PANEL;
-    const origin = piece.transitPosition ?? piece.initialPosition;
-
-    // Get all panels adjacent to the piece's origin
-    const allPanels = PanelRepository.getAll();
-    const adjacentPositions = allPanels
-      .filter((p) => origin.isAdjacent(p.panelPosition))
-      .map((p) => p.panelPosition);
-
-    // Include the origin itself (stay)
-    const candidates = [...adjacentPositions, origin];
-
-    const before = MovementRulesService.planEndOfTurn(piece.player, maxPieces);
-    return candidates.filter((pos) =>
-      MovementRulesService.canMoveTo(pos, piece.player, pieceId, maxPieces, before),
-    );
+  /** A home base owned by the other side means that side won. */
+  private static findWinner(): Player | null {
+    for (const homeBase of HomeBaseRepository.getAll()) {
+      const owner = PanelRepository.find(homeBase.panelPosition)?.player;
+      if (owner && owner !== homeBase.player && owner !== Player.UNKNOWN) return owner;
+    }
+    return null;
   }
 
-  /**
-   * Check if a player can generate a piece of the given type.
-   *
-   * @param player - The player to check.
-   * @param pieceType - The piece type to check affordability for.
-   * Uses the same conditions as `generatePiece` (resources and
-   * `GenerationService.findGenerationPanel`, which counts reserved moves when checking
-   * panel capacity), so the result can differ between piece types on the same board.
-   *
-   * @returns `true` if the player has enough resources AND a valid generation panel exists.
-   */
-  static canGenerate(player: Player, pieceType: PieceType): boolean {
-    const turn = TurnRepository.get();
-    const currentResources = turn.resources[String(player)] ?? 0;
-    if (currentResources < pieceType.config.cost) return false;
-    return GenerationService.findGenerationPanel(player, pieceType) !== null;
-  }
-
-  /**
-   * Returns the recorded game-state history in chronological order.
-   *
-   * History entries are captured after `initializeGame` succeeds and after each
-   * successful `endTurn`, including turns that end the game.
-   */
-  static getGameStateHistory(): GameStateHistoryEntry[] {
-    return GameStateHistoryRepository.getAll();
-  }
-
-  private static resetGameStateHistory(): void {
-    GameStateHistoryRepository.clear();
-  }
-
-  private static recordCurrentGameStateHistory(): void {
+  private static recordHistory() {
     const snapshot = this.getGameState();
-
     GameStateHistoryRepository.add({
-      sequence: GameStateHistoryRepository.getLength(),
+      sequence: GameStateHistoryRepository.getAll().length,
       capturedAtTurn: snapshot.turn.num,
       snapshot,
     });
   }
 
-  private static snapshotPosition(position: PanelPosition): PanelPositionSnapshot {
-    return {
-      horizontalLayer: position.horizontalLayer,
-      verticalLayer: position.verticalLayer,
-    };
-  }
-
-  private static snapshotPlayer(player: Player): PlayerSnapshot {
-    return String(player) as PlayerSnapshot;
-  }
-
-  private static snapshotControllablePlayer(player: Player): ControllablePlayerSnapshot {
-    return String(player) as ControllablePlayerSnapshot;
-  }
-
-  private static snapshotPieceType(pieceType: PieceType): PieceTypeSnapshot {
-    return String(pieceType) as PieceTypeSnapshot;
-  }
-
-  private static snapshotPanelState(panelState: PanelState): PanelStateSnapshot {
-    return String(panelState) as PanelStateSnapshot;
-  }
-
-  private static restorePosition(position: PanelPositionSnapshot): PanelPosition {
-    return new PanelPositionClass(position);
-  }
-
-  private static restorePlayer(player: PlayerSnapshot): Player {
-    switch (player) {
-      case "self":
-        return PlayerClass.SELF;
-      case "opponent":
-        return PlayerClass.OPPONENT;
-      default:
-        return PlayerClass.UNKNOWN;
-    }
-  }
-
-  private static restoreControllablePlayer(player: ControllablePlayerSnapshot): Player {
-    return player === "self" ? PlayerClass.SELF : PlayerClass.OPPONENT;
-  }
-
-  private static restorePieceType(pieceType: PieceTypeSnapshot): PieceType {
-    switch (pieceType) {
-      case "infantry":
-        return PieceTypeClass.INFANTRY;
-      case "rook":
-        return PieceTypeClass.ROOK;
-      case "archer":
-        return PieceTypeClass.ARCHER;
-      case "cavalry":
-        return PieceTypeClass.CAVALRY;
-      case "heavy":
-        return PieceTypeClass.HEAVY;
-      case "siege":
-        return PieceTypeClass.SIEGE;
-      default:
-        return PieceTypeClass.NOBLE;
-    }
-  }
-
-  private static normalizeSnapshotPanelState(
-    position: PanelPositionSnapshot,
-    occupiedPanelKeys: Set<string>,
-  ): PanelState {
-    return occupiedPanelKeys.has(this.positionKey(position))
-      ? PanelState.OCCUPIED
-      : PanelState.UNOCCUPIED;
-  }
-
-  private static snapshotPanel(panel: Panel): PanelSnapshot {
-    const hasPiece = PiecesRepository.getPiecesByPosition(panel.panelPosition).length > 0;
-
-    return {
-      panelPosition: this.snapshotPosition(panel.panelPosition),
-      panelState: this.snapshotPanelState(hasPiece ? PanelState.OCCUPIED : PanelState.UNOCCUPIED),
-      player: this.snapshotPlayer(panel.player),
-      resource: panel.resource,
-      castle: panel.castle,
-    };
-  }
-
-  private static restorePanel(panel: PanelSnapshot, occupiedPanelKeys: Set<string>): Panel {
-    return new Panel({
-      panelPosition: this.restorePosition(panel.panelPosition),
-      panelState: this.normalizeSnapshotPanelState(panel.panelPosition, occupiedPanelKeys),
-      player: this.restorePlayer(panel.player),
-      resource: panel.resource,
-      castle: panel.castle,
-    });
-  }
-
-  private static snapshotPiece(piece: Piece): PieceSnapshot {
-    return {
-      id: piece.id,
-      panelPosition: this.snapshotPosition(piece.panelPosition),
-      initialPosition: this.snapshotPosition(piece.initialPosition),
-      targetPosition: piece.targetPosition
-        ? this.snapshotPosition(piece.targetPosition)
-        : undefined,
-      rangedAttackTargetPosition: piece.rangedAttackTargetPosition
-        ? this.snapshotPosition(piece.rangedAttackTargetPosition)
-        : undefined,
-      transitPosition: piece.transitPosition
-        ? this.snapshotPosition(piece.transitPosition)
-        : undefined,
-      player: this.snapshotControllablePlayer(piece.player),
-      pieceType: this.snapshotPieceType(piece.pieceType),
-      hp: piece.hp,
-      stackCount: piece.stackCount,
-      maxHp: piece.maxHp,
-      movementPoints: piece.movementPoints,
-      orderSequence: piece.orderSequence,
-    };
-  }
-
-  private static restorePiece(piece: PieceSnapshot): Piece {
-    return new Piece({
-      id: piece.id,
-      panelPosition: this.restorePosition(piece.panelPosition),
-      initialPosition: this.restorePosition(piece.initialPosition),
-      targetPosition: piece.targetPosition ? this.restorePosition(piece.targetPosition) : undefined,
-      rangedAttackTargetPosition: piece.rangedAttackTargetPosition
-        ? this.restorePosition(piece.rangedAttackTargetPosition)
-        : undefined,
-      transitPosition: piece.transitPosition
-        ? this.restorePosition(piece.transitPosition)
-        : undefined,
-      player: this.restoreControllablePlayer(piece.player),
-      pieceType: this.restorePieceType(piece.pieceType),
-      hp: piece.hp,
-      stackCount: piece.stackCount,
-      maxHp: piece.maxHp,
-      movementPoints: piece.movementPoints,
-      orderSequence: piece.orderSequence,
-    });
-  }
-
-  /** The order sequence for the next move order: one past the highest on the board, or 1. */
   private static nextOrderSequence(): number {
-    return (
-      PiecesRepository.getAll().reduce((max, piece) => Math.max(max, piece.orderSequence ?? 0), 0) +
-      1
-    );
+    return Math.max(0, ...PiecesRepository.getAll().map((p) => p.orderSequence ?? 0)) + 1;
   }
 
-  private static snapshotHomeBase(homeBase: HomeBase): HomeBaseSnapshot {
-    return {
-      player: this.snapshotControllablePlayer(homeBase.player),
-      panelPosition: this.snapshotPosition(homeBase.panelPosition),
-    };
-  }
-
-  private static restoreHomeBase(homeBase: HomeBaseSnapshot): HomeBase {
-    return new HomeBase({
-      player: this.restoreControllablePlayer(homeBase.player),
-      panelPosition: this.restorePosition(homeBase.panelPosition),
-    });
-  }
-
-  private static snapshotTurn(): TurnSnapshot {
-    const turn = TurnRepository.get();
-    return {
-      num: turn.num,
-      player: this.snapshotControllablePlayer(turn.player),
-      resources: { ...turn.resources },
-      maxPiecesPerPanel: { ...turn.maxPiecesPerPanel },
-      generationMode: { ...turn.generationMode },
-      winner: turn.winner ? this.snapshotControllablePlayer(turn.winner) : null,
-    };
-  }
-
-  private static restoreTurn(turn: TurnSnapshot) {
-    return {
-      num: turn.num,
-      player: this.restoreControllablePlayer(turn.player),
-      resources: { ...turn.resources },
-      maxPiecesPerPanel: { ...turn.maxPiecesPerPanel },
-      generationMode: { ...turn.generationMode },
-      winner: turn.winner ? this.restoreControllablePlayer(turn.winner) : null,
-    };
-  }
-
-  private static isValidGameState(snapshot: GameStateSnapshot): boolean {
-    if (!Number.isInteger(snapshot.layer) || snapshot.layer < 1) return false;
-    if (snapshot.panels.length === 0) return false;
+  private static isValidGameState(s: GameState): boolean {
+    const isPos = (p?: PanelPosition) =>
+      !!p && Number.isInteger(p.horizontalLayer) && Number.isInteger(p.verticalLayer);
+    const nonNegative = (n: number) => Number.isFinite(n) && n >= 0;
+    if (!Number.isInteger(s.layer) || s.layer < 1 || s.panels.length === 0) return false;
 
     const panelKeys = new Set<string>();
-    for (const panel of snapshot.panels) {
-      if (!this.isValidPosition(panel.panelPosition)) return false;
-      if (!this.isKnownPanelState(panel.panelState)) return false;
-      if (!Number.isFinite(panel.resource) || panel.resource < 0) return false;
-      if (!Number.isFinite(panel.castle) || panel.castle < 0) return false;
-      if (!this.isKnownPanelOwner(panel.player)) return false;
-
-      const key = this.positionKey(panel.panelPosition);
-      if (panelKeys.has(key)) return false;
+    for (const panel of s.panels) {
+      const key = isPos(panel.panelPosition) && posKey(panel.panelPosition);
+      if (!key || panelKeys.has(key)) return false;
+      if (panel.panelState !== PanelState.OCCUPIED && panel.panelState !== PanelState.UNOCCUPIED)
+        return false;
+      if (!nonNegative(panel.resource) || !nonNegative(panel.castle)) return false;
+      if (!isSide(panel.player) && panel.player !== Player.UNKNOWN) return false;
       panelKeys.add(key);
     }
+    const onBoard = (p?: PanelPosition) => isPos(p) && panelKeys.has(posKey(p!));
 
-    if (snapshot.homeBases.length !== 2) return false;
-    const homeBasePlayers = new Set<string>();
-    for (const homeBase of snapshot.homeBases) {
-      if (!this.isValidPosition(homeBase.panelPosition)) return false;
-      if (!this.isControllablePlayer(homeBase.player)) return false;
-      if (!panelKeys.has(this.positionKey(homeBase.panelPosition))) return false;
-      homeBasePlayers.add(String(homeBase.player));
-    }
-    if (!homeBasePlayers.has(String(PlayerClass.SELF))) return false;
-    if (!homeBasePlayers.has(String(PlayerClass.OPPONENT))) return false;
+    const homeBaseSides = new Set(s.homeBases.map((h) => h.player));
+    if (s.homeBases.length !== 2 || !SIDES.every((side) => homeBaseSides.has(side))) return false;
+    if (!s.homeBases.every((h) => onBoard(h.panelPosition))) return false;
 
-    const pieceIds = new Set<number>();
-    for (const piece of snapshot.pieces) {
-      if (!Number.isInteger(piece.id) || piece.id < 0) return false;
-      if (pieceIds.has(piece.id)) return false;
-      pieceIds.add(piece.id);
-
-      if (!this.isControllablePlayer(piece.player)) return false;
-      if (!this.isKnownPieceType(piece.pieceType)) return false;
-      if (!this.isValidPosition(piece.panelPosition)) return false;
-      if (!this.isValidPosition(piece.initialPosition)) return false;
-      if (piece.targetPosition && !this.isValidPosition(piece.targetPosition)) return false;
-      if (!panelKeys.has(this.positionKey(piece.panelPosition))) return false;
-      if (!panelKeys.has(this.positionKey(piece.initialPosition))) return false;
-      if (piece.targetPosition && !panelKeys.has(this.positionKey(piece.targetPosition)))
+    const ids = new Set<number>();
+    for (const piece of s.pieces) {
+      if (!Number.isInteger(piece.id) || piece.id < 0 || ids.has(piece.id)) return false;
+      ids.add(piece.id);
+      if (!isSide(piece.player) || !PIECE_TYPES.includes(piece.pieceType)) return false;
+      if (!onBoard(piece.panelPosition) || !onBoard(piece.initialPosition)) return false;
+      for (const optional of [
+        piece.targetPosition,
+        piece.rangedAttackTargetPosition,
+        piece.transitPosition,
+      ]) {
+        if (optional && !onBoard(optional)) return false;
+      }
+      if (!nonNegative(piece.hp) || !nonNegative(piece.maxHp) || piece.hp > piece.maxHp)
         return false;
-      if (
-        piece.rangedAttackTargetPosition &&
-        (!this.isValidPosition(piece.rangedAttackTargetPosition) ||
-          !panelKeys.has(this.positionKey(piece.rangedAttackTargetPosition)))
-      )
-        return false;
-      if (
-        piece.transitPosition &&
-        (!this.isValidPosition(piece.transitPosition) ||
-          !panelKeys.has(this.positionKey(piece.transitPosition)))
-      )
-        return false;
-      if (!Number.isFinite(piece.hp) || piece.hp < 0) return false;
-      if (!Number.isFinite(piece.maxHp) || piece.maxHp < 0) return false;
       if (!Number.isInteger(piece.stackCount) || piece.stackCount < 1) return false;
-      if (!Number.isFinite(piece.movementPoints) || piece.movementPoints < 0) return false;
+      if (!nonNegative(piece.movementPoints)) return false;
       if (
         piece.orderSequence !== undefined &&
         (!Number.isInteger(piece.orderSequence) || piece.orderSequence < 1)
       )
         return false;
-      if (piece.hp > piece.maxHp) return false;
     }
 
-    if (!this.isControllablePlayer(snapshot.turn.player)) return false;
-    if (snapshot.turn.winner !== null && !this.isControllablePlayer(snapshot.turn.winner)) {
-      return false;
-    }
-    if (!Number.isInteger(snapshot.turn.num) || snapshot.turn.num < 1) return false;
-
-    for (const player of [PlayerClass.SELF, PlayerClass.OPPONENT]) {
-      const key = String(player);
-      const resources = snapshot.turn.resources[key];
-      const maxPieces = snapshot.turn.maxPiecesPerPanel[key];
-      const mode = snapshot.turn.generationMode[key];
-
-      if (!Number.isFinite(resources) || resources < 0) return false;
-      if (!Number.isInteger(maxPieces) || maxPieces < 1) return false;
-      if (mode !== "front" && mode !== "rear") return false;
-    }
-
-    return true;
-  }
-
-  private static isValidPosition(position: PanelPositionSnapshot): boolean {
-    return Number.isInteger(position.horizontalLayer) && Number.isInteger(position.verticalLayer);
-  }
-
-  private static positionKey(position: PanelPositionSnapshot): string {
-    return `${position.horizontalLayer},${position.verticalLayer}`;
-  }
-
-  private static isControllablePlayer(player: string): player is ControllablePlayerSnapshot {
-    return player === "self" || player === "opponent";
-  }
-
-  private static isKnownPanelOwner(player: string): player is PlayerSnapshot {
-    return this.isControllablePlayer(player) || player === "unknown";
-  }
-
-  private static isKnownPieceType(pieceType: string): pieceType is PieceTypeSnapshot {
-    return (
-      pieceType === "infantry" ||
-      pieceType === "rook" ||
-      pieceType === "noble" ||
-      pieceType === "archer" ||
-      pieceType === "cavalry" ||
-      pieceType === "heavy" ||
-      pieceType === "siege"
-    );
-  }
-
-  private static isKnownPanelState(panelState: string): panelState is PanelStateSnapshot {
-    return panelState === "unoccupied" || panelState === "occupied";
+    const { turn } = s;
+    if (!isSide(turn.player)) return false;
+    if (turn.winner !== null && !isSide(turn.winner)) return false;
+    if (!Number.isInteger(turn.num) || turn.num < 1) return false;
+    return SIDES.every((side) => {
+      const maxPieces = turn.maxPiecesPerPanel[side];
+      const mode = turn.generationMode[side];
+      return (
+        nonNegative(turn.resources[side]) &&
+        Number.isInteger(maxPieces) &&
+        maxPieces >= 1 &&
+        (mode === "front" || mode === "rear")
+      );
+    });
   }
 }

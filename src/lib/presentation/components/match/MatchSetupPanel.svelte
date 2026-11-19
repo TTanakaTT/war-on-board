@@ -1,12 +1,9 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import {
-    DEFAULT_AUTOMATION_TURN_LIMIT,
-    DEFAULT_GAME_LAYER,
-  } from "#lib/domain/constants/GameConstants.ts";
-  import { AiStrength } from "#lib/domain/enums/AiStrength.ts";
-  import type { MatchControllers } from "#lib/domain/types/match.ts";
+  import { DEFAULT_AUTOMATION_TURN_LIMIT, DEFAULT_GAME_LAYER } from "#lib/domain/config.ts";
+  import { AiStrength } from "#lib/domain/model.ts";
+  import type { BySide, PlayerController } from "#lib/domain/types.ts";
   import { m } from "#lib/paraglide/messages.js";
   import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
   import HorizontalRadioGroup from "#lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
@@ -64,7 +61,7 @@
     return Math.max(2, Math.floor(layer));
   }
 
-  function controllerFor(selection: MatchSetupSelection): MatchControllers["self"] {
+  function controllerFor(selection: MatchSetupSelection): BySide<PlayerController>["self"] {
     return selection === "human" ? "human" : "cpu";
   }
 

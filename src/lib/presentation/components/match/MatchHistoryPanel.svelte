@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { MatchHistoryExport } from "#lib/domain/types/history.ts";
-  import type { ControllablePlayerSnapshot } from "#lib/domain/types/api.ts";
+  import type { MatchHistoryExport } from "#lib/domain/types.ts";
+  import type { Side } from "#lib/domain/model.ts";
   import { m } from "#lib/paraglide/messages.js";
-  import { playerDisplayName, seatLabel } from "#lib/presentation/matchPresentation.ts";
+  import { playerDisplayName, seatLabel } from "#lib/presentation/labels.ts";
   import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
   import MatchHistoryTable from "./MatchHistoryTable.svelte";
@@ -24,15 +24,15 @@
     opponent: matchHistory.metadata.players.opponent.aiStrength,
   }));
 
-  function isWinningPlayer(player: ControllablePlayerSnapshot): boolean {
+  function isWinningPlayer(player: Side): boolean {
     return matchHistory.metadata.winner === player;
   }
 
-  function historySeatLabel(player: ControllablePlayerSnapshot): string {
+  function historySeatLabel(player: Side): string {
     return seatLabel(player);
   }
 
-  function historyDisplayName(player: ControllablePlayerSnapshot): string {
+  function historyDisplayName(player: Side): string {
     return playerDisplayName(player, historyControllers, historyAiStrengths);
   }
 </script>

@@ -1,32 +1,25 @@
 <script lang="ts">
   import HexagonPanel from "./HexagonPanel.svelte";
-  import { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
+  import { pos } from "#lib/domain/model.ts";
+  import { LayerRepository } from "#lib/store.svelte.ts";
   import { InteractionService } from "#lib/services/InteractionService.ts";
-  import { LayerRepository } from "#lib/data/repositories/LayerRepository.ts";
   import MoveArrows from "./MoveArrows.svelte";
   import MovingPiecePreview from "./MovingPiecePreview.svelte";
   import TransitPieceTokens from "./TransitPieceTokens.svelte";
   import RangedAttackModeButton from "./RangedAttackModeButton.svelte";
-  import { BoardLayout } from "#lib/presentation/BoardLayout.ts";
-  import { BOARD_PANEL_VERTICAL_PIXEL_OFFSET } from "#lib/presentation/constants/BoardLayoutConstants.ts";
   import {
+    BoardLayout,
+    BOARD_PANEL_VERTICAL_PIXEL_OFFSET,
     DESKTOP_NAVIGATION_BREAKPOINT_PX,
     MOBILE_BOARD_VIEWPORT_GUTTER_PX,
     MOBILE_GAME_HEADER_HEIGHT_PX,
-  } from "#lib/presentation/constants/UiConstants.ts";
+  } from "#lib/presentation/layout.ts";
 
   let layer = $derived(LayerRepository.get());
   let windowWidth = $state(0);
   let windowHeight = $state(0);
 
-  function sideRange(): number[] {
-    const horizontalLayer = layer;
-    const range = [];
-    for (let i = -(horizontalLayer - 1); i < horizontalLayer; i++) {
-      range.push(i);
-    }
-    return range;
-  }
+  const sideRange = () => Array.from({ length: layer * 2 - 1 }, (_, i) => i - (layer - 1));
 
   const width = $derived(BoardLayout.boardWidth);
   const height = $derived(BoardLayout.boardHeight);
@@ -54,14 +47,10 @@
   });
   const layeredPanelContainerStyle = $derived(`width: ${width}px; height: ${height}px;`);
 
-  // Ratio between hexagon height and width for a regular pointy-top hexagon.
-  const HEXAGON_HORIZONTAL_RATIO = Math.sqrt(3);
   function panelPositionStyle(hl: number, vl: number): string {
-    const coords = BoardLayout.getCoordinates(
-      new PanelPosition({ horizontalLayer: hl, verticalLayer: vl }),
-    );
-    // Adjust from center to top-left
-    const left = coords.x - BoardLayout.HEIGHT / HEXAGON_HORIZONTAL_RATIO / 2;
+    const coords = BoardLayout.getCoordinates(pos(hl, vl));
+    // Center to top-left.
+    const left = coords.x - BoardLayout.HEIGHT / Math.sqrt(3) / 2;
     const top = coords.y - BoardLayout.HEIGHT / 2 - BOARD_PANEL_VERTICAL_PIXEL_OFFSET;
     return `position: absolute; left: ${left}px; top: ${top}px;`;
   }
@@ -82,17 +71,8 @@
         {#each { length: layer - Math.abs(hl) }, vl}
           <div style={panelPositionStyle(hl, vl)}>
             <HexagonPanel
-              panelPosition={new PanelPosition({
-                horizontalLayer: hl,
-                verticalLayer: vl,
-              })}
-              onclick={() =>
-                InteractionService.panelChange(
-                  new PanelPosition({
-                    horizontalLayer: hl,
-                    verticalLayer: vl,
-                  }),
-                )}
+              panelPosition={pos(hl, vl)}
+              onclick={() => InteractionService.panelChange(pos(hl, vl))}
             />
           </div>
         {/each}

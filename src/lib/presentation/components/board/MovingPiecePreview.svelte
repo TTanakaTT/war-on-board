@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { PiecesRepository } from "#lib/data/repositories/PieceRepository.ts";
-  import { BoardLayout } from "#lib/presentation/BoardLayout.ts";
-  import { PIECE_PREVIEW_ANIMATION_MS } from "#lib/presentation/constants/PieceTokenConstants.ts";
-  import { getPieceTokenCoordinates } from "#lib/presentation/PieceTokenLayout.ts";
+  import { PiecesRepository } from "#lib/store.svelte.ts";
+  import { isInTransit } from "#lib/domain/model.ts";
+  import { BoardLayout } from "#lib/presentation/layout.ts";
+  import { PIECE_PREVIEW_ANIMATION_MS } from "#lib/presentation/layout.ts";
+  import { getPieceTokenCoordinates } from "#lib/presentation/layout.ts";
   import { PieceService } from "#lib/services/PieceService.ts";
   import PieceToken from "./PieceToken.svelte";
 
@@ -15,11 +16,10 @@
     piece: ReturnType<typeof PiecesRepository.getAll>[number];
   };
 
-  // Each pending order animates from where the piece is drawn now to where it will be at
-  // the end of this turn — part of the way between two panels for a slow piece.
+  // Animates each pending order toward its end-of-turn position.
   let movingPreviews = $derived.by<MovingPreview[]>(() => {
     return PiecesRepository.getAll()
-      .filter((piece) => piece.targetPosition || piece.isInTransit)
+      .filter((piece) => piece.targetPosition || isInTransit(piece))
       .map((piece) => {
         const start = getPieceTokenCoordinates(piece);
         const end = BoardLayout.getPointCoordinates(PieceService.previewEndOfTurnPoint(piece));

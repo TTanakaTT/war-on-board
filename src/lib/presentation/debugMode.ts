@@ -1,24 +1,19 @@
 import { goto } from "$app/navigation";
 import { resolve } from "$app/paths";
-import { DebugModeRepository } from "#lib/data/repositories/DebugModeRepository.ts";
-import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
-import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-import type {
-  InvariantViolationReport,
-  InvariantViolationType,
-} from "#lib/domain/types/invariant.ts";
+import { DebugModeRepository, MatchControlRepository, TurnRepository } from "#lib/store.svelte.ts";
 import type {
   AutomationStatus,
   AutomationStopReason,
+  InvariantViolationReport,
+  InvariantViolationType,
   StartMatchOptions,
-} from "#lib/domain/types/match.ts";
+} from "#lib/domain/types.ts";
 import { DebugModeService } from "#lib/services/DebugModeService.ts";
 import { MatchService } from "#lib/services/MatchService.ts";
 
 const DEBUG_CHECKS_STORAGE_KEY = "war-on-board-debug-checks";
 const AUTOMATION_PROGRESS_CHECK_INTERVAL_MS = 1000;
 
-// Dev-build-only text: English literals on purpose, not Paraglide messages (see CLAUDE.md).
 const VIOLATION_TYPE_LABELS: Record<InvariantViolationType, string> = {
   "piece-capacity-exceeded": "Too many pieces on a panel",
   "mixed-players-on-panel": "Both players' pieces on one panel",
@@ -40,7 +35,7 @@ export interface DebugModeStatus {
   reportCount: number;
 }
 
-/** Dev-build-only handle on `window`, used by the browser simulation in tests/simulation. */
+/** Used by tests/simulation. */
 export interface WarOnBoardDebugHandle {
   startMatch(options: StartMatchOptions): Promise<void>;
   getStatus(): DebugModeStatus;
@@ -68,11 +63,7 @@ export function saveDebugChecksPreference(enabled: boolean): void {
   }
 }
 
-/**
- * Starts dev-build-only monitoring: applies the saved checks preference, reports uncaught
- * exceptions and stalled CPU automation, and exposes `window.__WAR_ON_BOARD_DEBUG__`.
- * Returns a function that undoes all of it.
- */
+/** Starts dev-only monitoring and exposes `window.__WAR_ON_BOARD_DEBUG__`; returns a cleanup. */
 export function installDebugModeMonitor(): () => void {
   DebugModeService.setChecksEnabled(loadDebugChecksPreference());
 

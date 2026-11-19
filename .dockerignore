@@ -18,9 +18,7 @@ pnpm-debug.log*
 .env.local
 .env.*.local
 .svelte-kit/
-tests/e2e/screenshots/
 test-results/
-playwright-report/
 simulation-results/
 *.tgz
 src/lib/paraglide

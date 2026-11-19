@@ -1,19 +1,19 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { GameDialogRepository } from "#lib/data/repositories/GameDialogRepository.ts";
-  import { LayerRepository } from "#lib/data/repositories/LayerRepository.ts";
-  import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
-  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
-  import { Player } from "#lib/domain/enums/Player.ts";
+  import {
+    GameDialogRepository,
+    LayerRepository,
+    MatchControlRepository,
+    TurnRepository,
+  } from "#lib/store.svelte.ts";
+  import { Player } from "#lib/domain/model.ts";
+  import { MatchHistoryService } from "#lib/services/MatchHistoryService.ts";
   import { m } from "#lib/paraglide/messages.js";
   import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
   import IconButton from "#lib/presentation/components/primitives/IconButton.svelte";
   import MatchHistoryPanel from "./MatchHistoryPanel.svelte";
-  import { HistoryExportService } from "#lib/services/HistoryExportService.ts";
-  import { GameDialogService } from "#lib/services/GameDialogService.ts";
   import { MatchService } from "#lib/services/MatchService.ts";
-  import { MatchHistoryService } from "#lib/services/MatchHistoryService.ts";
 
   const GAME_DIALOG_TITLE_ID = "game-dialog-modal-title";
 
@@ -56,7 +56,7 @@
   );
 
   function downloadHistory(): void {
-    const historyJson = HistoryExportService.toJson();
+    const historyJson = MatchHistoryService.toJson();
     const blob = new Blob([historyJson], { type: "application/json" });
     const objectUrl = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -67,7 +67,7 @@
   }
 
   function closeDialog(): void {
-    GameDialogService.closeDialog(isResultDialog ? resultSignature : null);
+    GameDialogRepository.close(isResultDialog ? resultSignature : null);
   }
 
   function handleDialogCancel(event: Event): void {
@@ -91,7 +91,7 @@
   }
 
   async function backToGameSelection(): Promise<void> {
-    GameDialogService.reset();
+    GameDialogRepository.reset();
     await goto(resolve("/"));
   }
 

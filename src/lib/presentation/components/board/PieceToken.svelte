@@ -1,6 +1,5 @@
 <script lang="ts">
-  import type { Piece } from "#lib/domain/entities/Piece.ts";
-  import { Player } from "#lib/domain/enums/Player.ts";
+  import { type Piece, pieceConfig, Player } from "#lib/domain/model.ts";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
   import { slide } from "svelte/transition";
 
@@ -24,9 +23,7 @@
 </script>
 
 <div class="relative flex flex-col items-center">
-  <!-- When selected, the token grows sideways only: -my-0.5 cancels the thicker border's
-       extra height in layout so pieces beside it do not move vertically, and the HP bar is
-       lifted visually to keep its gap above the scaled icon. -->
+  <!-- Selected tokens grow sideways only: -my-0.5 cancels the thicker border's height. -->
   <div
     class="bg-outline dark:bg-outline-dark mb-1 h-1 w-6 overflow-hidden rounded-full transition-transform duration-200 {isSelected
       ? '-translate-y-0.5'
@@ -40,7 +37,7 @@
 
   <div class="relative transition-transform duration-200 {isSelected ? 'scale-110' : ''}">
     <Icon
-      icon={piece.pieceType.config.iconName}
+      icon={pieceConfig(piece.pieceType).iconName}
       size={22}
       transition={slide}
       transitionParams={{ duration: 500, axis: "y" }}

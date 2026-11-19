@@ -1,10 +1,7 @@
 <script lang="ts">
   import type { TransitionConfig } from "svelte/transition";
-  import { CUSTOM_PIECE_ICONS, type IconShape } from "#lib/presentation/constants/CustomIcons.ts";
-  import {
-    MATERIAL_ICON_PATHS,
-    MATERIAL_ICON_VIEW_BOX,
-  } from "#lib/presentation/constants/MaterialIcons.ts";
+  import { CUSTOM_PIECE_ICONS, type IconShape } from "#lib/presentation/icons.ts";
+  import { MATERIAL_ICON_PATHS, MATERIAL_ICON_VIEW_BOX } from "#lib/presentation/icons.ts";
 
   type TransitionFunc = (node: Element, params: Record<string, unknown>) => TransitionConfig;
 
@@ -24,8 +21,6 @@
     transitionParams = {},
   }: Props = $props();
 
-  // Piece types with no Material Symbols equivalent (e.g. archer, siege) use a
-  // custom shape instead, consistently across every UI context — see CustomIcons.ts.
   let customIconShapes = $derived(CUSTOM_PIECE_ICONS[icon]);
   let materialIconPath = $derived(MATERIAL_ICON_PATHS[icon]);
 </script>

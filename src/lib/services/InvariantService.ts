@@ -1,56 +1,27 @@
-import { MOVEMENT_HOP_COST } from "#lib/domain/constants/GameConstants.ts";
-import { PieceType } from "#lib/domain/enums/PieceType.ts";
-import type {
-  ControllablePlayerSnapshot,
-  GameStateSnapshot,
-  PanelPositionSnapshot,
-  PieceSnapshot,
-  PieceTypeSnapshot,
-} from "#lib/domain/types/api.ts";
-import type { InvariantViolation } from "#lib/domain/types/invariant.ts";
+import { MOVEMENT_HOP_COST } from "#lib/domain/config.ts";
+import { pieceConfig, posKey, SIDES, type GameState, type Piece } from "#lib/domain/model.ts";
+import type { InvariantViolation, InvariantViolationType } from "#lib/domain/types.ts";
 
-/** Tolerance for fractional HP and movement points produced by proportional damage. */
-const FLOAT_TOLERANCE = 1e-9;
+/** Tolerance for fractional HP and movement points. */
+const EPSILON = 1e-9;
 
-const CONTROLLABLE_PLAYERS: ControllablePlayerSnapshot[] = ["self", "opponent"];
+const label = (piece: Piece) => `${piece.pieceType}#${piece.id}`;
+const violation = (
+  type: InvariantViolationType,
+  subject: string,
+  detail: string,
+): InvariantViolation => ({ type, key: `${type}:${subject}`, detail });
 
-const PIECE_TYPES: Record<PieceTypeSnapshot, PieceType> = {
-  infantry: PieceType.INFANTRY,
-  rook: PieceType.ROOK,
-  noble: PieceType.NOBLE,
-  archer: PieceType.ARCHER,
-  cavalry: PieceType.CAVALRY,
-  heavy: PieceType.HEAVY,
-  siege: PieceType.SIEGE,
-};
-
-/**
- * InvariantService — pure checks for rules that must hold after every game command.
- *
- * Works on transport snapshots only, so it can judge any state (live, restored, or
- * recorded) without touching repositories.
- */
+/** Rules that must hold after every command, judged on snapshots only. */
 export class InvariantService {
-  /** Every invariant violated by <snapshot>. */
-  static check(snapshot: GameStateSnapshot): InvariantViolation[] {
-    return [
-      ...this.checkPieces(snapshot),
-      ...this.checkPanels(snapshot),
-      ...this.checkResources(snapshot),
-    ];
+  static check(state: GameState): InvariantViolation[] {
+    return [...this.checkPieces(state), ...this.checkPanels(state), ...this.checkResources(state)];
   }
 
-  /**
-   * Violations that a command turning <before> into <after> introduced: state violations
-   * whose key did not already exist in <before>, plus transition violations.
-   */
-  static findIntroducedViolations(
-    before: GameStateSnapshot,
-    after: GameStateSnapshot,
-  ): InvariantViolation[] {
-    const existingKeys = new Set(this.check(before).map((violation) => violation.key));
-    const introduced = this.check(after).filter((violation) => !existingKeys.has(violation.key));
-
+  /** Violations whose key was not in <before>, plus state changes after the game ended. */
+  static findIntroducedViolations(before: GameState, after: GameState): InvariantViolation[] {
+    const existing = new Set(this.check(before).map((v) => v.key));
+    const introduced = this.check(after).filter((v) => !existing.has(v.key));
     if (before.turn.winner !== null && JSON.stringify(before) !== JSON.stringify(after)) {
       introduced.push({
         type: "state-changed-after-winner",
@@ -58,138 +29,125 @@ export class InvariantService {
         detail: `winner=${before.turn.winner} but the state changed`,
       });
     }
-
     return introduced;
   }
 
-  private static checkPieces(snapshot: GameStateSnapshot): InvariantViolation[] {
+  private static checkPieces(state: GameState): InvariantViolation[] {
     const violations: InvariantViolation[] = [];
-    const panelKeys = new Set(snapshot.panels.map((panel) => positionKey(panel.panelPosition)));
+    const panelKeys = new Set(state.panels.map((panel) => posKey(panel.panelPosition)));
     const seenIds = new Set<number>();
 
-    for (const piece of snapshot.pieces) {
-      const label = pieceLabel(piece);
-
+    for (const piece of state.pieces) {
       if (seenIds.has(piece.id)) {
-        violations.push({
-          type: "duplicate-piece-id",
-          key: `duplicate-piece-id:${piece.id}`,
-          detail: `piece id ${piece.id} is used more than once`,
-        });
+        violations.push(
+          violation(
+            "duplicate-piece-id",
+            `${piece.id}`,
+            `piece id ${piece.id} is used more than once`,
+          ),
+        );
       }
       seenIds.add(piece.id);
 
-      if (!(piece.hp > 0 && piece.hp <= piece.maxHp + FLOAT_TOLERANCE)) {
-        violations.push({
-          type: "piece-hp-out-of-range",
-          key: `piece-hp-out-of-range:${piece.id}`,
-          detail: `${label} hp=${piece.hp} maxHp=${piece.maxHp}`,
-        });
+      if (!(piece.hp > 0 && piece.hp <= piece.maxHp + EPSILON)) {
+        violations.push(
+          violation(
+            "piece-hp-out-of-range",
+            `${piece.id}`,
+            `${label(piece)} hp=${piece.hp} maxHp=${piece.maxHp}`,
+          ),
+        );
       }
 
-      const movementRate = PIECE_TYPES[piece.pieceType].config.movement;
-      const movementCap = Math.max(movementRate, MOVEMENT_HOP_COST);
-      if (piece.movementPoints < 0 || piece.movementPoints > movementCap + FLOAT_TOLERANCE) {
-        violations.push({
-          type: "movement-points-out-of-range",
-          key: `movement-points-out-of-range:${piece.id}`,
-          detail: `${label} movementPoints=${piece.movementPoints} cap=${movementCap}`,
-        });
+      const cap = Math.max(pieceConfig(piece.pieceType).movement, MOVEMENT_HOP_COST);
+      if (piece.movementPoints < 0 || piece.movementPoints > cap + EPSILON) {
+        violations.push(
+          violation(
+            "movement-points-out-of-range",
+            `${piece.id}`,
+            `${label(piece)} movementPoints=${piece.movementPoints} cap=${cap}`,
+          ),
+        );
       }
 
-      const positions: [string, PanelPositionSnapshot | undefined][] = [
-        ["panelPosition", piece.panelPosition],
-        ["targetPosition", piece.targetPosition],
-        ["rangedAttackTargetPosition", piece.rangedAttackTargetPosition],
-        ["transitPosition", piece.transitPosition],
-      ];
-      for (const [field, position] of positions) {
-        if (position && !panelKeys.has(positionKey(position))) {
-          violations.push({
-            type: "piece-off-board",
-            key: `piece-off-board:${piece.id}:${field}`,
-            detail: `${label} ${field}=(${positionKey(position)}) is not on the board`,
-          });
+      const fields = [
+        "panelPosition",
+        "targetPosition",
+        "rangedAttackTargetPosition",
+        "transitPosition",
+      ] as const;
+      for (const field of fields) {
+        const position = piece[field];
+        if (position && !panelKeys.has(posKey(position))) {
+          violations.push(
+            violation(
+              "piece-off-board",
+              `${piece.id}:${field}`,
+              `${label(piece)} ${field}=(${posKey(position)}) is not on the board`,
+            ),
+          );
         }
       }
     }
-
     return violations;
   }
 
-  private static checkPanels(snapshot: GameStateSnapshot): InvariantViolation[] {
+  private static checkPanels(state: GameState): InvariantViolation[] {
     const violations: InvariantViolation[] = [];
-    const piecesByPanel = new Map<string, PieceSnapshot[]>();
-    for (const piece of snapshot.pieces) {
-      const key = positionKey(piece.panelPosition);
-      piecesByPanel.set(key, [...(piecesByPanel.get(key) ?? []), piece]);
+    const byPanel = new Map<string, Piece[]>();
+    for (const piece of state.pieces) {
+      const key = posKey(piece.panelPosition);
+      byPanel.set(key, [...(byPanel.get(key) ?? []), piece]);
     }
 
-    for (const [panel, pieces] of piecesByPanel) {
-      const players = CONTROLLABLE_PLAYERS.filter((player) =>
-        pieces.some((piece) => piece.player === player),
-      );
-
+    for (const [panel, pieces] of byPanel) {
+      const players = SIDES.filter((side) => pieces.some((p) => p.player === side));
       if (players.length > 1) {
-        violations.push({
-          type: "mixed-players-on-panel",
-          key: `mixed-players-on-panel:${panel}`,
-          detail: `(${panel}) has pieces of both players: ${pieces.map(pieceLabel).join(", ")}`,
-        });
+        violations.push(
+          violation(
+            "mixed-players-on-panel",
+            panel,
+            `(${panel}) has pieces of both players: ${pieces.map(label).join(", ")}`,
+          ),
+        );
       }
 
       for (const player of players) {
-        const ownPieces = pieces.filter((piece) => piece.player === player);
-        const mergeablePieces = ownPieces.filter(
-          (piece) => PIECE_TYPES[piece.pieceType].config.mergeable,
-        );
-        const mergeableTypes = new Set(mergeablePieces.map((piece) => piece.pieceType));
-        const stackCount = ownPieces.length - mergeablePieces.length + mergeableTypes.size;
-        const maxPieces = snapshot.turn.maxPiecesPerPanel[player];
-
+        const own = pieces.filter((p) => p.player === player);
+        const mergeable = own.filter((p) => pieceConfig(p.pieceType).mergeable);
+        const types = new Set(mergeable.map((p) => p.pieceType));
+        const stackCount = own.length - mergeable.length + types.size;
+        const maxPieces = state.turn.maxPiecesPerPanel[player];
         if (stackCount > maxPieces) {
-          violations.push({
-            type: "piece-capacity-exceeded",
-            key: `piece-capacity-exceeded:${panel}:${player}`,
-            detail: `(${panel}) ${player}: ${stackCount} after merging, max ${maxPieces} (${ownPieces.map(pieceLabel).join(", ")})`,
-          });
-        }
-
-        for (const pieceType of mergeableTypes) {
-          // A piece between panels joins a same-type piece only once it arrives (or
-          // returns), so it is left out of the merge check while in transit.
-          const sameType = mergeablePieces.filter(
-            (piece) => piece.pieceType === pieceType && !piece.transitPosition,
+          violations.push(
+            violation(
+              "piece-capacity-exceeded",
+              `${panel}:${player}`,
+              `(${panel}) ${player}: ${stackCount} after merging, max ${maxPieces} (${own.map(label).join(", ")})`,
+            ),
           );
+        }
+        for (const type of types) {
+          // A piece in transit merges only once it arrives.
+          const sameType = mergeable.filter((p) => p.pieceType === type && !p.transitPosition);
           if (sameType.length > 1) {
-            violations.push({
-              type: "unmerged-pieces",
-              key: `unmerged-pieces:${panel}:${player}:${pieceType}`,
-              detail: `(${panel}) ${player}: ${sameType.map(pieceLabel).join(", ")} are not merged`,
-            });
+            violations.push(
+              violation(
+                "unmerged-pieces",
+                `${panel}:${player}:${type}`,
+                `(${panel}) ${player}: ${sameType.map(label).join(", ")} are not merged`,
+              ),
+            );
           }
         }
       }
     }
-
     return violations;
   }
 
-  private static checkResources(snapshot: GameStateSnapshot): InvariantViolation[] {
-    return CONTROLLABLE_PLAYERS.filter((player) => snapshot.turn.resources[player] < 0).map(
-      (player) => ({
-        type: "negative-resources",
-        key: `negative-resources:${player}`,
-        detail: `${player} resources=${snapshot.turn.resources[player]}`,
-      }),
+  private static checkResources(state: GameState): InvariantViolation[] {
+    return SIDES.filter((side) => state.turn.resources[side] < 0).map((side) =>
+      violation("negative-resources", side, `${side} resources=${state.turn.resources[side]}`),
     );
   }
-}
-
-function positionKey(position: PanelPositionSnapshot): string {
-  return `${position.horizontalLayer},${position.verticalLayer}`;
-}
-
-function pieceLabel(piece: PieceSnapshot): string {
-  return `${piece.pieceType}#${piece.id}`;
 }

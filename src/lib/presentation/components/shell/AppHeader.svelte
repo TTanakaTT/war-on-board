@@ -2,16 +2,18 @@
   import { tick } from "svelte";
   import { page } from "$app/state";
   import { GameApiClient } from "#lib/api/GameApiClient.ts";
-  import { MatchControlRepository } from "#lib/data/repositories/MatchControlRepository.ts";
-  import { TurnRepository } from "#lib/data/repositories/TurnRepository.ts";
+  import {
+    GameDialogRepository,
+    MatchControlRepository,
+    TurnRepository,
+  } from "#lib/store.svelte.ts";
   import { m } from "#lib/paraglide/messages.js";
   import DesktopGameHeaderControls from "#lib/presentation/components/game-header/DesktopGameHeaderControls.svelte";
   import MobileGameHeaderControls from "#lib/presentation/components/game-header/MobileGameHeaderControls.svelte";
   import IconButton from "#lib/presentation/components/primitives/IconButton.svelte";
-  import { DESKTOP_NAVIGATION_BREAKPOINT_PX } from "#lib/presentation/constants/UiConstants.ts";
-  import { playerDisplayName } from "#lib/presentation/matchPresentation.ts";
-  import { PIECE_TYPE_DISPLAY_ORDER } from "#lib/presentation/piecePresentation.ts";
-  import { GameDialogService } from "#lib/services/GameDialogService.ts";
+  import { DESKTOP_NAVIGATION_BREAKPOINT_PX } from "#lib/presentation/layout.ts";
+  import { PIECE_TYPES } from "#lib/domain/model.ts";
+  import { playerDisplayName } from "#lib/presentation/labels.ts";
   import { MatchService } from "#lib/services/MatchService.ts";
 
   let {
@@ -62,7 +64,7 @@
 
     return generationMode === "rear" ? "arrow_back" : "arrow_forward";
   });
-  const generateMenuPieceTypes = PIECE_TYPE_DISPLAY_ORDER;
+  const generateMenuPieceTypes = PIECE_TYPES;
   let controlsViewport = $state<HTMLDivElement | undefined>(undefined);
   let measurementStripFull = $state<HTMLDivElement | undefined>(undefined);
   let measurementStripCompact = $state<HTMLDivElement | undefined>(undefined);
@@ -81,7 +83,7 @@
   }
 
   function openLeaveDialog(): void {
-    GameDialogService.requestLeaveDialog();
+    GameDialogRepository.requestLeave();
   }
 
   async function updateHeaderDisplayMode(): Promise<void> {

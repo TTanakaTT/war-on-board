@@ -1,147 +1,208 @@
-import { Player } from "#lib/domain/enums/Player.ts";
 import { GameApi } from "#lib/api/GameApi.ts";
 import { GameApiClient } from "#lib/api/GameApiClient.ts";
-import type { PanelPosition } from "#lib/domain/entities/PanelPosition.ts";
-import type { AiStrength } from "#lib/domain/enums/AiStrength.ts";
-import type { PieceSnapshot } from "#lib/domain/types/api.ts";
-import { selectLookaheadTarget } from "#lib/services/ai/lookahead.ts";
+import { AI_SUPPORT_PIECE_CAP } from "#lib/domain/config.ts";
 import {
-  selectStrategicPieceType,
-  selectGenerationMode,
-} from "#lib/services/ai/pieceGeneration.ts";
-import { getStrengthProfile } from "#lib/services/ai/profiles.ts";
-import type { RandomSource } from "#lib/services/ai/random.ts";
-import { selectStrategicTarget } from "#lib/services/ai/targetScoring.ts";
-import type { AiStrengthProfile } from "#lib/services/ai/types.ts";
+  AiStrength,
+  opponentOf,
+  PIECE_TYPES,
+  pieceConfig,
+  PieceType,
+  Player,
+  type GameState,
+  type GenerationMode,
+  type PanelPosition,
+  type Piece,
+} from "#lib/domain/model.ts";
+import { shuffle, type RandomSource } from "#lib/services/ai/random.ts";
+import {
+  findHomeBase,
+  findPanel,
+  getSortedScoredTargets,
+  sortByScoreWithRandomTies,
+  type AiStrengthProfile,
+} from "#lib/services/ai/scoring.ts";
+
+const PREFERRED_PIECE_ORDER = [
+  PieceType.ROOK,
+  PieceType.INFANTRY,
+  PieceType.NOBLE,
+  PieceType.ARCHER,
+  PieceType.CAVALRY,
+  PieceType.HEAVY,
+  PieceType.SIEGE,
+];
+
+const LEVEL_1: AiStrengthProfile = {
+  moveSelection: "strategic",
+  generationModeSelection: "frontline",
+  lookaheadCandidateCount: 0,
+  lookaheadWeight: 0,
+  preferredPieceOrder: PREFERRED_PIECE_ORDER,
+  targetScoring: "standard",
+  pieceSelection: "standard",
+  combatAssertiveness: "aggressive",
+};
+const LEVEL_2: AiStrengthProfile = {
+  ...LEVEL_1,
+  moveSelection: "lookahead",
+  generationModeSelection: "adaptive-defense",
+  lookaheadCandidateCount: 3,
+  lookaheadWeight: 0.25,
+};
+const PROFILES: Record<AiStrength, AiStrengthProfile> = {
+  [AiStrength.STRENGTH_1]: LEVEL_1,
+  [AiStrength.STRENGTH_2]: LEVEL_2,
+  [AiStrength.STRENGTH_3]: {
+    ...LEVEL_2,
+    targetScoring: "home-side-growth",
+    pieceSelection: "infantry-balanced-support",
+    combatAssertiveness: "standard",
+  },
+};
 
 export class AiService {
   /**
-   * Execute an AI-controlled turn for the given player.
-   *
-   * 1. Assign moves for all pieces owned by the player according to the configured strength.
-   * 2. Attempt to generate a piece if affordable.
-   * 3. End the turn via GameApi.
-   *
-   * Whenever several choices share the best score, <random> picks one of them.
-   *
-   * Rejected commands (`ok: false`) only give up that one action:
-   * - `assignMove`: the piece keeps its current orders and the next piece is handled.
-   * - `setGenerationMode`: ignored; the turn carries on.
-   * - `generatePiece`: stops generating for the rest of this turn.
-   *
-   * If deciding the turn (assigning moves, choosing the generation mode, generating pieces)
-   * throws, the remaining decisions are skipped, while the orders and pieces already issued
-   * stay as they are. `endTurn` is then called exactly once either way, without retrying:
-   * - When it is rejected, this returns quietly; MatchService decides whether to halt.
-   * - When it throws, that exception propagates (a decision exception is dropped).
-   * - Otherwise the decision exception, if any, is rethrown after the turn has ended.
+   * Plays <player>'s turn: orders every piece, sets the generation mode, generates while
+   * possible, then ends the turn exactly once. A rejected command only skips that action
+   * (a rejected generation stops generating). If deciding throws, the rest is skipped, the
+   * turn still ends, and the error is rethrown afterwards. Ties are broken with <random>.
    */
   static doAiTurn(player: Player, strength: AiStrength, random: RandomSource) {
-    const gameState = GameApi.getGameState();
-    if (gameState.turn.player !== String(player) || gameState.turn.winner) return;
+    const state = GameApi.getGameState();
+    if (state.turn.player !== player || state.turn.winner) return;
+    const profile = PROFILES[strength] ?? LEVEL_1;
 
-    const profile = getStrengthProfile(strength);
-
-    let decisionFailure: { error: unknown } | null = null;
+    let failure: { error: unknown } | null = null;
     try {
       this.assignMoves(player, profile, random);
-      this.applyGenerationMode(player, profile);
-      this.generatePiece(player, profile, random);
+      GameApiClient.setGenerationMode(player, this.selectGenerationMode(player, profile));
+      this.generatePieces(player, profile, random);
     } catch (error) {
-      decisionFailure = { error };
+      failure = { error };
     }
-
     GameApiClient.endTurn(player);
+    if (failure) throw failure.error;
+  }
 
-    if (decisionFailure) {
-      throw decisionFailure.error;
+  private static assignMoves(player: Player, profile: AiStrengthProfile, random: RandomSource) {
+    const ids = GameApi.getGameState()
+      .pieces.filter((p) => p.player === player)
+      .map((p) => p.id);
+    for (const id of ids) {
+      const state = GameApi.getGameState();
+      const piece = state.pieces.find((p) => p.id === id);
+      const targets = GameApi.getMovableTargets(id);
+      if (!piece || targets.length === 0) continue;
+      const target =
+        profile.moveSelection === "lookahead"
+          ? this.selectLookaheadTarget(state, piece, targets, player, profile, random)
+          : (getSortedScoredTargets(state, piece, targets, profile, random)[0]?.target ??
+            targets[0]);
+      GameApiClient.assignMove(player, id, target);
     }
   }
 
-  private static assignMoves(
-    player: Player,
-    profile: AiStrengthProfile,
-    random: RandomSource,
-  ): void {
-    const pieces = GameApi.getGameState().pieces.filter((piece) => piece.player === String(player));
-
-    for (const piece of pieces) {
-      const latestGameState = GameApi.getGameState();
-      const latestPiece = latestGameState.pieces.find((candidate) => candidate.id === piece.id);
-      if (!latestPiece) continue;
-
-      const targets = GameApi.getMovableTargets(piece.id);
-      if (targets.length === 0) continue;
-
-      const selectedTarget = this.selectTarget(
-        latestGameState,
-        latestPiece,
-        targets,
-        player,
-        profile,
-        random,
-      );
-
-      const assignResult = GameApiClient.assignMove(player, piece.id, selectedTarget);
-      if (!assignResult.ok) {
-        // Rejected: leave this piece with its current orders and handle the next one.
-        continue;
-      }
-    }
-  }
-
-  private static generatePiece(
-    player: Player,
-    profile: AiStrengthProfile,
-    random: RandomSource,
-  ): void {
-    while (true) {
-      const gameState = GameApi.getGameState();
-      const currentResources = gameState.turn.resources[String(player)] ?? 0;
-      const preferredPieceType = selectStrategicPieceType(
-        gameState,
-        player,
-        currentResources,
-        profile.preferredPieceOrder,
-        profile,
-        random,
-      );
-
-      if (!preferredPieceType) {
-        return;
-      }
-
-      const generationResult = GameApiClient.generatePiece(player, preferredPieceType);
-      if (!generationResult.ok) {
-        // Rejected: give up generating for the rest of this turn.
-        return;
-      }
-    }
-  }
-
-  private static applyGenerationMode(player: Player, profile: AiStrengthProfile): void {
-    const gameState = GameApi.getGameState();
-    const generationMode = selectGenerationMode(gameState, player, profile);
-    const modeResult = GameApiClient.setGenerationMode(player, generationMode);
-    if (!modeResult.ok) {
-      // Rejected: keep the current generation mode and carry on with the turn.
-      return;
-    }
-  }
-
-  private static selectTarget(
-    gameState: ReturnType<typeof GameApi.getGameState>,
-    piece: PieceSnapshot,
+  /** Re-scores the best candidates by simulating the move and the end of the turn. */
+  private static selectLookaheadTarget(
+    state: GameState,
+    piece: Piece,
     targets: PanelPosition[],
     player: Player,
     profile: AiStrengthProfile,
     random: RandomSource,
   ): PanelPosition {
-    const targetSelectors = {
-      strategic: () => selectStrategicTarget(gameState, piece, targets, profile, random),
-      lookahead: () => selectLookaheadTarget(gameState, piece, targets, player, profile, random),
-    } satisfies Record<AiStrengthProfile["moveSelection"], () => PanelPosition>;
+    const candidates = getSortedScoredTargets(state, piece, targets, profile, random)
+      .slice(0, profile.lookaheadCandidateCount)
+      .map(({ target, score }) => ({
+        target,
+        score: score + this.simulate(state, player, piece.id, target) * profile.lookaheadWeight,
+      }));
+    return sortByScoreWithRandomTies(candidates, random)[0]?.target ?? targets[0];
+  }
 
-    return targetSelectors[profile.moveSelection]();
+  private static simulate(
+    state: GameState,
+    player: Player,
+    pieceId: number,
+    target: PanelPosition,
+  ): number {
+    const result = GameApi.withTemporaryGameState(state, () => {
+      if (!GameApi.assignMove(player, pieceId, target).ok) return Number.NEGATIVE_INFINITY;
+      if (!GameApi.endTurn(player).ok) return Number.NEGATIVE_INFINITY;
+      return this.scoreBoard(GameApi.getGameState(), player);
+    });
+    return result.ok ? result.value : Number.NEGATIVE_INFINITY;
+  }
+
+  static scoreBoard(state: GameState, player: Player): number {
+    if (state.turn.winner === player) return 5000;
+    if (state.turn.winner === opponentOf(player)) return -5000;
+    const sign = (owner: Player) => (owner === player ? 1 : owner === Player.UNKNOWN ? 0 : -1);
+    const typeValue = (p: Piece) =>
+      p.pieceType === PieceType.ROOK ? 18 : p.pieceType === PieceType.INFANTRY ? 16 : 12;
+
+    const pieces = state.pieces.reduce(
+      (sum, p) =>
+        sum + (p.player === player ? 1 : -1) * (typeValue(p) + p.hp * 2 + p.stackCount * 3),
+      0,
+    );
+    const panels = state.panels.reduce(
+      (sum, p) => sum + sign(p.player) * (8 + p.resource * 4 + p.castle * 2),
+      0,
+    );
+    const homes = state.homeBases.reduce((sum, h) => {
+      const panel = findPanel(state, h.panelPosition);
+      return panel ? sum + (h.player === player ? 1 : -1) * panel.castle * 3 : sum;
+    }, 0);
+    return pieces + panels + homes;
+  }
+
+  private static generatePieces(player: Player, profile: AiStrengthProfile, random: RandomSource) {
+    for (;;) {
+      const pieceType = this.selectPieceType(player, profile, random);
+      if (!pieceType || !GameApiClient.generatePiece(player, pieceType).ok) return;
+    }
+  }
+
+  /** First missing Noble/Infantry/Rook, else the least numerous affordable type. */
+  private static selectPieceType(
+    player: Player,
+    profile: AiStrengthProfile,
+    random: RandomSource,
+  ): PieceType | null {
+    const state = GameApi.getGameState();
+    const resources = state.turn.resources[player] ?? 0;
+    const counts = Object.fromEntries(PIECE_TYPES.map((t) => [t, 0])) as Record<PieceType, number>;
+    for (const p of state.pieces) if (p.player === player) counts[p.pieceType] += 1;
+
+    const available = profile.preferredPieceOrder.filter(
+      (type) =>
+        pieceConfig(type).cost <= resources &&
+        GameApi.canGenerate(player, type) &&
+        (profile.pieceSelection !== "infantry-balanced-support" ||
+          type === PieceType.INFANTRY ||
+          (counts[type] < AI_SUPPORT_PIECE_CAP && counts[type] <= counts.infantry)),
+    );
+    if (available.length === 0) return null;
+    for (const first of [PieceType.NOBLE, PieceType.INFANTRY, PieceType.ROOK]) {
+      if (counts[first] === 0 && available.includes(first)) return first;
+    }
+    return shuffle(available, random).sort((a, b) => counts[a] - counts[b])[0];
+  }
+
+  /** "adaptive-defense" generates at the rear while an enemy is on its home side. */
+  private static selectGenerationMode(player: Player, profile: AiStrengthProfile): GenerationMode {
+    if (profile.generationModeSelection === "frontline") return "front";
+    const state = GameApi.getGameState();
+    const home = findHomeBase(state, player)?.panelPosition;
+    const enemyHome = findHomeBase(state, opponentOf(player))?.panelPosition;
+    if (!home || !enemyHome) return "front";
+    const intruded = state.pieces.some(
+      (p) =>
+        p.player !== player &&
+        Math.abs(p.panelPosition.horizontalLayer - home.horizontalLayer) <
+          Math.abs(p.panelPosition.horizontalLayer - enemyHome.horizontalLayer),
+    );
+    return intruded ? "rear" : "front";
   }
 }
