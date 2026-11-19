@@ -91,6 +91,7 @@
   let width = $state(0);
   let svg = $state<SVGSVGElement | undefined>(undefined);
   let hoveredIndex = $state<number | null>(null);
+  let pinnedIndex = $state<number | null>(null);
 
   let entries = $derived(matchHistory.entries);
   let chartMode = $derived(CHART_MODES[mode]);
@@ -141,10 +142,11 @@
     );
   });
 
-  // The readout shows the last entry until a point is hovered.
-  let shownIndex = $derived(hoveredIndex ?? entries.length - 1);
+  // A click or tap pins a point; mouse hover previews another without moving the pin.
+  let activeIndex = $derived(hoveredIndex ?? pinnedIndex);
+  let activeEntry = $derived(activeIndex === null ? undefined : entries[activeIndex]);
+  let shownIndex = $derived(activeIndex ?? entries.length - 1);
   let shownEntry = $derived(entries[shownIndex]);
-  let hoveredEntry = $derived(hoveredIndex === null ? undefined : entries[hoveredIndex]);
 
   function niceStep(rough: number): number {
     const magnitude = 10 ** Math.floor(Math.log10(rough));
@@ -188,23 +190,28 @@
       : "fill-player-opponent stroke-player-self";
   }
 
-  function metricHeader(metric: Metric): string {
-    return metric.axis === "left"
-      ? m.history_axis_left({ label: metric.label() })
-      : m.history_axis_right({ label: metric.label() });
-  }
-
-  function updateHoveredIndex(event: PointerEvent): void {
-    if (!svg || entries.length === 0) return;
+  function indexAt(event: PointerEvent): number | null {
+    if (!svg || entries.length === 0) return null;
     const offsetX = event.clientX - svg.getBoundingClientRect().left;
     const ratio = plotWidth > 0 ? (offsetX - plotLeft) / plotWidth : 0;
     const index = Math.round(ratio * (entries.length - 1));
-    hoveredIndex = Math.min(entries.length - 1, Math.max(0, index));
+    return Math.min(entries.length - 1, Math.max(0, index));
   }
 
-  // A touch keeps its readout after the finger lifts; a mouse clears it on leaving.
-  function clearHoveredIndex(event: PointerEvent): void {
-    if (event.pointerType === "mouse") hoveredIndex = null;
+  function handlePointerDown(event: PointerEvent): void {
+    pinnedIndex = indexAt(event);
+  }
+
+  function handlePointerMove(event: PointerEvent): void {
+    if (event.pointerType === "mouse" && event.buttons === 0) {
+      hoveredIndex = indexAt(event);
+    } else {
+      pinnedIndex = indexAt(event);
+    }
+  }
+
+  function handlePointerLeave(): void {
+    hoveredIndex = null;
   }
 </script>
 
@@ -217,175 +224,179 @@
     onChange={(value) => (mode = value as ChartMode)}
   />
 
-  {#if shownEntry}
-    <table class="w-full border-collapse text-xs">
-      <caption class="pb-1 text-left font-semibold tabular-nums">
-        {pointLabel(shownIndex, shownEntry)}
-      </caption>
-      <thead>
-        <tr class="border-outline dark:border-outline-dark border-b">
-          <td></td>
-          {#each metrics as metric (metric.key)}
-            <th scope="col" class="px-2 py-1 text-right font-medium">{metricHeader(metric)}</th>
-          {/each}
-        </tr>
-      </thead>
-      <tbody>
-        {#each SIDES as side (side)}
-          <tr>
-            <th scope="row" class="py-1 pr-2 text-left font-medium whitespace-nowrap">
-              {seatLabel(side)}
-            </th>
+  <div class="grid gap-1">
+    {#if shownEntry}
+      <table class="w-full border-collapse text-xs">
+        <thead>
+          <tr class="border-outline dark:border-outline-dark border-b">
+            <td class="py-1 pr-2 font-semibold whitespace-nowrap tabular-nums">
+              {pointLabel(shownIndex, shownEntry)}
+            </td>
             {#each metrics as metric (metric.key)}
-              <td class="px-2 py-1">
-                <span class="flex items-center justify-end gap-2">
-                  <span class="bg-player-card-surface inline-flex rounded p-1">
-                    <svg width={HISTORY_CHART_LEGEND_LINE_PX} height={HISTORY_CHART_LINE_WIDTH_PX}>
-                      <line
-                        x1="0"
-                        y1={HISTORY_CHART_LINE_WIDTH_PX / 2}
-                        x2={HISTORY_CHART_LEGEND_LINE_PX}
-                        y2={HISTORY_CHART_LINE_WIDTH_PX / 2}
-                        class={lineClass(side)}
-                        stroke-width={HISTORY_CHART_LINE_WIDTH_PX}
-                        stroke-dasharray={metric.dashed ? HISTORY_CHART_DASH_ARRAY : undefined}
-                      />
-                    </svg>
-                  </span>
-                  <span class="font-semibold tabular-nums">{shownEntry[metric.key][side]}</span>
-                </span>
-              </td>
+              <th scope="col" class="px-2 py-1 text-right font-medium">{metric.label()}</th>
             {/each}
           </tr>
-        {/each}
-      </tbody>
-    </table>
-  {/if}
-
-  <div bind:clientWidth={width}>
-    {#if width > 0}
-      <svg
-        bind:this={svg}
-        {width}
-        height={HISTORY_CHART_HEIGHT_PX}
-        class="block text-xs select-none"
-        role="img"
-        aria-label={chartMode.label()}
-      >
-        <rect
-          x={plotLeft}
-          y={plotTop}
-          width={plotWidth}
-          height={plotBottom - plotTop}
-          class="fill-player-card-surface"
-        />
-
-        {#if chartMode.axisTitles.left}
-          <text
-            x="0"
-            y={plotTop - HISTORY_CHART_AXIS_TITLE_GAP_PX}
-            class="fill-onsurface dark:fill-onsurface-dark font-semibold"
-            >{chartMode.axisTitles.left()}</text
-          >
-        {/if}
-        {#if chartMode.axisTitles.right}
-          <text
-            x={width}
-            y={plotTop - HISTORY_CHART_AXIS_TITLE_GAP_PX}
-            text-anchor="end"
-            class="fill-onsurface dark:fill-onsurface-dark font-semibold"
-            >{chartMode.axisTitles.right()}</text
-          >
-        {/if}
-
-        {#each axes.left?.ticks ?? [] as tick (tick)}
-          <line
-            x1={plotLeft}
-            x2={plotRight}
-            y1={yAt("left", tick)}
-            y2={yAt("left", tick)}
-            class="stroke-player-self/25"
-          />
-          <text
-            x={plotLeft - HISTORY_CHART_LABEL_GAP_PX}
-            y={yAt("left", tick)}
-            text-anchor="end"
-            dominant-baseline="middle"
-            class="fill-onsurface dark:fill-onsurface-dark">{tick}</text
-          >
-        {/each}
-
-        {#each axes.right?.ticks ?? [] as tick (tick)}
-          <text
-            x={plotRight + HISTORY_CHART_LABEL_GAP_PX}
-            y={yAt("right", tick)}
-            dominant-baseline="middle"
-            class="fill-onsurface dark:fill-onsurface-dark">{tick}</text
-          >
-        {/each}
-
-        {#each xTicks as tick (tick.index)}
-          <text
-            x={xAt(tick.index)}
-            y={plotBottom + HISTORY_CHART_LABEL_GAP_PX}
-            text-anchor="middle"
-            dominant-baseline="hanging"
-            class="fill-onsurface dark:fill-onsurface-dark">{tick.turn}</text
-          >
-        {/each}
-        <text
-          x={plotRight}
-          y={HISTORY_CHART_HEIGHT_PX}
-          text-anchor="end"
-          dominant-baseline="text-after-edge"
-          class="fill-onsurface dark:fill-onsurface-dark font-semibold"
-          >{m.history_turn_label()}</text
-        >
-
-        {#each series as line (line.id)}
-          <polyline
-            points={line.points}
-            fill="none"
-            class={lineClass(line.side)}
-            stroke-width={HISTORY_CHART_LINE_WIDTH_PX}
-            stroke-linejoin="round"
-            stroke-dasharray={line.dashed ? HISTORY_CHART_DASH_ARRAY : undefined}
-          />
-        {/each}
-
-        {#if hoveredEntry && hoveredIndex !== null}
-          <line
-            x1={xAt(hoveredIndex)}
-            x2={xAt(hoveredIndex)}
-            y1={plotTop}
-            y2={plotBottom}
-            class="stroke-onsurface dark:stroke-onsurface-dark"
-          />
-          {#each metrics as metric (metric.key)}
-            {#each SIDES as side (side)}
-              <circle
-                cx={xAt(hoveredIndex)}
-                cy={yAt(metric.axis, hoveredEntry[metric.key][side])}
-                r={HISTORY_CHART_POINT_RADIUS_PX}
-                class={pointClass(side)}
-              />
-            {/each}
+        </thead>
+        <tbody>
+          {#each SIDES as side (side)}
+            <tr>
+              <th scope="row" class="py-1 pr-2 text-left font-medium whitespace-nowrap">
+                {seatLabel(side)}
+              </th>
+              {#each metrics as metric (metric.key)}
+                <td class="px-2 py-1">
+                  <span class="flex items-center justify-end gap-2">
+                    <span class="bg-player-card-surface inline-flex rounded p-1">
+                      <svg
+                        width={HISTORY_CHART_LEGEND_LINE_PX}
+                        height={HISTORY_CHART_LINE_WIDTH_PX}
+                      >
+                        <line
+                          x1="0"
+                          y1={HISTORY_CHART_LINE_WIDTH_PX / 2}
+                          x2={HISTORY_CHART_LEGEND_LINE_PX}
+                          y2={HISTORY_CHART_LINE_WIDTH_PX / 2}
+                          class={lineClass(side)}
+                          stroke-width={HISTORY_CHART_LINE_WIDTH_PX}
+                          stroke-dasharray={metric.dashed ? HISTORY_CHART_DASH_ARRAY : undefined}
+                        />
+                      </svg>
+                    </span>
+                    <span class="font-semibold tabular-nums">{shownEntry[metric.key][side]}</span>
+                  </span>
+                </td>
+              {/each}
+            </tr>
           {/each}
-        {/if}
-
-        <rect
-          x={plotLeft}
-          y={plotTop}
-          width={plotWidth}
-          height={plotBottom - plotTop}
-          fill="transparent"
-          class="cursor-crosshair touch-pan-y"
-          role="presentation"
-          onpointerdown={updateHoveredIndex}
-          onpointermove={updateHoveredIndex}
-          onpointerleave={clearHoveredIndex}
-        />
-      </svg>
+        </tbody>
+      </table>
     {/if}
+
+    <div bind:clientWidth={width}>
+      {#if width > 0}
+        <svg
+          bind:this={svg}
+          {width}
+          height={HISTORY_CHART_HEIGHT_PX}
+          class="block text-xs select-none"
+          role="img"
+          aria-label={chartMode.label()}
+        >
+          <rect
+            x={plotLeft}
+            y={plotTop}
+            width={plotWidth}
+            height={plotBottom - plotTop}
+            class="fill-player-card-surface"
+          />
+
+          {#if chartMode.axisTitles.left}
+            <text
+              x="0"
+              y={plotTop - HISTORY_CHART_AXIS_TITLE_GAP_PX}
+              class="fill-onsurface dark:fill-onsurface-dark font-semibold"
+              >{chartMode.axisTitles.left()}</text
+            >
+          {/if}
+          {#if chartMode.axisTitles.right}
+            <text
+              x={width}
+              y={plotTop - HISTORY_CHART_AXIS_TITLE_GAP_PX}
+              text-anchor="end"
+              class="fill-onsurface dark:fill-onsurface-dark font-semibold"
+              >{chartMode.axisTitles.right()}</text
+            >
+          {/if}
+
+          {#each axes.left?.ticks ?? [] as tick (tick)}
+            <line
+              x1={plotLeft}
+              x2={plotRight}
+              y1={yAt("left", tick)}
+              y2={yAt("left", tick)}
+              class="stroke-player-self/25"
+            />
+            <text
+              x={plotLeft - HISTORY_CHART_LABEL_GAP_PX}
+              y={yAt("left", tick)}
+              text-anchor="end"
+              dominant-baseline="middle"
+              class="fill-onsurface dark:fill-onsurface-dark">{tick}</text
+            >
+          {/each}
+
+          {#each axes.right?.ticks ?? [] as tick (tick)}
+            <text
+              x={plotRight + HISTORY_CHART_LABEL_GAP_PX}
+              y={yAt("right", tick)}
+              dominant-baseline="middle"
+              class="fill-onsurface dark:fill-onsurface-dark">{tick}</text
+            >
+          {/each}
+
+          {#each xTicks as tick (tick.index)}
+            <text
+              x={xAt(tick.index)}
+              y={plotBottom + HISTORY_CHART_LABEL_GAP_PX}
+              text-anchor="middle"
+              dominant-baseline="hanging"
+              class="fill-onsurface dark:fill-onsurface-dark">{tick.turn}</text
+            >
+          {/each}
+          <text
+            x={plotRight}
+            y={HISTORY_CHART_HEIGHT_PX}
+            text-anchor="end"
+            dominant-baseline="text-after-edge"
+            class="fill-onsurface dark:fill-onsurface-dark font-semibold"
+            >{m.history_turn_label()}</text
+          >
+
+          {#each series as line (line.id)}
+            <polyline
+              points={line.points}
+              fill="none"
+              class={lineClass(line.side)}
+              stroke-width={HISTORY_CHART_LINE_WIDTH_PX}
+              stroke-linejoin="round"
+              stroke-dasharray={line.dashed ? HISTORY_CHART_DASH_ARRAY : undefined}
+            />
+          {/each}
+
+          {#if activeEntry && activeIndex !== null}
+            <line
+              x1={xAt(activeIndex)}
+              x2={xAt(activeIndex)}
+              y1={plotTop}
+              y2={plotBottom}
+              class="stroke-onsurface dark:stroke-onsurface-dark"
+            />
+            {#each metrics as metric (metric.key)}
+              {#each SIDES as side (side)}
+                <circle
+                  cx={xAt(activeIndex)}
+                  cy={yAt(metric.axis, activeEntry[metric.key][side])}
+                  r={HISTORY_CHART_POINT_RADIUS_PX}
+                  class={pointClass(side)}
+                />
+              {/each}
+            {/each}
+          {/if}
+
+          <rect
+            x={plotLeft}
+            y={plotTop}
+            width={plotWidth}
+            height={plotBottom - plotTop}
+            fill="transparent"
+            class="cursor-crosshair touch-pan-y"
+            role="presentation"
+            onpointerdown={handlePointerDown}
+            onpointermove={handlePointerMove}
+            onpointerleave={handlePointerLeave}
+          />
+        </svg>
+      {/if}
+    </div>
   </div>
 </div>

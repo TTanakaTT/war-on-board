@@ -39,8 +39,6 @@
   "history_metric_total_produced_resources": "Total Resources Gained",
   "history_metric_total_built_castle": "Total Walls Built",
   "history_metric_wall_total": "Walls",
-  "history_axis_left": "{label} (left axis)",
-  "history_axis_right": "{label} (right axis)",
   "history_point_turn": "Turn {turn} · {player}",
   "history_point_final": "Turn {turn} · Final",
   "history_winner_label": "Winner",
