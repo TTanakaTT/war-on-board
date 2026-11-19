@@ -223,8 +223,8 @@ export const liveCombatUnitCounts = (pieces: readonly Piece[]): PieceTypeCount[]
       .reduce((sum, p) => sum + p.stackCount, 0),
   }));
 
-export const deadCombatUnitCounts = (dead: Record<PieceType, number>): PieceTypeCount[] =>
-  COMBAT_UNIT_TYPES.map((pieceType) => ({ pieceType, count: dead[pieceType] }));
+export const lostCombatUnitCounts = (lost: Record<PieceType, number>): PieceTypeCount[] =>
+  COMBAT_UNIT_TYPES.map((pieceType) => ({ pieceType, count: lost[pieceType] }));
 
 /** Total cost of the units. */
 export const armyPower = (counts: readonly PieceTypeCount[]) =>

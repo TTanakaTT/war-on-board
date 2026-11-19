@@ -1,7 +1,7 @@
 import { GameApi } from "#lib/api/GameApi.ts";
 import {
   armyPower,
-  deadCombatUnitCounts,
+  lostCombatUnitCounts,
   liveCombatUnitCounts,
   type GameState,
   type Panel,
@@ -38,15 +38,15 @@ export class MatchHistoryService {
         capturedAtTurn,
         turnPlayer: snapshot.turn.player,
         resources: bySide((side) => snapshot.turn.resources[side] ?? 0),
-        totalProducedResources: bySide((side) => stats[side].totalProducedResources),
-        wallTotals: this.sumOwnedPanels(snapshot, (panel) => panel.castle),
+        totalGainedResources: bySide((side) => stats[side].totalGainedResources),
+        totalCastle: this.sumOwnedPanels(snapshot, (panel) => panel.castle),
         totalBuiltCastle: bySide((side) => stats[side].totalBuiltCastle),
         occupiedPanels: this.sumOwnedPanels(snapshot, () => 1),
         armyPower: bySide((side) =>
           armyPower(liveCombatUnitCounts(snapshot.pieces.filter((p) => p.player === side))),
         ),
         lostArmyPower: bySide((side) =>
-          armyPower(deadCombatUnitCounts(stats[side].deadUnitCounts)),
+          armyPower(lostCombatUnitCounts(stats[side].lostUnitCounts)),
         ),
       })),
     };

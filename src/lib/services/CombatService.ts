@@ -37,7 +37,7 @@ export class CombatService {
         PiecesRepository.update({ ...piece, hp: newHp });
         continue;
       }
-      MatchStatsRepository.addDeadUnits(piece.player, piece.pieceType, piece.stackCount);
+      MatchStatsRepository.addLostUnits(piece.player, piece.pieceType, piece.stackCount);
       PiecesRepository.remove(piece);
       deadIds.add(piece.id);
     }

@@ -74,7 +74,7 @@ describe("initializeGame", () => {
     expect(PiecesRepository.getAll()).toEqual([]);
     expect(TurnRepository.get().player).toBe(Player.SELF);
     expect(GameApi.getGameStateHistory()).toHaveLength(1);
-    expect(MatchStatsRepository.get().self.totalProducedResources).toBe(
+    expect(MatchStatsRepository.get().self.totalGainedResources).toBe(
       PLAYER_INIT_RESOURCE + HOME_BASE_INIT_RESOURCE,
     );
   });
@@ -349,7 +349,7 @@ describe.each(SIDES)("endTurn (%s)", (player) => {
     expect(exists(2)).toBe(false);
     expect(piece(3).panelPosition).toEqual(pos(0, 1));
     expect(panel(pos(0, 1)).player).toBe(player);
-    expect(MatchStatsRepository.get()[enemy].deadUnitCounts.infantry).toBe(1);
+    expect(MatchStatsRepository.get()[enemy].lostUnitCounts.infantry).toBe(1);
   });
 
   test("capturing the enemy home base wins", () => {
@@ -576,10 +576,10 @@ describe("state snapshots", () => {
     const atStart = MatchStatsRepository.get();
     expect(GameApi.getGameStateHistory()[0].stats).toEqual(atStart);
 
-    MatchStatsRepository.addDeadUnits(player, PieceType.INFANTRY, 1);
+    MatchStatsRepository.addLostUnits(player, PieceType.INFANTRY, 1);
     GameApi.endTurn(player);
     const afterEndTurn = MatchStatsRepository.get();
-    expect(afterEndTurn[player].deadUnitCounts[PieceType.INFANTRY]).toBe(1);
+    expect(afterEndTurn[player].lostUnitCounts[PieceType.INFANTRY]).toBe(1);
     expect(GameApi.getGameStateHistory()[1].stats).toEqual(afterEndTurn);
 
     MatchStatsRepository.addBuiltCastle(player, 5);

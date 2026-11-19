@@ -332,7 +332,7 @@ export class GameApi {
       ...turn,
       resources: { ...turn.resources, [player]: (turn.resources[player] ?? 0) + total },
     });
-    MatchStatsRepository.addProducedResources(player, total);
+    MatchStatsRepository.addGainedResources(player, total);
   }
 
   /** A home base owned by the other side means that side won. */

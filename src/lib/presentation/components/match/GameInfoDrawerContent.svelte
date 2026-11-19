@@ -8,7 +8,7 @@
   } from "#lib/store.svelte.ts";
   import {
     armyPower,
-    deadCombatUnitCounts,
+    lostCombatUnitCounts,
     liveCombatUnitCounts,
     pieceConfig,
     Player,
@@ -25,14 +25,14 @@
     label: string;
     resources: number;
     resourceIncome: number;
-    totalProducedResources: number;
+    totalGainedResources: number;
     totalCastle: number;
     totalBuiltCastle: number;
     occupiedPanels: number;
     armyPower: number;
     lostArmyPower: number;
     visibleLiveUnitCounts: PieceTypeCount[];
-    visibleDeadUnitCounts: PieceTypeCount[];
+    visibleLostUnitCounts: PieceTypeCount[];
   }
 
   interface Props {
@@ -54,21 +54,21 @@
     const ownedPieces = pieces.filter((piece) => piece.player === player);
     const playerStats = matchStats[playerId];
     const liveCounts = liveCombatUnitCounts(ownedPieces);
-    const deadCounts = deadCombatUnitCounts(playerStats.deadUnitCounts);
+    const lostCounts = lostCombatUnitCounts(playerStats.lostUnitCounts);
 
     return {
       id: playerId,
       label: playerDisplayName(player, matchControl.controllers, matchControl.aiStrengths),
       resources: turn.resources[String(player)] ?? 0,
       resourceIncome: ownedPanels.reduce((sum, panel) => sum + panel.resource, 0),
-      totalProducedResources: playerStats.totalProducedResources,
+      totalGainedResources: playerStats.totalGainedResources,
       totalCastle: ownedPanels.reduce((sum, panel) => sum + panel.castle, 0),
       totalBuiltCastle: playerStats.totalBuiltCastle,
       occupiedPanels: ownedPanels.length,
       armyPower: armyPower(liveCounts),
-      lostArmyPower: armyPower(deadCounts),
+      lostArmyPower: armyPower(lostCounts),
       visibleLiveUnitCounts: visiblePieceTypeCounts(liveCounts),
-      visibleDeadUnitCounts: visiblePieceTypeCounts(deadCounts),
+      visibleLostUnitCounts: visiblePieceTypeCounts(lostCounts),
     };
   }
 
@@ -140,17 +140,21 @@
           <dd class="font-semibold">{card.resources} (+{card.resourceIncome})</dd>
         </div>
         <div class="flex items-center justify-between gap-4">
-          <dt class="flex items-center gap-2 {infoLabelClass(card.id)}">
+          <dt
+            class="flex items-center gap-2 {infoLabelClass(card.id)}"
+            title={m.total_castle_label()}
+          >
+            <span class="sr-only">{m.total_castle_label()}</span>
             <Icon icon="castle" size={18} />
           </dt>
           <dd class="font-semibold">{card.totalCastle}</dd>
         </div>
         <div class="flex items-center justify-between gap-4">
           <dt class="flex items-center gap-2 {infoLabelClass(card.id)}">
-            <span>{m.total_produced_resources_label()}</span>
+            <span>{m.total_gained_resources_label()}</span>
             <Icon icon="home" size={18} />
           </dt>
-          <dd class="font-semibold">{card.totalProducedResources}</dd>
+          <dd class="font-semibold">{card.totalGainedResources}</dd>
         </div>
         <div class="flex items-center justify-between gap-4">
           <dt class="flex items-center gap-2 {infoLabelClass(card.id)}">
@@ -173,7 +177,7 @@
           card.id,
           m.lost_army_power_label(),
           card.lostArmyPower,
-          card.visibleDeadUnitCounts,
+          card.visibleLostUnitCounts,
         )}
       </dl>
     </section>

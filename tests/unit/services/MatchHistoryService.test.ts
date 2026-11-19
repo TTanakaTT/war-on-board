@@ -16,8 +16,8 @@ describe.each(SIDES)("MatchHistoryService (%s)", (player) => {
       aiSeeds: { [player]: 1, [enemy]: 2 } as never,
     });
     add(1, pos(0, 0), player, { stackCount: 3 });
-    MatchStatsRepository.addDeadUnits(enemy, PieceType.INFANTRY, 2);
-    MatchStatsRepository.addProducedResources(player, 7);
+    MatchStatsRepository.addLostUnits(enemy, PieceType.INFANTRY, 2);
+    MatchStatsRepository.addGainedResources(player, 7);
     MatchStatsRepository.addBuiltCastle(enemy, 4);
     GameApi.endTurn(player);
     const stats = MatchStatsRepository.get();
@@ -35,11 +35,11 @@ describe.each(SIDES)("MatchHistoryService (%s)", (player) => {
       capturedAtTurn: snapshot.turn.num,
       turnPlayer: enemy,
       resources: snapshot.turn.resources,
-      totalProducedResources: {
-        [player]: stats[player].totalProducedResources,
-        [enemy]: stats[enemy].totalProducedResources,
+      totalGainedResources: {
+        [player]: stats[player].totalGainedResources,
+        [enemy]: stats[enemy].totalGainedResources,
       },
-      wallTotals: { [player]: 10, [enemy]: 10 },
+      totalCastle: { [player]: 10, [enemy]: 10 },
       totalBuiltCastle: {
         [player]: stats[player].totalBuiltCastle,
         [enemy]: stats[enemy].totalBuiltCastle,
@@ -48,7 +48,7 @@ describe.each(SIDES)("MatchHistoryService (%s)", (player) => {
       armyPower: { [player]: 24, [enemy]: 0 },
       lostArmyPower: { [player]: 0, [enemy]: 16 },
     });
-    expect(entry.totalProducedResources[player]).not.toBe(entry.totalProducedResources[enemy]);
+    expect(entry.totalGainedResources[player]).not.toBe(entry.totalGainedResources[enemy]);
     expect(entry.totalBuiltCastle[player]).not.toBe(entry.totalBuiltCastle[enemy]);
   });
 });

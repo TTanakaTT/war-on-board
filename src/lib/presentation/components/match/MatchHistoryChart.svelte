@@ -4,10 +4,10 @@
   import { m } from "#lib/paraglide/messages.js";
   import { seatLabel } from "#lib/presentation/labels.ts";
   import {
-    HISTORY_CHART_AXIS_TITLE_GAP_PX,
     HISTORY_CHART_DASH_ARRAY,
     HISTORY_CHART_HEIGHT_PX,
     HISTORY_CHART_LABEL_GAP_PX,
+    HISTORY_CHART_LABEL_ICON_PX,
     HISTORY_CHART_LEGEND_DASH_ARRAY,
     HISTORY_CHART_LEGEND_LINE_PX,
     HISTORY_CHART_LEGEND_LINE_WIDTH_PX,
@@ -18,24 +18,28 @@
     HISTORY_CHART_TARGET_Y_TICKS,
   } from "#lib/presentation/layout.ts";
   import HorizontalRadioGroup from "#lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
+  import Icon from "#lib/presentation/components/primitives/Icon.svelte";
 
   type Entry = MatchHistoryExport["entries"][number];
   type MetricKey = {
     [K in keyof Entry]: Entry[K] extends BySide<number> ? K : never;
   }[keyof Entry];
   type Axis = "left" | "right";
-  type ChartMode = "totals" | "army" | "territory";
+  type ChartMode = "growth" | "army" | "territory";
 
+  /** Labelled like the info panel: an icon stands in for the noun where one exists. */
   interface Metric {
     key: MetricKey;
     label: () => string;
+    icon?: string;
+    /** Shows only the icon; the label stays as its accessible name. */
+    iconOnly?: boolean;
     axis: Axis;
     dashed: boolean;
   }
 
   interface ChartModeDefinition {
     label: () => string;
-    axisTitles: Partial<Record<Axis, () => string>>;
     metrics: Metric[];
   }
 
@@ -45,22 +49,20 @@
   }
 
   const CHART_MODES: Record<ChartMode, ChartModeDefinition> = {
-    totals: {
-      label: m.history_chart_mode_totals,
-      axisTitles: {
-        left: m.history_metric_total_produced_resources,
-        right: m.history_metric_total_built_castle,
-      },
+    growth: {
+      label: m.history_chart_mode_growth,
       metrics: [
         {
-          key: "totalProducedResources",
-          label: m.history_metric_total_produced_resources,
+          key: "totalGainedResources",
+          label: m.total_gained_resources_label,
+          icon: "home",
           axis: "left",
           dashed: false,
         },
         {
           key: "totalBuiltCastle",
-          label: m.history_metric_total_built_castle,
+          label: m.total_built_castle_label,
+          icon: "castle",
           axis: "right",
           dashed: true,
         },
@@ -68,7 +70,6 @@
     },
     army: {
       label: m.history_chart_mode_army,
-      axisTitles: { left: m.army_power_label },
       metrics: [
         { key: "armyPower", label: m.army_power_label, axis: "left", dashed: false },
         { key: "lostArmyPower", label: m.lost_army_power_label, axis: "left", dashed: true },
@@ -76,20 +77,26 @@
     },
     territory: {
       label: m.history_chart_mode_territory,
-      axisTitles: { left: m.occupied_panels_label, right: m.history_metric_wall_total },
       metrics: [
         { key: "occupiedPanels", label: m.occupied_panels_label, axis: "left", dashed: false },
-        { key: "wallTotals", label: m.history_metric_wall_total, axis: "right", dashed: true },
+        {
+          key: "totalCastle",
+          label: m.total_castle_label,
+          icon: "castle",
+          iconOnly: true,
+          axis: "right",
+          dashed: true,
+        },
       ],
     },
   };
-  const CHART_MODE_ORDER: ChartMode[] = ["totals", "army", "territory"];
+  const CHART_MODE_ORDER: ChartMode[] = ["growth", "army", "territory"];
   const AXES: Axis[] = ["left", "right"];
   const PAD = HISTORY_CHART_PADDING_PX;
 
   let { matchHistory }: { matchHistory: MatchHistoryExport } = $props();
 
-  let mode = $state<ChartMode>("totals");
+  let mode = $state<ChartMode>("growth");
   let width = $state(0);
   let svg = $state<SVGSVGElement | undefined>(undefined);
   let hoveredIndex = $state<number | null>(null);
@@ -99,6 +106,10 @@
   let chartMode = $derived(CHART_MODES[mode]);
   let metrics = $derived(chartMode.metrics);
   let hasRightAxis = $derived(metrics.some((metric) => metric.axis === "right"));
+  // Each axis is titled after the first metric plotted on it.
+  let axisTitles = $derived(
+    AXES.flatMap((axis) => metrics.find((metric) => metric.axis === axis) ?? []),
+  );
   const plotLeft = PAD.axis;
   let plotRight = $derived(width - (hasRightAxis ? PAD.axis : PAD.edge));
   const plotTop = PAD.top;
@@ -217,6 +228,19 @@
   }
 </script>
 
+{#snippet metricLabel(metric: Metric)}
+  <span class="inline-flex items-center gap-1" title={metric.iconOnly ? metric.label() : undefined}>
+    {#if metric.iconOnly}
+      <span class="sr-only">{metric.label()}</span>
+    {:else}
+      {metric.label()}
+    {/if}
+    {#if metric.icon}
+      <Icon icon={metric.icon} size={HISTORY_CHART_LABEL_ICON_PX} />
+    {/if}
+  </span>
+{/snippet}
+
 <div class="grid gap-3">
   <HorizontalRadioGroup
     name="match-history-chart-mode"
@@ -235,7 +259,9 @@
               {pointLabel(shownIndex, shownEntry)}
             </td>
             {#each metrics as metric (metric.key)}
-              <th scope="col" class="px-2 py-1 text-right font-medium">{metric.label()}</th>
+              <th scope="col" class="px-2 py-1 text-right font-medium">
+                {@render metricLabel(metric)}
+              </th>
             {/each}
           </tr>
         </thead>
@@ -276,6 +302,12 @@
       </table>
     {/if}
 
+    <div class="flex justify-between text-xs font-semibold">
+      {#each axisTitles as metric (metric.key)}
+        {@render metricLabel(metric)}
+      {/each}
+    </div>
+
     <div bind:clientWidth={width}>
       {#if width > 0}
         <svg
@@ -293,24 +325,6 @@
             height={plotBottom - plotTop}
             class="fill-player-card-surface"
           />
-
-          {#if chartMode.axisTitles.left}
-            <text
-              x="0"
-              y={plotTop - HISTORY_CHART_AXIS_TITLE_GAP_PX}
-              class="fill-onsurface dark:fill-onsurface-dark font-semibold"
-              >{chartMode.axisTitles.left()}</text
-            >
-          {/if}
-          {#if chartMode.axisTitles.right}
-            <text
-              x={width}
-              y={plotTop - HISTORY_CHART_AXIS_TITLE_GAP_PX}
-              text-anchor="end"
-              class="fill-onsurface dark:fill-onsurface-dark font-semibold"
-              >{chartMode.axisTitles.right()}</text
-            >
-          {/if}
 
           {#each axes.left?.ticks ?? [] as tick (tick)}
             <line
