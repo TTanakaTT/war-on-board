@@ -1,5 +1,6 @@
 import type {
   AiStrength,
+  GameMapId,
   GameState,
   HomeBase,
   PieceType,
@@ -22,6 +23,7 @@ export interface MatchAutomationState {
 }
 
 export interface MatchControl {
+  map: GameMapId;
   controllers: BySide<PlayerController>;
   aiStrengths: BySide<AiStrength>;
   /** Seeds of each side's CPU random source (unused for humans). */
@@ -31,7 +33,7 @@ export interface MatchControl {
 
 export interface StartMatchOptions {
   controllers: BySide<PlayerController>;
-  layer: number;
+  map: GameMapId;
   automationTurnLimit: number;
   aiStrengths: BySide<AiStrength>;
   /** Replays CPU choices; new seeds are created when omitted. */
@@ -56,7 +58,7 @@ export interface GameStateHistoryEntry {
 export interface MatchHistoryExport {
   metadata: {
     winner: Player | null;
-    layer: number;
+    map: GameMapId;
     homeBases: HomeBase[];
     players: BySide<{
       player: Side;
@@ -105,7 +107,7 @@ export interface RecordedCommand {
 
 export interface InvariantViolationReport {
   violations: InvariantViolation[];
-  match: Pick<MatchControl, "controllers" | "aiStrengths" | "aiSeeds"> & { layer: number };
+  match: Pick<MatchControl, "map" | "controllers" | "aiStrengths" | "aiSeeds">;
   /** null for runtime violations (exceptions, stalls). */
   command: RecordedCommand | null;
   /** Commands since the turn began, ending with `command`. */

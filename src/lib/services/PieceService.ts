@@ -7,6 +7,7 @@ import {
   Player,
   posKey,
   samePos,
+  takesMultipleTurns,
   takesMultipleTurnsPerHop,
   type BoardPoint,
   type CombatOutcome,
@@ -75,8 +76,12 @@ export class PieceService {
     return Math.max(0, ...PiecesRepository.getAll().map((p) => p.id)) + 1;
   }
 
-  /** Moves the piece onto <panelPosition>, clearing its orders and spending one hop. */
-  static move(panelPosition: PanelPosition, piece: Piece) {
+  /** Moves the piece onto <panelPosition>, clearing its orders and spending <cost>. */
+  static move(
+    panelPosition: PanelPosition,
+    piece: Piece,
+    cost = PanelsService.hopCostTo(piece.pieceType, panelPosition),
+  ) {
     PiecesRepository.update({
       ...piece,
       panelPosition,
@@ -84,7 +89,8 @@ export class PieceService {
       targetPosition: undefined,
       rangedAttackTargetPosition: undefined,
       transitPosition: undefined,
-      movementPoints: piece.movementPoints - MOVEMENT_HOP_COST,
+      hopProgress: undefined,
+      movementPoints: piece.movementPoints - cost,
     });
   }
 
@@ -93,7 +99,7 @@ export class PieceService {
     return Math.min(Math.max(movementRate, MOVEMENT_HOP_COST), currentPoints + movementRate);
   }
 
-  /** Slow pieces are skipped: their points are hop progress, advanced at the end of the turn. */
+  /** Slow pieces are skipped: they never make a hop within one turn. */
   static accrueMovementForPlayer(player: Player): void {
     for (const piece of PiecesRepository.getPiecesByPlayer(player)) {
       if (takesMultipleTurnsPerHop(piece)) continue;
@@ -112,7 +118,8 @@ export class PieceService {
     return {
       from: piece.panelPosition,
       to: piece.transitPosition,
-      progress: piece.movementPoints / MOVEMENT_HOP_COST,
+      progress:
+        (piece.hopProgress ?? 0) / PanelsService.hopCostTo(piece.pieceType, piece.transitPosition),
     };
   }
 
@@ -120,8 +127,9 @@ export class PieceService {
   static previewEndOfTurnPoint(piece: Piece): BoardPoint {
     const maxPieces = TurnRepository.maxPieces(piece.player);
     const step = MovementRulesService.planEndOfTurn(piece.player, maxPieces).get(piece.id)?.step;
-    const progress =
-      (piece.movementPoints + pieceConfig(piece.pieceType).movement) / MOVEMENT_HOP_COST;
+    const progress = (hop: PanelPosition) =>
+      ((piece.hopProgress ?? 0) + pieceConfig(piece.pieceType).movement) /
+      PanelsService.hopCostTo(piece.pieceType, hop);
 
     switch (step?.kind) {
       case "advance":
@@ -131,9 +139,13 @@ export class PieceService {
       case "attack":
         return pointOnPanel(step.target);
       case "startTransit":
-        return { from: piece.panelPosition, to: step.hop, progress };
+        return { from: piece.panelPosition, to: step.hop, progress: progress(step.hop) };
       case "continueTransit":
-        return { from: piece.panelPosition, to: piece.transitPosition!, progress };
+        return {
+          from: piece.panelPosition,
+          to: piece.transitPosition!,
+          progress: progress(piece.transitPosition!),
+        };
       default:
         return pointOnPanel(piece.panelPosition);
     }
@@ -141,30 +153,48 @@ export class PieceService {
 
   private static walk(piece: Piece, path: PanelPosition[]): Piece {
     const end = path.at(-1);
-    if (!end) return piece;
+    if (!end) return { ...piece, hopProgress: undefined };
+    const cost = path.reduce((sum, p) => sum + PanelsService.hopCostTo(piece.pieceType, p), 0);
     return {
       ...piece,
       panelPosition: end,
       initialPosition: end,
-      movementPoints: piece.movementPoints - path.length * MOVEMENT_HOP_COST,
+      hopProgress: undefined,
+      movementPoints: piece.movementPoints - cost,
     };
   }
 
   /**
    * Applies a planned step. Entering and attacking are not resolved here: the piece is moved to
    * where it engages from and returned with the panel it engages.
+   * A multi-turn step uses up the turn's points; its progress pays for the hop it completes.
    */
   private static applyStep(
     piece: Piece,
     step: TurnStep,
   ): { piece: Piece; target: PanelPosition } | undefined {
-    const slow = takesMultipleTurnsPerHop(piece);
-    const progress = piece.movementPoints + pieceConfig(piece.pieceType).movement;
-    const stopSlow = (): Piece => ({
+    const multiTurn = (hop: PanelPosition) =>
+      takesMultipleTurns(piece, PanelsService.terrainAt(hop));
+    const progress = (piece.hopProgress ?? 0) + pieceConfig(piece.pieceType).movement;
+    const progressed = (changes: Partial<Piece> = {}): Piece => ({
+      ...piece,
+      hopProgress: progress,
+      movementPoints: 0,
+      ...changes,
+    });
+    const stopMultiTurn = (): Piece => ({
       ...piece,
       targetPosition: undefined,
       transitPosition: undefined,
+      hopProgress: undefined,
       movementPoints: 0,
+    });
+    // The hop is paid by the progress: move() then spends exactly this.
+    const arrived = (hop: PanelPosition): Piece => ({
+      ...piece,
+      transitPosition: undefined,
+      hopProgress: undefined,
+      movementPoints: PanelsService.hopCostTo(piece.pieceType, hop),
     });
     const engage = (engaging: Piece, target: PanelPosition) => {
       PiecesRepository.update(engaging);
@@ -175,46 +205,47 @@ export class PieceService {
       case "idle":
         return undefined;
       case "stay":
-        if (slow) PiecesRepository.update(stopSlow());
-        else this.move(piece.panelPosition, piece);
+        if (takesMultipleTurnsPerHop(piece)) PiecesRepository.update(stopMultiTurn());
+        else this.move(piece.panelPosition, piece, MOVEMENT_HOP_COST);
         return undefined;
       case "advance":
         PiecesRepository.update(this.walk(piece, step.path));
         return undefined;
       case "blocked":
         PiecesRepository.update(
-          slow ? stopSlow() : { ...this.walk(piece, step.path), targetPosition: undefined },
+          isInTransit(piece) || takesMultipleTurnsPerHop(piece)
+            ? stopMultiTurn()
+            : { ...this.walk(piece, step.path), targetPosition: undefined },
         );
         return undefined;
       case "enter": {
         const hop = step.path.at(-1)!;
-        if (!slow) return engage(this.walk(piece, step.path.slice(0, -1)), hop);
-        if (samePos(piece.targetPosition, hop)) {
-          return engage({ ...piece, transitPosition: undefined, movementPoints: progress }, hop);
-        }
+        if (!multiTurn(hop)) return engage(this.walk(piece, step.path.slice(0, -1)), hop);
+        if (samePos(piece.targetPosition, hop)) return engage(arrived(hop), hop);
         // An intermediate hop: arrive and keep heading for the final target.
         PiecesRepository.update({
           ...piece,
           panelPosition: hop,
           initialPosition: hop,
           transitPosition: undefined,
-          movementPoints: progress - MOVEMENT_HOP_COST,
+          hopProgress: undefined,
+          movementPoints: 0,
         });
         return undefined;
       }
       case "attack":
         return engage(
-          slow
-            ? { ...piece, transitPosition: undefined, movementPoints: progress }
+          step.path.length === 0 && multiTurn(step.target)
+            ? arrived(step.target)
             : this.walk(piece, step.path),
           step.target,
         );
       case "windUp":
       case "continueTransit":
-        PiecesRepository.update({ ...piece, movementPoints: progress });
+        PiecesRepository.update(progressed());
         return undefined;
       case "startTransit":
-        PiecesRepository.update({ ...piece, transitPosition: step.hop, movementPoints: progress });
+        PiecesRepository.update(progressed({ transitPosition: step.hop }));
         return undefined;
     }
   }
@@ -292,7 +323,8 @@ export class PieceService {
         PiecesRepository.update({
           ...current,
           targetPosition: undefined,
-          movementPoints: current.movementPoints - MOVEMENT_HOP_COST,
+          movementPoints:
+            current.movementPoints - PanelsService.hopCostTo(current.pieceType, targetPosition),
         });
       }
     }
@@ -354,9 +386,23 @@ export class PieceService {
 
   /**
    * Ranged attackers fire from where they stand; defenders out of their own range do not
-   * counter. Firing clears the order and spends a hop whatever the outcome.
+   * counter. Firing clears the order and spends a hop whatever the outcome. An order that
+   * terrain now blocks (the shooter walked into it) is dropped.
    */
   static resolveRangedAttacks(player: Player): CombatOutcome[] {
+    const ordered = PiecesRepository.getPiecesByPlayer(player).filter(
+      (p) => p.rangedAttackTargetPosition,
+    );
+    for (const piece of ordered) {
+      if (
+        MovementRulesService.isRangedAttackBlocked(
+          piece.panelPosition,
+          piece.rangedAttackTargetPosition!,
+        )
+      ) {
+        PiecesRepository.update({ ...piece, rangedAttackTargetPosition: undefined });
+      }
+    }
     const shooters = PiecesRepository.getPiecesByPlayer(player).filter(
       (p) => p.rangedAttackTargetPosition && p.movementPoints >= MOVEMENT_HOP_COST,
     );
@@ -375,8 +421,7 @@ export class PieceService {
       const defenders = MovementRulesService.enemiesAt(target, player);
       if (defenders.length === 0) continue;
 
-      const path = PanelsService.findShortestPath(attackers[0].panelPosition, target);
-      const distance = path ? path.length - 1 : pieceConfig(attackers[0].pieceType).attackRange;
+      const distance = PanelsService.distance(attackers[0].panelPosition, target);
       const { deadIds } = CombatService.resolveCombat(attackers, defenders, distance);
       outcomes.push({
         targetPosition: { ...target },

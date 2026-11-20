@@ -11,11 +11,18 @@
     type Piece,
     Player,
     samePos,
+    Terrain,
+    terrainConfig,
   } from "#lib/domain/model.ts";
   import { InteractionService } from "#lib/services/InteractionService.ts";
   import { MovementRulesService } from "#lib/services/MovementRulesService.ts";
   import { m } from "#lib/paraglide/messages.js";
-  import { BoardLayout, getPanelRowPieces } from "#lib/presentation/layout.ts";
+  import {
+    BoardLayout,
+    getPanelRowPieces,
+    TERRAIN_ICON_SIZE_PX,
+  } from "#lib/presentation/layout.ts";
+  import { terrainIconClass } from "#lib/presentation/terrain.ts";
   import Icon from "#lib/presentation/components/primitives/Icon.svelte";
   import HexagonPanelSvg from "./HexagonPanelSvg.svelte";
   import PieceToken from "./PieceToken.svelte";
@@ -49,6 +56,9 @@
   let resource = $derived(panel?.resource);
 
   let panelState = $derived(panel?.panelState);
+  let terrain = $derived(panel?.terrain ?? Terrain.PLAIN);
+  let terrainIconName = $derived(terrainConfig(terrain).iconName);
+  let isPassable = $derived(terrainConfig(terrain).passable);
 
   let selectedPiece = $derived(PiecesRepository.get(selectedPieceId));
   // Targets beyond this turn's reach get a distinct color.
@@ -118,6 +128,16 @@
       "group relative mx-0 my-2.5 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
     const basePolygonClass =
       "transition-all duration-400 ease-out group-hover:duration-200 group-hover:ease-out";
+
+    if (!isPassable) {
+      return {
+        isInteractive: false,
+        containerClass: `${baseContainerClass} pointer-events-none`,
+        polygonClass: `${basePolygonClass} fill-panel-mountain dark:fill-panel-mountain-dark`,
+        strokeClass,
+        strokeDasharray,
+      };
+    }
 
     switch (_panelState) {
       case PanelState.UNOCCUPIED:
@@ -189,6 +209,15 @@
   />
 
   <div class="pointer-events-none absolute inset-0 z-1 flex rotate-90 flex-col lg:rotate-0">
+    {#if terrainIconName}
+      <div
+        class="pointer-events-none absolute inset-0 -z-1 flex items-center justify-center {terrainIconClass(
+          terrain,
+        )} {isPassable ? 'opacity-40' : ''}"
+      >
+        <Icon icon={terrainIconName} size={TERRAIN_ICON_SIZE_PX} />
+      </div>
+    {/if}
     <div class="pointer-events-none flex flex-1 items-start">
       {#if wall && wall > 0}
         <div

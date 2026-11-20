@@ -119,13 +119,13 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
     ["leaving", { targetPosition: beyond }, "startTransit", [origin, hop]],
     [
       "mid-hop",
-      { targetPosition: beyond, transitPosition: hop, movementPoints: 0.25 },
+      { targetPosition: beyond, transitPosition: hop, hopProgress: 0.25 },
       "continueTransit",
       [origin, hop],
     ],
     [
       "arriving",
-      { targetPosition: pos(1, 0), transitPosition: hop, movementPoints: 0.5 },
+      { targetPosition: pos(1, 0), transitPosition: hop, hopProgress: 0.5 },
       "enter",
       [hop],
     ],
@@ -137,9 +137,9 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
 
   test("an enemy on the next hop keeps it on its own panel; a winding-up attack is locked", () => {
     add(10, hop, enemy);
-    const winding = heavy({ targetPosition: hop, movementPoints: 0.5 });
+    const winding = heavy({ targetPosition: hop, hopProgress: 0.5 });
     expect(planOf(winding).occupancy).toEqual([origin]);
-    expect(M.completesHopThisTurn(winding)).toBe(true);
+    expect(M.completesHopThisTurn(winding, hop)).toBe(true);
     expect(M.isOrderLocked(winding)).toBe(true);
     expect(M.canMoveTo(origin, player, 1)).toBe(false);
     expect(M.canCancelMove(player, 1)).toBe(false);
@@ -152,22 +152,21 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
         ...heavy(),
         transitPosition: hop,
         targetPosition: hop,
-        movementPoints: 0.5,
+        hopProgress: 0.5,
       }),
     ).toBe(false);
-    expect(M.isOrderLocked({ ...heavy(), movementPoints: 0.5 })).toBe(false);
+    expect(M.isOrderLocked({ ...heavy(), hopProgress: 0.5 })).toBe(false);
     expect(M.isOrderLocked(add(2, origin, player, { targetPosition: hop }))).toBe(false);
   });
 
   test("withOrder restarts progress unless in transit; normal pieces keep their points", () => {
-    expect(M.withOrder(heavy({ targetPosition: hop, movementPoints: 0.5 }), beyond)).toMatchObject({
-      targetPosition: beyond,
-      movementPoints: 0,
-    });
-    const moving = { ...heavy(), targetPosition: hop, transitPosition: hop, movementPoints: 0.5 };
+    const reordered = M.withOrder(heavy({ targetPosition: hop, hopProgress: 0.5 }), beyond);
+    expect(reordered).toMatchObject({ targetPosition: beyond });
+    expect(reordered.hopProgress).toBeUndefined();
+    const moving = { ...heavy(), targetPosition: hop, transitPosition: hop, hopProgress: 0.5 };
     expect(M.withOrder(moving, beyond)).toMatchObject({
       transitPosition: hop,
-      movementPoints: 0.5,
+      hopProgress: 0.5,
     });
     expect(M.withOrder(add(2, origin, player), hop).movementPoints).toBe(1);
   });
@@ -181,7 +180,7 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
 
   test("cancelling in transit stops at the hop, so its own panel's room does not matter", () => {
     fill(origin, 10, player);
-    heavy({ targetPosition: beyond, transitPosition: hop, movementPoints: 0.5 });
+    heavy({ targetPosition: beyond, transitPosition: hop, hopProgress: 0.5 });
     expect(M.canCancelMove(player, 1)).toBe(true);
     expect(M.canCancelMove(player, 99)).toBe(false);
   });

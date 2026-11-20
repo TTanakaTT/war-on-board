@@ -442,7 +442,7 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
     expect(piece(1)).toMatchObject({
       panelPosition: pos(0, 0),
       transitPosition: pos(0, 1),
-      movementPoints: 0.5,
+      hopProgress: 0.5,
     });
     GameApi.endTurn(enemy);
     expect(GameApi.getMovableTargets(1)).toContainEqual(pos(0, 2));
@@ -457,7 +457,7 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
     GameApi.endTurn(player);
     GameApi.endTurn(enemy);
     expect(GameApi.assignMove(player, 1, pos(1, 1)).ok).toBe(true);
-    expect(piece(1)).toMatchObject({ transitPosition: pos(0, 1), movementPoints: 0.5 });
+    expect(piece(1)).toMatchObject({ transitPosition: pos(0, 1), hopProgress: 0.5 });
     expect(GameApi.cancelMove(player, 1).ok).toBe(true);
     expect(piece(1).targetPosition).toEqual(pos(0, 1));
     expect(GameApi.cancelMove(player, 1)).toEqual(fail(ActionError.CANNOT_CANCEL));
@@ -499,6 +499,87 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
     GameApi.endTurn(player);
     PiecesRepository.update({ ...piece(2), panelPosition: pos(0, 0) });
     expect(InvariantService.check(GameApi.getGameState())).toEqual([]);
+  });
+});
+
+describe.each(SIDES)("terrain (%s)", (player) => {
+  const enemy = opponentOf(player);
+  const hill = pos(0, 1);
+  const start = (terrain: "hill" | "forest" | "mountain" = "hill") =>
+    newGame(4, player, [{ horizontalLayer: 0, verticalLayer: 1, terrain }]);
+  const ownTurns = (count: number) => {
+    for (let i = 0; i < count; i++) endRound(player);
+  };
+
+  test.each([
+    [PieceType.CAVALRY, 1],
+    [PieceType.INFANTRY, 2],
+    [PieceType.HEAVY, 3],
+  ])("a %s enters a hill in %i turn(s), in transit until then", (pieceType, turns) => {
+    start();
+    add(1, pos(0, 0), player, { pieceType });
+    expect(GameApi.assignMove(player, 1, hill).ok).toBe(true);
+    ownTurns(turns - 1);
+    if (turns > 1)
+      expect(piece(1)).toMatchObject({ panelPosition: pos(0, 0), transitPosition: hill });
+    ownTurns(1);
+    expect(piece(1)).toMatchObject({ panelPosition: hill, transitPosition: undefined });
+  });
+
+  test("a cavalry stops before a hill it cannot pay for this turn", () => {
+    start();
+    add(1, pos(0, 3), player, { pieceType: PieceType.CAVALRY });
+    GameApi.assignMove(player, 1, hill);
+    ownTurns(1);
+    expect(piece(1)).toMatchObject({ panelPosition: pos(0, 2), targetPosition: hill });
+    ownTurns(1);
+    expect(piece(1).panelPosition).toEqual(hill);
+  });
+
+  test("an infantry winds up an attack on a hill for a turn, locked, then attacks", () => {
+    start();
+    add(1, pos(0, 0), player);
+    add(2, hill, enemy, { pieceType: PieceType.NOBLE });
+    GameApi.assignMove(player, 1, hill);
+    GameApi.endTurn(player);
+    expect(piece(1)).toMatchObject({ panelPosition: pos(0, 0), hopProgress: 1 });
+    GameApi.endTurn(enemy);
+    expect(GameApi.getMovableTargets(1)).toEqual([]);
+    GameApi.endTurn(player);
+    expect(exists(2)).toBe(false);
+    expect(piece(1).panelPosition).toEqual(hill);
+  });
+
+  test("mountains cannot be targeted and are walked around", () => {
+    start("mountain");
+    add(1, pos(0, 0), player);
+    expect(GameApi.getMovableTargets(1)).not.toContainEqual(hill);
+    expect(GameApi.assignMove(player, 1, hill)).toEqual(fail(ActionError.TARGET_NOT_REACHABLE));
+    expect(GameApi.assignMove(player, 1, pos(0, 2)).ok).toBe(true);
+    ownTurns(1);
+    expect(piece(1).panelPosition).not.toEqual(hill);
+  });
+
+  test("ranged attacks measure distance over mountains but never touch a forest", () => {
+    start("mountain");
+    add(1, pos(0, 0), player, { pieceType: PieceType.ARCHER });
+    add(2, pos(0, 2), enemy);
+    expect(GameApi.assignRangedAttack(player, 1, pos(0, 2)).ok).toBe(true);
+
+    const forest = hill;
+    start("forest");
+    add(1, pos(0, 3), player, { pieceType: PieceType.ARCHER });
+    add(2, forest, enemy);
+    expect(GameApi.assignRangedAttack(player, 1, forest)).toEqual(
+      fail(ActionError.TARGET_NOT_REACHABLE),
+    );
+
+    start("forest");
+    add(1, forest, player, { pieceType: PieceType.ARCHER });
+    add(2, pos(0, 3), enemy);
+    expect(GameApi.assignRangedAttack(player, 1, pos(0, 3))).toEqual(
+      fail(ActionError.TARGET_NOT_REACHABLE),
+    );
   });
 });
 

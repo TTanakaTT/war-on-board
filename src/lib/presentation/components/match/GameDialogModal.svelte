@@ -3,7 +3,6 @@
   import { resolve } from "$app/paths";
   import {
     GameDialogRepository,
-    LayerRepository,
     MatchControlRepository,
     TurnRepository,
   } from "#lib/store.svelte.ts";
@@ -79,7 +78,7 @@
         self: matchControl.controllers.self,
         opponent: matchControl.controllers.opponent,
       },
-      layer: LayerRepository.get(),
+      map: matchControl.map,
       automationTurnLimit: matchControl.automation.turnLimit,
       aiStrengths: {
         self: matchControl.aiStrengths.self,

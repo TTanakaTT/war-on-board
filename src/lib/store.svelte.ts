@@ -1,6 +1,7 @@
 // All reactive state. Values are immutable: replace them, never mutate what a getter returns.
 import {
   DEFAULT_AUTOMATION_TURN_LIMIT,
+  DEFAULT_GAME_MAP,
   DEFAULT_MAX_PIECES_PER_PANEL,
   HOME_BASE_INIT_WALL,
   PLAYER_INIT_RESOURCE,
@@ -26,7 +27,7 @@ import type {
 } from "#lib/domain/types.ts";
 
 let panels = $state.raw<Panel[]>([]);
-/** Bumped when the set of panel positions changes (not their contents). */
+/** Bumped when the panel positions or terrains change (not other contents). */
 let layoutVersion = 0;
 let pieces = $state.raw<Piece[]>([]);
 let homeBases = $state.raw<HomeBase[]>([]);
@@ -42,6 +43,7 @@ let turn = $state.raw<Turn>({
 let history = $state.raw<GameStateHistoryEntry[]>([]);
 let matchStats = $state.raw<MatchStats>(initialMatchStats());
 let matchControl = $state.raw<MatchControl>({
+  map: DEFAULT_GAME_MAP,
   controllers: { self: "human", opponent: "cpu" },
   aiStrengths: { self: AiStrength.STRENGTH_1, opponent: AiStrength.STRENGTH_1 },
   aiSeeds: { self: 0, opponent: 0 },
@@ -80,7 +82,11 @@ export const PanelRepository = {
   setAll(next: Panel[]) {
     const sameLayout =
       next.length === panels.length &&
-      next.every((panel, i) => samePos(panel.panelPosition, panels[i].panelPosition));
+      next.every(
+        (panel, i) =>
+          samePos(panel.panelPosition, panels[i].panelPosition) &&
+          panel.terrain === panels[i].terrain,
+      );
     panels = [...next];
     if (!sameLayout) layoutVersion += 1;
   },

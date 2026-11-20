@@ -13,6 +13,11 @@ export const BOARD_PANEL_VERTICAL_PIXEL_OFFSET = 5;
 const BOARD_HORIZONTAL_MARGIN_RATIO = 0.1;
 const BOARD_COLUMN_VERTICAL_OFFSET_RATIO = 1.1;
 const PIECE_TOKEN_CENTER_SPACING = 38;
+export const TERRAIN_ICON_SIZE_PX = 64;
+export const MAP_PREVIEW_WIDTH_PX = 280;
+/** Terrain icon size in a map preview, relative to the panel height. */
+export const MAP_PREVIEW_ICON_RATIO = 0.6;
+export const LEGEND_ICON_SIZE_PX = 24;
 export const PIECE_PREVIEW_ANIMATION_MS = 1600;
 export const DRAWER_WIDTH_TRANSITION_MS = 200;
 
@@ -58,19 +63,31 @@ export class BoardLayout {
   }
 
   static get boardWidth() {
-    const layer = LayerRepository.get();
+    return this.boardWidthFor(LayerRepository.get());
+  }
+
+  static get boardHeight() {
+    return this.boardHeightFor(LayerRepository.get());
+  }
+
+  static boardWidthFor(layer: number) {
     const hypo = this.hypotenuseHorizontalLength;
     return 3 * hypo * (layer * 2 - 1) + this.horizontalMargin * (layer * 2 - 2) + hypo;
   }
 
-  static get boardHeight() {
-    return LayerRepository.get() * (this.HEIGHT + this.PANEL_MARGIN) + this.PANEL_MARGIN;
+  static boardHeightFor(layer: number) {
+    return layer * (this.HEIGHT + this.PANEL_MARGIN) + this.PANEL_MARGIN;
   }
 
   static getCoordinates(pos: PanelPosition) {
+    return this.getCoordinatesFor(pos, LayerRepository.get());
+  }
+
+  /** Panel center on a board of <layer>. */
+  static getCoordinatesFor(pos: PanelPosition, layer: number) {
     const hl = pos.horizontalLayer;
     const hypo = this.hypotenuseHorizontalLength;
-    const column = hl + LayerRepository.get() - 1;
+    const column = hl + layer - 1;
     const x = column * (3 * hypo + this.horizontalMargin) + 2 * hypo;
     const topOffset = Math.abs(hl) * (this.HEIGHT / 2) * BOARD_COLUMN_VERTICAL_OFFSET_RATIO;
     const y =

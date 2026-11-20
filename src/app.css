@@ -44,6 +44,15 @@
   --color-panel-ranged-target-dark: var(--color-red-800);
   --color-panel-immovable: var(--color-orange-100);
   --color-panel-immovable-dark: var(--color-orange-900);
+  --color-panel-mountain: var(--color-stone-400);
+  --color-panel-mountain-dark: var(--color-stone-600);
+
+  --color-terrain-hill: var(--color-amber-900);
+  --color-terrain-hill-dark: var(--color-amber-200);
+  --color-terrain-forest: var(--color-green-800);
+  --color-terrain-forest-dark: var(--color-green-300);
+  --color-terrain-mountain: var(--color-stone-700);
+  --color-terrain-mountain-dark: var(--color-stone-300);
 
   --color-wall: var(--color-slate-500);
   --color-resource: var(--color-lime-500);

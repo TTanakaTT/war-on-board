@@ -256,7 +256,7 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
 
   test("an enemy in the hop is attacked on arrival; a failed attack returns home", () => {
     add(10, hop, enemy);
-    heavy({ targetPosition: beyond, transitPosition: hop, movementPoints: 0.5 });
+    heavy({ targetPosition: beyond, transitPosition: hop, hopProgress: 0.5 });
     PieceService.finalizePlayerMoves(player);
     expect(exists(10)).toBe(true);
     expect(piece(1)).toMatchObject({
@@ -270,7 +270,7 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
     add(10, hop, enemy, { pieceType: PieceType.NOBLE });
     heavy({ targetPosition: hop });
     PieceService.finalizePlayerMoves(player);
-    expect(piece(1)).toMatchObject({ panelPosition: origin, movementPoints: 0.5 });
+    expect(piece(1)).toMatchObject({ panelPosition: origin, hopProgress: 0.5 });
     expect(exists(10)).toBe(true);
     PieceService.finalizePlayerMoves(player);
     expect(exists(10)).toBe(false);
@@ -285,7 +285,7 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
   });
 
   test("a piece in transit is left out of merging", () => {
-    heavy({ targetPosition: hop, transitPosition: hop, movementPoints: 0.5 });
+    heavy({ targetPosition: hop, transitPosition: hop, hopProgress: 0.5 });
     heavy({}, 2);
     PieceService.mergePiecesAtPosition(origin);
     expect([piece(1).stackCount, piece(2).stackCount]).toEqual([1, 1]);

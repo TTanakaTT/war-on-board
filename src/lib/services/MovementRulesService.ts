@@ -1,12 +1,15 @@
 import { DEFAULT_MAX_PIECES_PER_PANEL, MOVEMENT_HOP_COST } from "#lib/domain/config.ts";
 import {
   canAttack,
+  isAdjacent,
   isInTransit,
   pieceConfig,
   Player,
   posKey,
   samePos,
+  takesMultipleTurns,
   takesMultipleTurnsPerHop,
+  terrainConfig,
   type PanelPosition,
   type Piece,
 } from "#lib/domain/model.ts";
@@ -15,12 +18,13 @@ import { PanelsService } from "#lib/services/PanelService.ts";
 
 /**
  * What a piece does at the end of its owner's turn. `path` is this turn's panels in order.
- * - advance: walks toward a target it does not reach this turn (keeps its order).
- * - enter: enters the last panel of `path` (a slow piece's completed hop may fall short of
+ * - advance: walks toward a target it does not reach this turn (keeps its order); the path is
+ *   empty when the next panel needs more points than are left this turn.
+ * - enter: enters the last panel of `path` (a completed multi-turn hop may fall short of
  *   its target; it then keeps its order).
  * - attack: walks `path`, then attacks `target` (its order ends either way).
  * - blocked: walks as far as it can; order cancelled.
- * - windUp / startTransit / continueTransit: progress of a slow piece.
+ * - windUp / startTransit / continueTransit: progress of a hop or attack taking several turns.
  */
 export type TurnStep =
   | { kind: "idle" }
@@ -87,14 +91,15 @@ class PlanContext {
     readonly maxPieces: number,
   ) {}
 
-  /** This turn's panels of every shortest route (one panel for a slow piece). */
+  /** This turn's panels of every cheapest route (always at least the next panel). */
   routesOf(piece: Piece): PanelPosition[][] {
     let routes = this.routes.get(piece.id);
     if (!routes) {
       routes = PanelsService.shortestRoutePrefixes(
         piece.panelPosition,
         piece.targetPosition!,
-        takesMultipleTurnsPerHop(piece) ? 1 : Math.floor(piece.movementPoints / MOVEMENT_HOP_COST),
+        piece.pieceType,
+        takesMultipleTurnsPerHop(piece) ? 0 : piece.movementPoints,
       );
       this.routes.set(piece.id, routes);
     }
@@ -190,11 +195,10 @@ export class MovementRulesService {
 
   private static planStationary(piece: Piece): PieceTurnPlan | undefined {
     const own = piece.panelPosition;
-    const slow = takesMultipleTurnsPerHop(piece);
 
-    if (slow && piece.transitPosition) {
+    if (piece.transitPosition) {
       const hop = piece.transitPosition;
-      const completes = this.completesHopThisTurn(piece);
+      const completes = this.completesHopThisTurn(piece, hop);
       if (this.hasEnemyPresence(hop, piece.player)) {
         // The enemy entered its destination: attack it if possible, else turn back.
         if (!this.canAttackPanel(piece, hop)) {
@@ -210,7 +214,7 @@ export class MovementRulesService {
     }
 
     const target = piece.targetPosition;
-    if (!target || (!slow && piece.movementPoints < MOVEMENT_HOP_COST)) {
+    if (!target || (!takesMultipleTurnsPerHop(piece) && piece.movementPoints < MOVEMENT_HOP_COST)) {
       return { step: { kind: "idle" }, occupancy: [own] };
     }
     if (samePos(target, own)) return { step: { kind: "stay" }, occupancy: [own] };
@@ -219,57 +223,59 @@ export class MovementRulesService {
 
   /**
    * Walks this turn's panels of each route: an enemy panel is attacked if possible (else the
-   * route is closed); any other panel needs room (passing through included).
-   * A slow piece only looks at the first panel: wind up / attack, or start moving into it.
+   * route is closed); any other panel needs room (passing through included). A next panel
+   * that cannot be entered within one turn is wound up / attacked, or moved into over turns.
    */
   private static planMove(piece: Piece, occupancy: Occupancy, context: PlanContext): MoveAttempt {
     const own = piece.panelPosition;
     const { maxPieces } = context;
     const blockers: PanelPosition[] = [];
+    let farthest: PanelPosition[] = [];
+    const planned = (step: TurnStep, planOccupancy: PanelPosition[]): MoveAttempt => ({
+      plan: { step, occupancy: planOccupancy },
+      fallback: this.blockedAt(farthest, own),
+      blockers,
+    });
 
-    if (takesMultipleTurnsPerHop(piece)) {
-      const completes = this.completesHopThisTurn(piece);
-      const fallback = this.blockedAt([], own);
-      for (const [hop] of context.routesOf(piece)) {
+    for (const route of context.routesOf(piece)) {
+      const [hop] = route;
+      if (takesMultipleTurns(piece, PanelsService.terrainAt(hop))) {
+        const completes = this.completesHopThisTurn(piece, hop);
         if (context.hasEnemyPresence(hop)) {
           if (!this.canAttackPanel(piece, hop)) continue;
-          const step: TurnStep = completes
-            ? { kind: "attack", path: [], target: hop }
-            : { kind: "windUp", target: hop };
-          return { plan: { step, occupancy: [own] }, fallback, blockers };
+          return planned(
+            completes ? { kind: "attack", path: [], target: hop } : { kind: "windUp", target: hop },
+            [own],
+          );
         }
         if (occupancy.stackCountWith(hop, piece) > maxPieces) {
           blockers.push(hop);
           continue;
         }
-        const plan: PieceTurnPlan = completes
-          ? { step: { kind: "enter", path: [hop] }, occupancy: [hop] }
-          : { step: { kind: "startTransit", hop }, occupancy: [own, hop] };
-        return { plan, fallback, blockers };
+        return completes
+          ? planned({ kind: "enter", path: [hop] }, [hop])
+          : planned({ kind: "startTransit", hop }, [own, hop]);
       }
-      return { fallback, blockers };
-    }
 
-    let farthest: PanelPosition[] = [];
-    for (const route of context.routesOf(piece)) {
       let walked = route.length;
+      let spent = 0;
+      let closed = false;
       let blocker: PanelPosition | undefined;
 
       for (let i = 0; i < route.length; i++) {
         const position = route[i];
+        spent += PanelsService.hopCostTo(piece.pieceType, position);
+        if (spent > piece.movementPoints) {
+          walked = i;
+          break;
+        }
         if (context.hasEnemyPresence(position)) {
           if (this.canAttackPanel(piece, position)) {
             const path = route.slice(0, i);
-            return {
-              plan: {
-                step: { kind: "attack", path, target: position },
-                occupancy: [path.at(-1) ?? own],
-              },
-              fallback: this.blockedAt(farthest, own),
-              blockers,
-            };
+            return planned({ kind: "attack", path, target: position }, [path.at(-1) ?? own]);
           }
           walked = i;
+          closed = true;
           break;
         }
         if (occupancy.stackCountWith(position, piece) > maxPieces) {
@@ -279,14 +285,11 @@ export class MovementRulesService {
         }
       }
 
-      if (walked === route.length) {
-        const end = route.at(-1)!;
+      if (!closed && !blocker) {
+        const path = route.slice(0, walked);
+        const end = path.at(-1) ?? own;
         const kind = samePos(end, piece.targetPosition) ? "enter" : "advance";
-        return {
-          plan: { step: { kind, path: route }, occupancy: [end] },
-          fallback: this.blockedAt(farthest, own),
-          blockers,
-        };
+        return planned({ kind, path }, [end]);
       }
       if (blocker) blockers.push(blocker);
       if (walked > farthest.length) farthest = route.slice(0, walked);
@@ -438,39 +441,42 @@ export class MovementRulesService {
     return count + mergeableTypes.size;
   }
 
-  static completesHopThisTurn(piece: Piece): boolean {
-    return piece.movementPoints + pieceConfig(piece.pieceType).movement >= MOVEMENT_HOP_COST;
-  }
-
-  /** A slow piece that started winding up an attack can no longer change or cancel it. */
-  static isOrderLocked(piece: Piece): boolean {
+  /** This turn's movement completes the multi-turn hop (or attack) into <hop>. */
+  static completesHopThisTurn(piece: Piece, hop: PanelPosition): boolean {
     return (
-      takesMultipleTurnsPerHop(piece) &&
-      !isInTransit(piece) &&
-      piece.targetPosition !== undefined &&
-      piece.movementPoints > 0
+      (piece.hopProgress ?? 0) + pieceConfig(piece.pieceType).movement >=
+      PanelsService.hopCostTo(piece.pieceType, hop)
     );
   }
 
-  /** A slow piece not in transit restarts its progress when ordered. */
+  /** A piece that started winding up an attack can no longer change or cancel it. */
+  static isOrderLocked(piece: Piece): boolean {
+    return (
+      piece.hopProgress !== undefined && !isInTransit(piece) && piece.targetPosition !== undefined
+    );
+  }
+
+  /** A piece not in transit restarts its multi-turn progress when ordered. */
   static withOrder(piece: Piece, target: PanelPosition): Piece {
-    const restartsProgress = takesMultipleTurnsPerHop(piece) && !isInTransit(piece);
     return {
       ...piece,
       targetPosition: target,
-      movementPoints: restartsProgress ? 0 : piece.movementPoints,
+      hopProgress: isInTransit(piece) ? piece.hopProgress : undefined,
     };
   }
 
-  /** The target is no farther than this turn's move (never true in transit). */
+  /**
+   * The target is within this turn's points, or is the next panel of a multi-turn hop (which
+   * starts this turn). Never true in transit.
+   */
   static isWithinThisTurnsReach(piece: Piece, target: PanelPosition): boolean {
     if (isInTransit(piece)) return false;
-    const path = PanelsService.findShortestPath(piece.panelPosition, target);
-    if (!path) return false;
-    const reach = takesMultipleTurnsPerHop(piece)
-      ? 1
-      : Math.floor(piece.movementPoints / MOVEMENT_HOP_COST);
-    return path.length - 1 <= reach;
+    const own = piece.panelPosition;
+    const cost = PanelsService.routeCostsTo(target, piece.pieceType).get(posKey(own));
+    if (cost === undefined) return false;
+    const budget = takesMultipleTurnsPerHop(piece) ? 0 : piece.movementPoints;
+    if (cost <= budget) return true;
+    return isAdjacent(own, target) && takesMultipleTurns(piece, PanelsService.terrainAt(target));
   }
 
   /** Enemy pieces or an enemy wall on the panel. */
@@ -504,6 +510,10 @@ export class MovementRulesService {
   ): boolean {
     const piece = PiecesRepository.get(selectedPieceId);
     if (!piece || this.isOrderLocked(piece)) return false;
+    const reachable = PanelsService.routeCostsTo(targetPosition, piece.pieceType).has(
+      posKey(piece.panelPosition),
+    );
+    if (!reachable) return false;
     if (!this.isWithinThisTurnsReach(piece, targetPosition)) return true;
 
     const ordered = this.withOrder(piece, targetPosition);
@@ -517,20 +527,27 @@ export class MovementRulesService {
   }
 
   /**
-   * Distance 2..attackRange, enemy pieces present, no enemy wall (ranged attacks never
-   * hit walls), and every defender defeatable.
+   * Distance 2..attackRange (terrain ignored), neither end on terrain that blocks ranged
+   * attacks, enemy pieces present, no enemy wall (ranged attacks never hit walls), and every
+   * defender defeatable.
    */
   static canRangedAttack(attackerId: number, targetPosition: PanelPosition): boolean {
     const piece = PiecesRepository.get(attackerId);
     if (!piece) return false;
 
-    const path = PanelsService.findShortestPath(piece.panelPosition, targetPosition);
-    const distance = path ? path.length - 1 : Infinity;
+    const distance = PanelsService.distance(piece.panelPosition, targetPosition);
     if (distance <= 1 || distance > pieceConfig(piece.pieceType).attackRange) return false;
+    if (this.isRangedAttackBlocked(piece.panelPosition, targetPosition)) return false;
     if (this.hasEnemyWall(targetPosition, piece.player)) return false;
 
     const defenders = this.enemiesAt(targetPosition, piece.player);
     return defenders.length > 0 && this.canDefeatAllDefenders(piece, defenders);
+  }
+
+  static isRangedAttackBlocked(from: PanelPosition, to: PanelPosition): boolean {
+    return [from, to].some(
+      (position) => terrainConfig(PanelsService.terrainAt(position)).blocksRangedAttack,
+    );
   }
 
   static canCancelMove(

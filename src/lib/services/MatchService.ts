@@ -1,5 +1,5 @@
 import { GameApiClient } from "#lib/api/GameApiClient.ts";
-import { AiStrength, Player, type Turn } from "#lib/domain/model.ts";
+import { AiStrength, gameMapConfig, Player, type Turn } from "#lib/domain/model.ts";
 import type {
   AutomationStopReason,
   BySide,
@@ -27,12 +27,13 @@ export class MatchService {
   static startMatch(options: StartMatchOptions): void {
     this.automationRunToken += 1;
     GameDialogRepository.reset();
-    GameApiClient.initializeGame({ layer: options.layer });
+    GameApiClient.initializeGame(gameMapConfig(options.map));
     const { controllers } = options;
     const aiSeeds = options.aiSeeds
       ? { ...options.aiSeeds }
       : { self: createRandomSeed(), opponent: createRandomSeed() };
     MatchControlRepository.set({
+      map: options.map,
       controllers: { ...controllers },
       aiStrengths: {
         self: controllers.self === "cpu" ? options.aiStrengths.self : AiStrength.STRENGTH_1,

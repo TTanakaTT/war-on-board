@@ -20,7 +20,7 @@ const VIOLATION_TYPE_LABELS: Record<InvariantViolationType, string> = {
   "piece-hp-out-of-range": "Piece HP out of range",
   "movement-points-out-of-range": "Movement points out of range",
   "duplicate-piece-id": "Duplicate piece ID",
-  "piece-off-board": "Piece position off the board",
+  "piece-off-board": "Piece position off the board or impassable",
   "unmerged-pieces": "Unmerged pieces",
   "negative-resources": "Negative resources",
   "state-changed-after-winner": "State changed after the game ended",

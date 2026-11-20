@@ -75,7 +75,7 @@ describe.each(SIDES)("GenerationService (%s)", (player) => {
       ...piece(1),
       targetPosition: at(2, 0),
       transitPosition: at(2, 0),
-      movementPoints: 0.25,
+      hopProgress: 0.25,
     });
     expect(G.findGenerationPanel(player, PieceType.HEAVY)).toBeNull();
   });

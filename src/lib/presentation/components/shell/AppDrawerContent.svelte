@@ -13,6 +13,7 @@
   import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
   import HorizontalRadioGroup from "#lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
   import GameInfoDrawerContent from "#lib/presentation/components/match/GameInfoDrawerContent.svelte";
+  import TerrainLegend from "#lib/presentation/components/match/TerrainLegend.svelte";
   import {
     clearThemePreference,
     resolveThemePreference,
@@ -83,6 +84,7 @@
     </div>
 
     <GameInfoDrawerContent isWideLayout={isWideGameLayout} {isBrowserLayout} />
+    <TerrainLegend />
   </div>
 {:else}
   <div class="no-scrollbar flex h-full min-h-0 flex-col gap-6 overflow-y-auto p-4">
