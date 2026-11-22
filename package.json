@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@inlang/paraglide-js": "^3.2.1",
+    "@inlang/paraglide-js": "^3.2.2",
     "@inlang/plugin-message-format": "^4.6.0",
     "@material-symbols/svg-400": "^0.48.3",
     "@playwright/test": "^1.65.0",
