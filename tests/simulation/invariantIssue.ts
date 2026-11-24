@@ -47,7 +47,7 @@ function buildBody(
     "main の AI 対戦シミュレーションで不変条件違反を検出した。",
     "",
     `- 検出: ${detectionSource(env)}`,
-    `- 対戦条件: 盤サイズ ${match.layer} / 先手 ${match.controllers.self} (${match.aiStrengths.self}, シード ${match.aiSeeds.self}) / 後手 ${match.controllers.opponent} (${match.aiStrengths.opponent}, シード ${match.aiSeeds.opponent})`,
+    `- 対戦条件: マップ ${match.map} / 先手 ${match.controllers.self} (${match.aiStrengths.self}, シード ${match.aiSeeds.self}) / 後手 ${match.controllers.opponent} (${match.aiStrengths.opponent}, シード ${match.aiSeeds.opponent})`,
     `- 違反: ${typeLabel} (\`${firstType}\`)`,
     ...violations.map((violation) => `  - ${indentContinuation(violation.detail)}`),
     report.command

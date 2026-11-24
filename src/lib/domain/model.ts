@@ -1,4 +1,11 @@
-import { MOVEMENT_HOP_COST, PIECE_CONFIGS } from "#lib/domain/config.ts";
+import {
+  GAME_MAP_CONFIGS,
+  MOVEMENT_HOP_COST,
+  PIECE_CONFIGS,
+  TERRAIN_CONFIGS,
+  type GameMapConfig,
+  type TerrainConfig,
+} from "#lib/domain/config.ts";
 
 type ValueOf<T> = T[keyof T];
 
@@ -23,6 +30,22 @@ export const PieceType = {
 /** Every piece type in display order. */
 export const PIECE_TYPES = Object.keys(PIECE_CONFIGS) as PieceType[];
 export const pieceConfig = (pieceType: PieceType) => PIECE_CONFIGS[pieceType];
+
+export type Terrain = keyof typeof TERRAIN_CONFIGS;
+export const Terrain = {
+  PLAIN: "plain",
+  HILL: "hill",
+  FOREST: "forest",
+  MOUNTAIN: "mountain",
+} as const satisfies Record<string, Terrain>;
+/** Every terrain in legend order. */
+export const TERRAINS = Object.keys(TERRAIN_CONFIGS) as Terrain[];
+export const terrainConfig = (terrain: Terrain): TerrainConfig => TERRAIN_CONFIGS[terrain];
+
+export type GameMapId = keyof typeof GAME_MAP_CONFIGS;
+/** Every map in selection order. */
+export const GAME_MAP_IDS = Object.keys(GAME_MAP_CONFIGS) as GameMapId[];
+export const gameMapConfig = (map: GameMapId): GameMapConfig => GAME_MAP_CONFIGS[map];
 
 /** OCCUPIED/UNOCCUPIED are game state; the rest are UI highlights, dropped from snapshots. */
 export const PanelState = {
@@ -72,6 +95,7 @@ export interface Panel {
   player: Player;
   resource: number;
   wall: number;
+  terrain: Terrain;
 }
 
 export interface Piece {
@@ -94,8 +118,10 @@ export interface Piece {
   /** Units merged into this piece. */
   stackCount: number;
   maxHp: number;
-  /** Banked movement points; for a slow piece, progress of its current hop or attack. */
+  /** Banked movement points for hops made within one turn. */
   movementPoints: number;
+  /** Movement points put into a hop or attack that takes several turns (in transit or winding up). */
+  hopProgress?: number;
   /** When the current order was given, across both sides. Lower enters a captured panel first. */
   orderSequence?: number;
 }
@@ -171,6 +197,7 @@ export function createPanel(init: Pick<Panel, "panelPosition"> & Partial<Panel>)
     player: Player.UNKNOWN,
     resource: 0,
     wall: 0,
+    terrain: Terrain.PLAIN,
     ...init,
   };
 }
@@ -195,6 +222,20 @@ export function createPiece(
 /** Movement below MOVEMENT_HOP_COST: each hop or attack takes several turns. */
 export const takesMultipleTurnsPerHop = (piece: Piece): boolean =>
   pieceConfig(piece.pieceType).movement < MOVEMENT_HOP_COST;
+
+/**
+ * Movement points for a step (move or attack) between panels of <from> and <to>: the larger
+ * extra of the two applies once. Slow pieces pay the extra in turns.
+ */
+export const hopCost = (pieceType: PieceType, from: Terrain, to: Terrain): number => {
+  const { movement } = pieceConfig(pieceType);
+  const extraScale = Math.min(1, movement / MOVEMENT_HOP_COST);
+  const extra = Math.max(
+    terrainConfig(from).extraMovementCost,
+    terrainConfig(to).extraMovementCost,
+  );
+  return MOVEMENT_HOP_COST + extra * extraScale;
+};
 
 export const isInTransit = (piece: Piece): boolean => piece.transitPosition !== undefined;
 

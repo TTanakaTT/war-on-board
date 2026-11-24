@@ -13,7 +13,7 @@ const options = (
   extra: Partial<StartMatchOptions> = {},
 ): StartMatchOptions => ({
   controllers: { self, opponent },
-  layer: 4,
+  map: "plains",
   automationTurnLimit: 10,
   aiStrengths: { self: AiStrength.STRENGTH_2, opponent: AiStrength.STRENGTH_3 },
   aiSeeds: { self: 1, opponent: 2 },

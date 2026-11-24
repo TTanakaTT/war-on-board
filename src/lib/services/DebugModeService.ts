@@ -2,7 +2,7 @@ import { GameApi } from "#lib/api/GameApi.ts";
 import { GameApiClient, type GameApiCommandName } from "#lib/api/GameApiClient.ts";
 import type { GameState } from "#lib/domain/model.ts";
 import type { InvariantViolation, RecordedCommand } from "#lib/domain/types.ts";
-import { DebugModeRepository, LayerRepository, MatchControlRepository } from "#lib/store.svelte.ts";
+import { DebugModeRepository, MatchControlRepository } from "#lib/store.svelte.ts";
 import { InvariantService } from "#lib/services/InvariantService.ts";
 import { MatchService } from "#lib/services/MatchService.ts";
 
@@ -125,10 +125,10 @@ export class DebugModeService {
     after: GameState,
   ): void {
     if (violations.length === 0) return;
-    const { controllers, aiStrengths, aiSeeds } = MatchControlRepository.get();
+    const { map, controllers, aiStrengths, aiSeeds } = MatchControlRepository.get();
     const report = {
       violations,
-      match: { layer: LayerRepository.get(), controllers, aiStrengths, aiSeeds },
+      match: { map, controllers, aiStrengths, aiSeeds },
       command,
       turnCommands,
       before,

@@ -1,8 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import { DEFAULT_AUTOMATION_TURN_LIMIT, DEFAULT_GAME_LAYER } from "../../src/lib/domain/config";
-import { AiStrength } from "../../src/lib/domain/model";
+import { DEFAULT_AUTOMATION_TURN_LIMIT } from "../../src/lib/domain/config";
+import { AiStrength, GAME_MAP_IDS } from "../../src/lib/domain/model";
 import type { InvariantViolationReport, StartMatchOptions } from "../../src/lib/domain/types";
 import { buildInvariantIssue, INVARIANT_ISSUE_OUTPUT_DIR } from "./invariantIssue";
 
@@ -13,14 +13,17 @@ const STATUS_POLLING_MS = 500;
 // The CPU picks among equally scored moves with a seeded random source, and every match
 // starts with new seeds (no aiSeeds passed), so each run plays out differently.
 // The seeds go into the violation report so a detected match can be replayed.
-// The first player stays at the first strength; the second player tries every strength.
+// The first player stays at the first strength; the second player tries every strength on
+// every map.
 const strengths = Object.values(AiStrength);
-const matches: StartMatchOptions[] = strengths.map((opponentStrength) => ({
-  controllers: { self: "cpu", opponent: "cpu" },
-  layer: DEFAULT_GAME_LAYER,
-  automationTurnLimit: DEFAULT_AUTOMATION_TURN_LIMIT,
-  aiStrengths: { self: strengths[0], opponent: opponentStrength },
-}));
+const matches: StartMatchOptions[] = GAME_MAP_IDS.flatMap((map) =>
+  strengths.map((opponentStrength) => ({
+    controllers: { self: "cpu", opponent: "cpu" },
+    map,
+    automationTurnLimit: DEFAULT_AUTOMATION_TURN_LIMIT,
+    aiStrengths: { self: strengths[0], opponent: opponentStrength },
+  })),
+);
 
 test("AI matches keep every invariant", async ({ page }) => {
   test.setTimeout(matches.length * MATCH_TIMEOUT_MS);

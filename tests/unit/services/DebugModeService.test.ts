@@ -15,7 +15,7 @@ const AI_SEEDS = { self: 12345, opponent: 67890 };
 const startMatch = (controller: PlayerController = "human") =>
   MatchService.startMatch({
     controllers: { self: controller, opponent: controller },
-    layer: 4,
+    map: "plains",
     automationTurnLimit: 10,
     aiStrengths: { self: AiStrength.STRENGTH_1, opponent: AiStrength.STRENGTH_1 },
     aiSeeds: AI_SEEDS,
@@ -69,7 +69,11 @@ describe("DebugModeService", () => {
         { operation: "setGenerationMode", args: ["self", "rear"] },
         { operation: "setGenerationMode", args: ["self", "front"] },
       ],
-      match: { layer: 4, controllers: { self: "human", opponent: "human" }, aiSeeds: AI_SEEDS },
+      match: {
+        map: "plains",
+        controllers: { self: "human", opponent: "human" },
+        aiSeeds: AI_SEEDS,
+      },
     });
   });
 

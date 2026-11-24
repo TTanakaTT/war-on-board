@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
-import { createPiece, type GameState, type Piece } from "#lib/domain/model.ts";
+import { createPiece, samePos, Terrain, type GameState, type Piece } from "#lib/domain/model.ts";
 import { InvariantService as I } from "#lib/services/InvariantService.ts";
 import { newGame, pos } from "../helpers.ts";
 
@@ -46,10 +46,19 @@ describe("InvariantService", () => {
     expect(keys(state(pieces))).toEqual(expected);
   });
 
+  test("reports a piece on a mountain as off board", () => {
+    const onMountain = state([piece(1)], (s) => {
+      s.panels = s.panels.map((p) =>
+        samePos(p.panelPosition, pos(0, 0)) ? { ...p, terrain: Terrain.MOUNTAIN } : p,
+      );
+    });
+    expect(keys(onMountain)).toEqual(["piece-off-board:1:panelPosition"]);
+  });
+
   test("a heavy in transit is not counted as unmerged; negative resources are reported", () => {
     const heavy = (id: number, extra = {}) => piece(id, { pieceType: "heavy", ...extra });
     expect(
-      I.check(state([heavy(1), heavy(2, { transitPosition: pos(0, 1), movementPoints: 0.5 })])),
+      I.check(state([heavy(1), heavy(2, { transitPosition: pos(0, 1), hopProgress: 0.5 })])),
     ).toEqual([]);
     expect(keys(state([], (s) => (s.turn.resources.opponent = -1)))).toEqual([
       "negative-resources:opponent",

@@ -11,6 +11,7 @@ describe.each(SIDES)("MatchHistoryService (%s)", (player) => {
     newGame(4, player);
     MatchControlRepository.set({
       ...MatchControlRepository.get(),
+      map: "narrows",
       controllers: { [player]: "cpu", [enemy]: "human" } as never,
       aiStrengths: { [player]: AiStrength.STRENGTH_2, [enemy]: AiStrength.STRENGTH_1 } as never,
       aiSeeds: { [player]: 1, [enemy]: 2 } as never,
@@ -26,7 +27,7 @@ describe.each(SIDES)("MatchHistoryService (%s)", (player) => {
     const exported = JSON.parse(MatchHistoryService.toJson());
     expect(exported.metadata).toMatchObject({
       winner: null,
-      layer: 4,
+      map: "narrows",
       players: { [player]: { controller: "cpu", aiStrength: AiStrength.STRENGTH_2, aiSeed: 1 } },
     });
     const entry = exported.entries[1];

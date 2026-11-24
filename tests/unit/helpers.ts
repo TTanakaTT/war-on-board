@@ -1,4 +1,5 @@
 import { GameApi } from "#lib/api/GameApi.ts";
+import type { GameMapConfig } from "#lib/domain/config.ts";
 import {
   createPiece,
   opponentOf,
@@ -16,8 +17,13 @@ export { pos } from "#lib/domain/model.ts";
 /** Runs a describe block once per side (player symmetry). */
 export const SIDES = [Player.SELF, Player.OPPONENT] as const;
 
-export function newGame(layer = 4, player: Player = Player.SELF) {
-  GameApi.initializeGame({ layer });
+/** <terrains> are mirrored to the other half, as in a preset map. */
+export function newGame(
+  layer = 4,
+  player: Player = Player.SELF,
+  terrains: GameMapConfig["terrains"] = [],
+) {
+  GameApi.initializeGame({ layer, terrains });
   if (player !== Player.SELF) setTurn({ player });
 }
 

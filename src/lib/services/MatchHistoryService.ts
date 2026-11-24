@@ -18,7 +18,7 @@ const bySide = (value: (side: Side) => number): BySide<number> => ({
 export class MatchHistoryService {
   static getExportData(): MatchHistoryExport {
     const history = GameApi.getGameStateHistory();
-    const { controllers, aiStrengths, aiSeeds } = MatchControlRepository.get();
+    const { map, controllers, aiStrengths, aiSeeds } = MatchControlRepository.get();
     const latest = history.at(-1)?.snapshot;
     const player = (side: Side) => ({
       player: side,
@@ -30,7 +30,7 @@ export class MatchHistoryService {
     return {
       metadata: {
         winner: latest?.turn.winner ?? null,
-        layer: latest?.layer ?? 0,
+        map,
         homeBases: latest?.homeBases ?? [],
         players: { self: player("self"), opponent: player("opponent") },
       },

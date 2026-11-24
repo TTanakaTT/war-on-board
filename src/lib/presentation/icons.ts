@@ -10,9 +10,12 @@ import chessRook from "@material-symbols/svg-400/outlined/chess_rook.svg?raw";
 import close from "@material-symbols/svg-400/outlined/close.svg?raw";
 import download from "@material-symbols/svg-400/outlined/download.svg?raw";
 import exitToApp from "@material-symbols/svg-400/outlined/exit_to_app.svg?raw";
+import forest from "@material-symbols/svg-400/outlined/forest.svg?raw";
 import home from "@material-symbols/svg-400/outlined/home.svg?raw";
 import keyboardArrowLeft from "@material-symbols/svg-400/outlined/keyboard_arrow_left.svg?raw";
 import keyboardArrowRight from "@material-symbols/svg-400/outlined/keyboard_arrow_right.svg?raw";
+import landscape from "@material-symbols/svg-400/outlined/landscape.svg?raw";
+import landscape2 from "@material-symbols/svg-400/outlined/landscape_2.svg?raw";
 import menu from "@material-symbols/svg-400/outlined/menu.svg?raw";
 import shield from "@material-symbols/svg-400/outlined/shield.svg?raw";
 import skipNext from "@material-symbols/svg-400/outlined/skip_next.svg?raw";
@@ -34,9 +37,12 @@ const MATERIAL_ICON_SOURCES = {
   close,
   download,
   exit_to_app: exitToApp,
+  forest,
   home,
   keyboard_arrow_left: keyboardArrowLeft,
   keyboard_arrow_right: keyboardArrowRight,
+  landscape,
+  landscape_2: landscape2,
   menu,
   shield,
   skip_next: skipNext,

@@ -2,6 +2,7 @@ import {
   DEFAULT_MAX_PIECES_PER_PANEL,
   MOVEMENT_HOP_COST,
   PLAYER_INIT_RESOURCE,
+  type GameMapConfig,
 } from "#lib/domain/config.ts";
 import {
   ActionError,
@@ -15,6 +16,8 @@ import {
   pos,
   posKey,
   takesMultipleTurnsPerHop,
+  TERRAINS,
+  terrainConfig,
   type GameActionResult,
   type GameState,
   type GenerationMode,
@@ -47,8 +50,10 @@ const isSide = (value: unknown) => value === Player.SELF || value === Player.OPP
  * - Win by capturing the enemy home base. Infantry > Noble > Rook > Infantry macro balance.
  * - Turn start passives: Noble +1 panel resource, Rook +1 wall (both capped, never lowered),
  *   other types claim their panel. Income = sum of owned panels' resource.
- * - Orders may target any panel; endTurn walks pieces along shortest routes
- *   (MovementRulesService.planEndOfTurn), attacking enemy panels in the way.
+ * - Orders may target any reachable panel; endTurn walks pieces along their cheapest routes
+ *   (MovementRulesService.planEndOfTurn), attacking enemy panels in the way. A step (move or
+ *   attack) into, out of or within hills/forests costs extra; mountains are impassable;
+ *   forests block ranged attacks.
  * - An attacker may only target panels whose every defender has defense <= its raw attack.
  * - Wall first: attackers hit the wall; overflow scales their piece damage. Otherwise both
  *   groups deal max(0, attack - HP-weighted defense) * stackCount simultaneously, split by HP.
@@ -56,8 +61,12 @@ const isSide = (value: unknown) => value === Player.SELF || value === Player.OPP
  *   maxPiecesPerPanel. Ranged attacks never enter; out-of-range defenders do not counter.
  */
 export class GameApi {
-  static initializeGame({ layer }: { layer: number }): Result<GameActionResult> {
-    PanelRepository.setAll(PanelsService.initialize(layer));
+  /** A preset map (GAME_MAP_CONFIGS) or a plain board of <layer>. */
+  static initializeGame({
+    layer,
+    terrains,
+  }: Pick<GameMapConfig, "layer"> & Partial<GameMapConfig>): Result<GameActionResult> {
+    PanelRepository.setAll(PanelsService.initialize(layer, terrains));
     LayerRepository.set(layer);
     HomeBaseRepository.setAll([
       { player: Player.SELF, panelPosition: pos(1 - layer, 0) },
@@ -83,8 +92,8 @@ export class GameApi {
   }
 
   /**
-   * Orders a piece to any panel. A redirect needs banked movement >= MOVEMENT_HOP_COST
-   * (an idle piece can always be ordered); a slow piece is locked once it winds up an attack.
+   * Orders a piece to any reachable panel. A redirect needs banked movement >= MOVEMENT_HOP_COST
+   * (an idle piece can always be ordered); a piece is locked once it winds up an attack.
    * A target within this turn's reach must be carried out this turn without cancelling another
    * order (MovementRulesService.canMoveTo). Every order goes to the back of the order sequence.
    */
@@ -95,9 +104,11 @@ export class GameApi {
   ): Result<GameActionResult> {
     const piece = this.ownPiece(player, pieceId);
     if (typeof piece === "string") return fail(piece);
-    const redirectBlocked = takesMultipleTurnsPerHop(piece)
-      ? MovementRulesService.isOrderLocked(piece)
-      : piece.targetPosition !== undefined && piece.movementPoints < MOVEMENT_HOP_COST;
+    const redirectBlocked =
+      MovementRulesService.isOrderLocked(piece) ||
+      (!takesMultipleTurnsPerHop(piece) &&
+        piece.targetPosition !== undefined &&
+        piece.movementPoints < MOVEMENT_HOP_COST);
     if (redirectBlocked) return fail(ActionError.INSUFFICIENT_MOVEMENT_POINTS);
     if (
       !PanelRepository.find(target) ||
@@ -365,34 +376,38 @@ export class GameApi {
     if (!Number.isInteger(s.layer) || s.layer < 1 || s.panels.length === 0) return false;
 
     const panelKeys = new Set<string>();
+    const passableKeys = new Set<string>();
     for (const panel of s.panels) {
       const key = isPos(panel.panelPosition) && posKey(panel.panelPosition);
       if (!key || panelKeys.has(key)) return false;
       if (panel.panelState !== PanelState.OCCUPIED && panel.panelState !== PanelState.UNOCCUPIED)
         return false;
       if (!nonNegative(panel.resource) || !nonNegative(panel.wall)) return false;
+      if (!TERRAINS.includes(panel.terrain)) return false;
       if (!isSide(panel.player) && panel.player !== Player.UNKNOWN) return false;
       panelKeys.add(key);
+      if (terrainConfig(panel.terrain).passable) passableKeys.add(key);
     }
-    const onBoard = (p?: PanelPosition) => isPos(p) && panelKeys.has(posKey(p!));
+    const passable = (p?: PanelPosition) => isPos(p) && passableKeys.has(posKey(p!));
 
     const homeBaseSides = new Set(s.homeBases.map((h) => h.player));
     if (s.homeBases.length !== 2 || !SIDES.every((side) => homeBaseSides.has(side))) return false;
-    if (!s.homeBases.every((h) => onBoard(h.panelPosition))) return false;
+    if (!s.homeBases.every((h) => passable(h.panelPosition))) return false;
 
     const ids = new Set<number>();
     for (const piece of s.pieces) {
       if (!Number.isInteger(piece.id) || piece.id < 0 || ids.has(piece.id)) return false;
       ids.add(piece.id);
       if (!isSide(piece.player) || !PIECE_TYPES.includes(piece.pieceType)) return false;
-      if (!onBoard(piece.panelPosition) || !onBoard(piece.initialPosition)) return false;
+      if (!passable(piece.panelPosition) || !passable(piece.initialPosition)) return false;
       for (const optional of [
         piece.targetPosition,
         piece.rangedAttackTargetPosition,
         piece.transitPosition,
       ]) {
-        if (optional && !onBoard(optional)) return false;
+        if (optional && !passable(optional)) return false;
       }
+      if (piece.hopProgress !== undefined && !nonNegative(piece.hopProgress)) return false;
       if (!nonNegative(piece.hp) || !nonNegative(piece.maxHp) || piece.hp > piece.maxHp)
         return false;
       if (!Number.isInteger(piece.stackCount) || piece.stackCount < 1) return false;

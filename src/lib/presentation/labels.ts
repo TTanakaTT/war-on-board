@@ -1,9 +1,11 @@
 import {
   AiStrength,
   Player,
+  type GameMapId,
   type PieceType,
   type PieceTypeCount,
   type Side,
+  type Terrain,
 } from "#lib/domain/model.ts";
 import type { MatchControl, PlayerController } from "#lib/domain/types.ts";
 import { m } from "#lib/paraglide/messages.js";
@@ -24,7 +26,33 @@ const AI_LABELS: Record<AiStrength, { level: () => string; option: () => string 
   [AiStrength.STRENGTH_3]: { level: m.ai_strength_level_3, option: m.player_option_ai_strength_3 },
 };
 
+const MAP_LABELS: Record<GameMapId, () => string> = {
+  plains: m.map_plains,
+  narrows: m.map_narrows,
+};
+
+/** Plain has no label: it is the default terrain and not in the legend. */
+const TERRAIN_LABELS: Record<
+  Exclude<Terrain, "plain">,
+  { name: () => string; description: () => string }
+> = {
+  hill: { name: m.terrain_hill, description: m.terrain_hill_description },
+  forest: { name: m.terrain_forest, description: m.terrain_forest_description },
+  mountain: { name: m.terrain_mountain, description: m.terrain_mountain_description },
+};
+
 export const pieceTypeLabel = (pieceType: PieceType) => PIECE_LABELS[pieceType]();
+
+export const mapLabel = (map: GameMapId) => MAP_LABELS[map]();
+
+/** Terrains shown in the legend, in legend order. */
+export const legendTerrains = (Object.keys(TERRAIN_LABELS) as (keyof typeof TERRAIN_LABELS)[]).map(
+  (terrain) => ({
+    terrain,
+    name: TERRAIN_LABELS[terrain].name,
+    description: TERRAIN_LABELS[terrain].description,
+  }),
+);
 
 export const seatLabel = (player: Player) =>
   player === Player.SELF ? m.first_player_label() : m.second_player_label();

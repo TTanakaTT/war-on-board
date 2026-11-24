@@ -1,5 +1,12 @@
 import { MOVEMENT_HOP_COST } from "#lib/domain/config.ts";
-import { pieceConfig, posKey, SIDES, type GameState, type Piece } from "#lib/domain/model.ts";
+import {
+  pieceConfig,
+  posKey,
+  SIDES,
+  terrainConfig,
+  type GameState,
+  type Piece,
+} from "#lib/domain/model.ts";
 import type { InvariantViolation, InvariantViolationType } from "#lib/domain/types.ts";
 
 /** Tolerance for fractional HP and movement points. */
@@ -34,7 +41,11 @@ export class InvariantService {
 
   private static checkPieces(state: GameState): InvariantViolation[] {
     const violations: InvariantViolation[] = [];
-    const panelKeys = new Set(state.panels.map((panel) => posKey(panel.panelPosition)));
+    const panelKeys = new Set(
+      state.panels
+        .filter((panel) => terrainConfig(panel.terrain).passable)
+        .map((panel) => posKey(panel.panelPosition)),
+    );
     const seenIds = new Set<number>();
 
     for (const piece of state.pieces) {
@@ -83,7 +94,7 @@ export class InvariantService {
             violation(
               "piece-off-board",
               `${piece.id}:${field}`,
-              `${label(piece)} ${field}=(${posKey(position)}) is not on the board`,
+              `${label(piece)} ${field}=(${posKey(position)}) is not on a passable panel`,
             ),
           );
         }

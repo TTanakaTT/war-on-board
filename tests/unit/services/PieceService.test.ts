@@ -4,6 +4,7 @@ import {
   opponentOf,
   pieceConfig,
   PieceType,
+  Terrain,
   wallAttackPower,
   type PanelPosition,
 } from "#lib/domain/model.ts";
@@ -256,7 +257,7 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
 
   test("an enemy in the hop is attacked on arrival; a failed attack returns home", () => {
     add(10, hop, enemy);
-    heavy({ targetPosition: beyond, transitPosition: hop, movementPoints: 0.5 });
+    heavy({ targetPosition: beyond, transitPosition: hop, hopProgress: 0.5 });
     PieceService.finalizePlayerMoves(player);
     expect(exists(10)).toBe(true);
     expect(piece(1)).toMatchObject({
@@ -270,7 +271,7 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
     add(10, hop, enemy, { pieceType: PieceType.NOBLE });
     heavy({ targetPosition: hop });
     PieceService.finalizePlayerMoves(player);
-    expect(piece(1)).toMatchObject({ panelPosition: origin, movementPoints: 0.5 });
+    expect(piece(1)).toMatchObject({ panelPosition: origin, hopProgress: 0.5 });
     expect(exists(10)).toBe(true);
     PieceService.finalizePlayerMoves(player);
     expect(exists(10)).toBe(false);
@@ -285,7 +286,7 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
   });
 
   test("a piece in transit is left out of merging", () => {
-    heavy({ targetPosition: hop, transitPosition: hop, movementPoints: 0.5 });
+    heavy({ targetPosition: hop, transitPosition: hop, hopProgress: 0.5 });
     heavy({}, 2);
     PieceService.mergePiecesAtPosition(origin);
     expect([piece(1).stackCount, piece(2).stackCount]).toEqual([1, 1]);
@@ -324,5 +325,19 @@ describe("resolveRangedAttacks", () => {
     add(2, pos(0, 2), "opponent");
     expect(PieceService.resolveRangedAttacks("self")).toEqual([]);
     expect(piece(1).rangedAttackTargetPosition).toEqual(pos(0, 2));
+  });
+});
+
+describe.each(SIDES)("resolveRangedAttacks on terrain (%s)", (player) => {
+  test("an order the shooter's forest now blocks is dropped without firing", () => {
+    newGame(4, player, [{ horizontalLayer: 0, verticalLayer: 1, terrain: Terrain.FOREST }]);
+    add(1, pos(0, 1), player, {
+      pieceType: PieceType.ARCHER,
+      rangedAttackTargetPosition: pos(0, 3),
+    });
+    add(2, pos(0, 3), opponentOf(player));
+    expect(PieceService.resolveRangedAttacks(player)).toEqual([]);
+    expect(piece(1)).toMatchObject({ rangedAttackTargetPosition: undefined, movementPoints: 1 });
+    expect(piece(2).hp).toBe(piece(2).maxHp);
   });
 });

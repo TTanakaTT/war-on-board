@@ -1,12 +1,15 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import { DEFAULT_AUTOMATION_TURN_LIMIT, DEFAULT_GAME_LAYER } from "#lib/domain/config.ts";
-  import { AiStrength } from "#lib/domain/model.ts";
+  import { DEFAULT_AUTOMATION_TURN_LIMIT, DEFAULT_GAME_MAP } from "#lib/domain/config.ts";
+  import { AiStrength, GAME_MAP_IDS, type GameMapId } from "#lib/domain/model.ts";
   import type { BySide, PlayerController } from "#lib/domain/types.ts";
   import { m } from "#lib/paraglide/messages.js";
   import AppButton from "#lib/presentation/components/primitives/AppButton.svelte";
   import HorizontalRadioGroup from "#lib/presentation/components/primitives/HorizontalRadioGroup.svelte";
+  import { mapLabel } from "#lib/presentation/labels.ts";
+  import MapPreview from "./MapPreview.svelte";
+  import TerrainLegend from "./TerrainLegend.svelte";
   import { MatchService } from "#lib/services/MatchService.ts";
 
   type MatchSetupSelection = "human" | "ai-1" | "ai-2" | "ai-3";
@@ -38,7 +41,7 @@
 
   let selfSelection = $state<MatchSetupSelection>("human");
   let opponentSelection = $state<MatchSetupSelection>(DEFAULT_AI_SELECTION);
-  let selectedLayer = $state<number>(DEFAULT_GAME_LAYER);
+  let selectedMap = $state<GameMapId>(DEFAULT_GAME_MAP);
 
   function selectionOptions(): { value: MatchSetupSelection; label: string }[] {
     return [
@@ -51,14 +54,6 @@
         label: selection.label(),
       })),
     ];
-  }
-
-  function clampLayer(layer: number): number {
-    if (!Number.isFinite(layer)) {
-      return DEFAULT_GAME_LAYER;
-    }
-
-    return Math.max(2, Math.floor(layer));
   }
 
   function controllerFor(selection: MatchSetupSelection): BySide<PlayerController>["self"] {
@@ -88,15 +83,12 @@
   }
 
   async function startMatch(): Promise<void> {
-    const nextLayer = clampLayer(selectedLayer);
-    selectedLayer = nextLayer;
-
     MatchService.startMatch({
       controllers: {
         self: controllerFor(selfSelection),
         opponent: controllerFor(opponentSelection),
       },
-      layer: nextLayer,
+      map: selectedMap,
       automationTurnLimit: DEFAULT_AUTOMATION_TURN_LIMIT,
       aiStrengths: {
         self: aiStrengthFor(selfSelection),
@@ -149,17 +141,21 @@
       </div>
     </section>
 
-    <section class="space-y-3">
+    <section class="flex flex-col items-center space-y-3">
       <h2 class="text-center font-semibold tracking-wide uppercase">
-        {m.layer_count_label()}
+        {m.map_label()}
       </h2>
-      <input
-        class="border-outline dark:border-outline-dark bg-surface dark:bg-surface-dark h-10 w-28 rounded-2xl border px-3 text-center text-base font-semibold"
-        type="number"
-        min="2"
-        bind:value={selectedLayer}
-        onblur={() => (selectedLayer = clampLayer(selectedLayer))}
+      <HorizontalRadioGroup
+        name="match-setup-map"
+        ariaLabel={m.map_label()}
+        options={GAME_MAP_IDS.map((map) => ({ value: map, label: mapLabel(map) }))}
+        value={selectedMap}
+        onChange={(value) => (selectedMap = value as GameMapId)}
       />
+      <MapPreview map={selectedMap} />
+      <div class="max-w-sm">
+        <TerrainLegend />
+      </div>
     </section>
 
     <AppButton additionalClass="px-6" onclick={startMatch}>
