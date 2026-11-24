@@ -1,5 +1,6 @@
 import { MOVEMENT_HOP_COST } from "#lib/domain/config.ts";
 import {
+  maxPiecesAt,
   pieceConfig,
   posKey,
   SIDES,
@@ -128,7 +129,11 @@ export class InvariantService {
         const mergeable = own.filter((p) => pieceConfig(p.pieceType).mergeable);
         const types = new Set(mergeable.map((p) => p.pieceType));
         const stackCount = own.length - mergeable.length + types.size;
-        const maxPieces = state.turn.maxPiecesPerPanel[player];
+        const maxPieces = maxPiecesAt(
+          pieces[0].panelPosition,
+          state.turn.maxPiecesPerPanel[player],
+          state.homeBases,
+        );
         if (stackCount > maxPieces) {
           violations.push(
             violation(

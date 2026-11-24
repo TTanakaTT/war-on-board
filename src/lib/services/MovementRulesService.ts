@@ -3,6 +3,7 @@ import {
   canAttack,
   isAdjacent,
   isInTransit,
+  maxPiecesAt,
   pieceConfig,
   Player,
   posKey,
@@ -12,7 +13,7 @@ import {
   type PanelPosition,
   type Piece,
 } from "#lib/domain/model.ts";
-import { PanelRepository, PiecesRepository } from "#lib/store.svelte.ts";
+import { HomeBaseRepository, PanelRepository, PiecesRepository } from "#lib/store.svelte.ts";
 import { PanelsService } from "#lib/services/PanelService.ts";
 
 /**
@@ -228,6 +229,7 @@ export class MovementRulesService {
   private static planMove(piece: Piece, occupancy: Occupancy, context: PlanContext): MoveAttempt {
     const own = piece.panelPosition;
     const { maxPieces } = context;
+    const homeBases = HomeBaseRepository.getAll();
     const blockers: PanelPosition[] = [];
     let farthest: PanelPosition[] = [];
     const planned = (step: TurnStep, planOccupancy: PanelPosition[]): MoveAttempt => ({
@@ -247,7 +249,7 @@ export class MovementRulesService {
             [own],
           );
         }
-        if (occupancy.stackCountWith(hop, piece) > maxPieces) {
+        if (occupancy.stackCountWith(hop, piece) > maxPiecesAt(hop, maxPieces, homeBases)) {
           blockers.push(hop);
           continue;
         }
@@ -277,7 +279,9 @@ export class MovementRulesService {
           closed = true;
           break;
         }
-        if (occupancy.stackCountWith(position, piece) > maxPieces) {
+        if (
+          occupancy.stackCountWith(position, piece) > maxPiecesAt(position, maxPieces, homeBases)
+        ) {
           walked = i;
           blocker = position;
           break;
@@ -405,7 +409,12 @@ export class MovementRulesService {
     const after = this.planEndOfTurn(player, maxPieces, changed);
 
     const acting = after.get(actingPieceId);
-    if (acting?.occupancy.some((position) => after.stackCount(position) > maxPieces)) {
+    const homeBases = HomeBaseRepository.getAll();
+    if (
+      acting?.occupancy.some(
+        (position) => after.stackCount(position) > maxPiecesAt(position, maxPieces, homeBases),
+      )
+    ) {
       return false;
     }
 

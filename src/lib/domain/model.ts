@@ -1,5 +1,6 @@
 import {
   GAME_MAP_CONFIGS,
+  HOME_BASE_EXTRA_MAX_PIECES,
   MOVEMENT_HOP_COST,
   PIECE_CONFIGS,
   TERRAIN_CONFIGS,
@@ -182,6 +183,16 @@ export const posKey = (p: PanelPosition): string => `${p.horizontalLayer},${p.ve
 
 export const samePos = (a?: PanelPosition | null, b?: PanelPosition | null): boolean =>
   !!a && !!b && a.horizontalLayer === b.horizontalLayer && a.verticalLayer === b.verticalLayer;
+
+/** Piece cap at <position> for either player: home bases hold HOME_BASE_EXTRA_MAX_PIECES more. */
+export const maxPiecesAt = (
+  position: PanelPosition,
+  maxPieces: number,
+  homeBases: readonly HomeBase[],
+): number =>
+  homeBases.some((h) => samePos(h.panelPosition, position))
+    ? maxPieces + HOME_BASE_EXTRA_MAX_PIECES
+    : maxPieces;
 
 export const isAdjacent = (a: PanelPosition, b: PanelPosition): boolean =>
   !samePos(a, b) &&

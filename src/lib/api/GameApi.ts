@@ -59,6 +59,7 @@ const isSide = (value: unknown) => value === Player.SELF || value === Player.OPP
  *   groups deal max(0, attack - HP-weighted defense) * stackCount simultaneously, split by HP.
  * - Attackers enter only when no enemy pieces and no wall remain, in order sequence, up to
  *   maxPiecesPerPanel. Ranged attacks never enter; out-of-range defenders do not counter.
+ * - Home base panels (either side's) hold HOME_BASE_EXTRA_MAX_PIECES more pieces for both players.
  */
 export class GameApi {
   /** A preset map (GAME_MAP_CONFIGS) or a plain board of <layer>. */

@@ -113,6 +113,7 @@ export const PASSIVE_WALL_CAP = 5;
 export const AI_SUPPORT_PIECE_CAP = 4;
 export const RESOURCE_THRESHOLD_FOR_GENERATION = 5;
 export const DEFAULT_MAX_PIECES_PER_PANEL = 2;
+export const HOME_BASE_EXTRA_MAX_PIECES = 1;
 /** Movement points per panel; banked points are capped at max(movement, MOVEMENT_HOP_COST). */
 export const MOVEMENT_HOP_COST = 1;
 

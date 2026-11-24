@@ -13,6 +13,7 @@ import { PiecesRepository, TurnRepository } from "#lib/store.svelte.ts";
 import {
   add,
   fill,
+  fillHomeBase,
   newGame,
   panel,
   piece,
@@ -46,8 +47,14 @@ describe.each(SIDES)("GenerationService (%s)", (player) => {
     own(at(2, 1));
     own(at(2, 0));
     expect(G.findGenerationPanel(player)).toEqual(home);
-    fill(home, 10, player);
+    fillHomeBase(home, 10, player);
     expect(G.findGenerationPanel(player)).toEqual(at(2, 0));
+  });
+
+  test("a home base takes a piece next to two non-mergeable ones", () => {
+    own(at(2, 0));
+    fill(home, 10, player);
+    expect(G.findGenerationPanel(player)).toEqual(home);
   });
 
   test("front prefers panels closest to the enemy home base, even on its side", () => {
@@ -68,6 +75,7 @@ describe.each(SIDES)("GenerationService (%s)", (player) => {
   test("a full panel only takes a mergeable type matching a resident not in transit", () => {
     add(1, home, player, { pieceType: PieceType.HEAVY });
     add(2, home, player, { pieceType: PieceType.ROOK });
+    add(3, home, player, { pieceType: PieceType.NOBLE });
     expect(G.findGenerationPanel(player, PieceType.HEAVY)).toEqual(home);
     expect(G.findGenerationPanel(player, PieceType.INFANTRY)).toBeNull();
     expect(G.findGenerationPanel(player, PieceType.ROOK)).toBeNull();
@@ -85,6 +93,7 @@ describe.each(SIDES)("GenerationService (%s)", (player) => {
     own(at(2, 1), 0);
     add(1, at(2, 1), player, { pieceType: PieceType.ROOK, targetPosition: home });
     add(2, at(2, 1), player, { pieceType: PieceType.NOBLE, targetPosition: home });
+    add(3, home, player, { pieceType: PieceType.ROOK });
     expect(G.findGenerationPanel(player, PieceType.ROOK)).toEqual(at(2, 0));
     fill(at(2, 0), 10, player);
     PiecesRepository.update({ ...piece(10), targetPosition: at(1, 0) });
@@ -98,11 +107,13 @@ describe.each(SIDES)("GenerationService (%s)", (player) => {
       movementPoints: 0,
     });
     add(2, at(2, 1), player, { pieceType: PieceType.ROOK, targetPosition: home });
+    add(3, home, player, { pieceType: PieceType.NOBLE });
     expect(G.findGenerationPanel(player, PieceType.CAVALRY)).toBeNull();
   });
 
   test("an incoming same type lets a projected-full panel take it, within capacity after endTurn", () => {
     add(1, home, player, { pieceType: PieceType.ROOK });
+    add(3, home, player, { pieceType: PieceType.NOBLE });
     add(2, at(2, 1), player);
     GameApi.assignMove(player, 2, home);
     expect(G.findGenerationPanel(player, PieceType.ROOK)).toBeNull();
