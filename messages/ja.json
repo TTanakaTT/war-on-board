@@ -59,7 +59,7 @@
   "terrain_forest": "森",
   "terrain_mountain": "山",
   "terrain_hill_description": "高地への道のりは楽ではない",
-  "terrain_forest_description": "草木は道のりを阻む。天然の障害は弓を通さない",
+  "terrain_forest_description": "草木は道のりを阻む。天然の障害は矢を通さない",
   "terrain_mountain_description": "ひどく険しく、人を寄せ付けない",
   "leave_match": "ゲーム終了",
   "close_dialog": "閉じる",
