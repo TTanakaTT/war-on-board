@@ -16,6 +16,8 @@ import {
   terrainConfig,
   type Panel,
   type PanelPosition,
+  pieceConfig,
+  type Piece,
   type PieceType,
 } from "#lib/domain/model.ts";
 import { PanelRepository, PiecesRepository } from "#lib/store.svelte.ts";
@@ -72,8 +74,8 @@ class BoardGraph {
     return this.passableAdjacency.get(posKey(position)) ?? [];
   }
 
-  hopCost(pieceType: PieceType, position: PanelPosition): number {
-    return hopCost(pieceType, this.terrain(position));
+  hopCost(pieceType: PieceType, from: PanelPosition, to: PanelPosition): number {
+    return hopCost(pieceType, this.terrain(from), this.terrain(to));
   }
 }
 
@@ -121,9 +123,22 @@ export class PanelsService {
     return this.boardGraph().isPassable(position);
   }
 
-  /** Movement points <pieceType> spends to enter (or attack) <position>. */
-  static hopCostTo(pieceType: PieceType, position: PanelPosition): number {
-    return this.boardGraph().hopCost(pieceType, position);
+  /** Movement points <pieceType> spends to step (move or attack) from <from> into <to>. */
+  static hopCost(pieceType: PieceType, from: PanelPosition, to: PanelPosition): number {
+    return this.boardGraph().hopCost(pieceType, from, to);
+  }
+
+  /** The step cannot be made within one turn. */
+  static takesMultipleTurns(piece: Piece, from: PanelPosition, to: PanelPosition): boolean {
+    return this.hopCost(piece.pieceType, from, to) > pieceConfig(piece.pieceType).movement;
+  }
+
+  /** Total movement points along <path> from <origin>. */
+  static pathCost(pieceType: PieceType, origin: PanelPosition, path: PanelPosition[]): number {
+    return path.reduce(
+      (sum, position, i) => sum + this.hopCost(pieceType, path[i - 1] ?? origin, position),
+      0,
+    );
   }
 
   /** Panels apart with terrain ignored (mountains included), or Infinity. */
@@ -190,7 +205,7 @@ export class PanelsService {
       }
       for (const neighbor of graph.passableNeighbors(current)) {
         const key = posKey(neighbor);
-        const next = cost + graph.hopCost(pieceType, neighbor);
+        const next = cost + graph.hopCost(pieceType, current, neighbor);
         if (settled.has(key) || next >= (costs.get(key) ?? Number.POSITIVE_INFINITY)) continue;
         costs.set(key, next);
         cameFrom.set(key, current);
@@ -219,10 +234,9 @@ export class PanelsService {
       if (settled.has(posKey(current))) continue;
       settled.add(posKey(current));
 
-      // Stepping from a neighbor into <current> costs <current>'s terrain.
-      const next = cost + graph.hopCost(pieceType, current);
       for (const neighbor of graph.passableNeighbors(current)) {
         const key = posKey(neighbor);
+        const next = cost + graph.hopCost(pieceType, neighbor, current);
         if (settled.has(key) || next >= (costs.get(key) ?? Number.POSITIVE_INFINITY)) continue;
         costs.set(key, next);
         open.push({ position: neighbor, cost: next });
@@ -265,7 +279,7 @@ export class PanelsService {
         const remaining = costs.get(posKey(current))!;
         let endsHere = false;
         for (const neighbor of graph.passableNeighbors(current)) {
-          const cost = graph.hopCost(pieceType, neighbor);
+          const cost = graph.hopCost(pieceType, current, neighbor);
           const rest = costs.get(posKey(neighbor));
           if (rest === undefined || Math.abs(rest + cost - remaining) > COST_EPSILON) continue;
           if (fits(prefix, spent, cost)) walk(neighbor, [...prefix, neighbor], spent + cost);
@@ -279,7 +293,7 @@ export class PanelsService {
       let spent = 0;
       for (const position of this.findShortestPath(origin, destination, pieceType)?.slice(1) ??
         []) {
-        const cost = graph.hopCost(pieceType, position);
+        const cost = graph.hopCost(pieceType, preferred.at(-1) ?? origin, position);
         if (!fits(preferred, spent, cost)) break;
         preferred.push(position);
         spent += cost;

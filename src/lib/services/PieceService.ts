@@ -7,7 +7,6 @@ import {
   Player,
   posKey,
   samePos,
-  takesMultipleTurns,
   takesMultipleTurnsPerHop,
   type BoardPoint,
   type CombatOutcome,
@@ -80,7 +79,7 @@ export class PieceService {
   static move(
     panelPosition: PanelPosition,
     piece: Piece,
-    cost = PanelsService.hopCostTo(piece.pieceType, panelPosition),
+    cost = PanelsService.hopCost(piece.pieceType, piece.panelPosition, panelPosition),
   ) {
     PiecesRepository.update({
       ...piece,
@@ -119,7 +118,8 @@ export class PieceService {
       from: piece.panelPosition,
       to: piece.transitPosition,
       progress:
-        (piece.hopProgress ?? 0) / PanelsService.hopCostTo(piece.pieceType, piece.transitPosition),
+        (piece.hopProgress ?? 0) /
+        PanelsService.hopCost(piece.pieceType, piece.panelPosition, piece.transitPosition),
     };
   }
 
@@ -129,7 +129,7 @@ export class PieceService {
     const step = MovementRulesService.planEndOfTurn(piece.player, maxPieces).get(piece.id)?.step;
     const progress = (hop: PanelPosition) =>
       ((piece.hopProgress ?? 0) + pieceConfig(piece.pieceType).movement) /
-      PanelsService.hopCostTo(piece.pieceType, hop);
+      PanelsService.hopCost(piece.pieceType, piece.panelPosition, hop);
 
     switch (step?.kind) {
       case "advance":
@@ -154,7 +154,7 @@ export class PieceService {
   private static walk(piece: Piece, path: PanelPosition[]): Piece {
     const end = path.at(-1);
     if (!end) return { ...piece, hopProgress: undefined };
-    const cost = path.reduce((sum, p) => sum + PanelsService.hopCostTo(piece.pieceType, p), 0);
+    const cost = PanelsService.pathCost(piece.pieceType, piece.panelPosition, path);
     return {
       ...piece,
       panelPosition: end,
@@ -174,7 +174,7 @@ export class PieceService {
     step: TurnStep,
   ): { piece: Piece; target: PanelPosition } | undefined {
     const multiTurn = (hop: PanelPosition) =>
-      takesMultipleTurns(piece, PanelsService.terrainAt(hop));
+      PanelsService.takesMultipleTurns(piece, piece.panelPosition, hop);
     const progress = (piece.hopProgress ?? 0) + pieceConfig(piece.pieceType).movement;
     const progressed = (changes: Partial<Piece> = {}): Piece => ({
       ...piece,
@@ -194,7 +194,7 @@ export class PieceService {
       ...piece,
       transitPosition: undefined,
       hopProgress: undefined,
-      movementPoints: PanelsService.hopCostTo(piece.pieceType, hop),
+      movementPoints: PanelsService.hopCost(piece.pieceType, piece.panelPosition, hop),
     });
     const engage = (engaging: Piece, target: PanelPosition) => {
       PiecesRepository.update(engaging);
@@ -324,7 +324,8 @@ export class PieceService {
           ...current,
           targetPosition: undefined,
           movementPoints:
-            current.movementPoints - PanelsService.hopCostTo(current.pieceType, targetPosition),
+            current.movementPoints -
+            PanelsService.hopCost(current.pieceType, current.panelPosition, targetPosition),
         });
       }
     }

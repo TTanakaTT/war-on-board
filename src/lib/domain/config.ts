@@ -119,7 +119,10 @@ export const MOVEMENT_HOP_COST = 1;
 export interface TerrainConfig {
   iconName?: string;
   passable: boolean;
-  /** Extra movement points to enter; a piece slower than MOVEMENT_HOP_COST pays it in turns. */
+  /**
+   * Extra movement points for a step into or out of this terrain (the larger of both ends,
+   * once); a piece slower than MOVEMENT_HOP_COST pays it in turns.
+   */
   extraMovementCost: number;
   /** Ranged attacks can neither be fired from nor aimed at this terrain. */
   blocksRangedAttack: boolean;

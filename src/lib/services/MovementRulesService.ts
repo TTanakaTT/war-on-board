@@ -7,7 +7,6 @@ import {
   Player,
   posKey,
   samePos,
-  takesMultipleTurns,
   takesMultipleTurnsPerHop,
   terrainConfig,
   type PanelPosition,
@@ -239,7 +238,7 @@ export class MovementRulesService {
 
     for (const route of context.routesOf(piece)) {
       const [hop] = route;
-      if (takesMultipleTurns(piece, PanelsService.terrainAt(hop))) {
+      if (PanelsService.takesMultipleTurns(piece, own, hop)) {
         const completes = this.completesHopThisTurn(piece, hop);
         if (context.hasEnemyPresence(hop)) {
           if (!this.canAttackPanel(piece, hop)) continue;
@@ -264,7 +263,7 @@ export class MovementRulesService {
 
       for (let i = 0; i < route.length; i++) {
         const position = route[i];
-        spent += PanelsService.hopCostTo(piece.pieceType, position);
+        spent += PanelsService.hopCost(piece.pieceType, route[i - 1] ?? own, position);
         if (spent > piece.movementPoints) {
           walked = i;
           break;
@@ -445,7 +444,7 @@ export class MovementRulesService {
   static completesHopThisTurn(piece: Piece, hop: PanelPosition): boolean {
     return (
       (piece.hopProgress ?? 0) + pieceConfig(piece.pieceType).movement >=
-      PanelsService.hopCostTo(piece.pieceType, hop)
+      PanelsService.hopCost(piece.pieceType, piece.panelPosition, hop)
     );
   }
 
@@ -476,7 +475,7 @@ export class MovementRulesService {
     if (cost === undefined) return false;
     const budget = takesMultipleTurnsPerHop(piece) ? 0 : piece.movementPoints;
     if (cost <= budget) return true;
-    return isAdjacent(own, target) && takesMultipleTurns(piece, PanelsService.terrainAt(target));
+    return isAdjacent(own, target) && PanelsService.takesMultipleTurns(piece, own, target);
   }
 
   /** Enemy pieces or an enemy wall on the panel. */

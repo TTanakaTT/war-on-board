@@ -51,8 +51,9 @@ const isSide = (value: unknown) => value === Player.SELF || value === Player.OPP
  * - Turn start passives: Noble +1 panel resource, Rook +1 wall (both capped, never lowered),
  *   other types claim their panel. Income = sum of owned panels' resource.
  * - Orders may target any reachable panel; endTurn walks pieces along their cheapest routes
- *   (MovementRulesService.planEndOfTurn), attacking enemy panels in the way. Entering or
- *   attacking hills/forests costs extra; mountains are impassable; forests block ranged attacks.
+ *   (MovementRulesService.planEndOfTurn), attacking enemy panels in the way. A step (move or
+ *   attack) into, out of or within hills/forests costs extra; mountains are impassable;
+ *   forests block ranged attacks.
  * - An attacker may only target panels whose every defender has defense <= its raw attack.
  * - Wall first: attackers hit the wall; overflow scales their piece damage. Otherwise both
  *   groups deal max(0, attack - HP-weighted defense) * stackCount simultaneously, split by HP.

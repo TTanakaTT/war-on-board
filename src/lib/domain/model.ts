@@ -223,16 +223,19 @@ export function createPiece(
 export const takesMultipleTurnsPerHop = (piece: Piece): boolean =>
   pieceConfig(piece.pieceType).movement < MOVEMENT_HOP_COST;
 
-/** Movement points to enter (or attack) a panel of <terrain>; slow pieces pay the extra in turns. */
-export const hopCost = (pieceType: PieceType, terrain: Terrain): number => {
+/**
+ * Movement points for a step (move or attack) between panels of <from> and <to>: the larger
+ * extra of the two applies once. Slow pieces pay the extra in turns.
+ */
+export const hopCost = (pieceType: PieceType, from: Terrain, to: Terrain): number => {
   const { movement } = pieceConfig(pieceType);
   const extraScale = Math.min(1, movement / MOVEMENT_HOP_COST);
-  return MOVEMENT_HOP_COST + terrainConfig(terrain).extraMovementCost * extraScale;
+  const extra = Math.max(
+    terrainConfig(from).extraMovementCost,
+    terrainConfig(to).extraMovementCost,
+  );
+  return MOVEMENT_HOP_COST + extra * extraScale;
 };
-
-/** The hop (or attack) cannot be made within one turn. */
-export const takesMultipleTurns = (piece: Piece, terrain: Terrain): boolean =>
-  hopCost(piece.pieceType, terrain) > pieceConfig(piece.pieceType).movement;
 
 export const isInTransit = (piece: Piece): boolean => piece.transitPosition !== undefined;
 

@@ -526,6 +526,24 @@ describe.each(SIDES)("terrain (%s)", (player) => {
     expect(piece(1)).toMatchObject({ panelPosition: hill, transitPosition: undefined });
   });
 
+  test("leaving a hill costs as much as entering it, attacks included", () => {
+    start();
+    add(1, hill, player);
+    GameApi.assignMove(player, 1, pos(0, 2));
+    ownTurns(1);
+    expect(piece(1)).toMatchObject({ panelPosition: hill, transitPosition: pos(0, 2) });
+    ownTurns(1);
+    expect(piece(1).panelPosition).toEqual(pos(0, 2));
+
+    start();
+    add(1, hill, player);
+    add(2, pos(0, 2), enemy, { pieceType: PieceType.NOBLE });
+    GameApi.assignMove(player, 1, pos(0, 2));
+    ownTurns(1);
+    expect(piece(1)).toMatchObject({ panelPosition: hill, hopProgress: 1 });
+    expect(exists(2)).toBe(true);
+  });
+
   test("a cavalry stops before a hill it cannot pay for this turn", () => {
     start();
     add(1, pos(0, 3), player, { pieceType: PieceType.CAVALRY });
