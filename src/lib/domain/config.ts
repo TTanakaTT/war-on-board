@@ -175,6 +175,7 @@ export const GAME_MAP_CONFIGS = {
       { horizontalLayer: 0, verticalLayer: 5, terrain: "mountain" },
       { horizontalLayer: 1, verticalLayer: 4, terrain: "mountain" },
       { horizontalLayer: 0, verticalLayer: 1, terrain: "hill" },
+      { horizontalLayer: 0, verticalLayer: 2, terrain: "hill" },
       { horizontalLayer: 1, verticalLayer: 0, terrain: "hill" },
       { horizontalLayer: 0, verticalLayer: 4, terrain: "forest" },
       { horizontalLayer: 1, verticalLayer: 3, terrain: "forest" },
