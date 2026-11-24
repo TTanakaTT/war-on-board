@@ -4,6 +4,7 @@ import {
   opponentOf,
   pieceConfig,
   PieceType,
+  Terrain,
   wallAttackPower,
   type PanelPosition,
 } from "#lib/domain/model.ts";
@@ -324,5 +325,19 @@ describe("resolveRangedAttacks", () => {
     add(2, pos(0, 2), "opponent");
     expect(PieceService.resolveRangedAttacks("self")).toEqual([]);
     expect(piece(1).rangedAttackTargetPosition).toEqual(pos(0, 2));
+  });
+});
+
+describe.each(SIDES)("resolveRangedAttacks on terrain (%s)", (player) => {
+  test("an order the shooter's forest now blocks is dropped without firing", () => {
+    newGame(4, player, [{ horizontalLayer: 0, verticalLayer: 1, terrain: Terrain.FOREST }]);
+    add(1, pos(0, 1), player, {
+      pieceType: PieceType.ARCHER,
+      rangedAttackTargetPosition: pos(0, 3),
+    });
+    add(2, pos(0, 3), opponentOf(player));
+    expect(PieceService.resolveRangedAttacks(player)).toEqual([]);
+    expect(piece(1)).toMatchObject({ rangedAttackTargetPosition: undefined, movementPoints: 1 });
+    expect(piece(2).hp).toBe(piece(2).maxHp);
   });
 });

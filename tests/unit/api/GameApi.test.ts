@@ -12,7 +12,10 @@ import {
   pieceConfig,
   PieceType,
   Player,
+  samePos,
+  Terrain,
   type GameState,
+  type Panel,
 } from "#lib/domain/model.ts";
 import { InvariantService } from "#lib/services/InvariantService.ts";
 import {
@@ -36,6 +39,7 @@ import {
   SIDES,
 } from "../helpers.ts";
 
+const isAt = (h: number, v: number) => (p: Panel) => samePos(p.panelPosition, pos(h, v));
 const fail = (error: ActionError) => ({ ok: false, error });
 const capacityViolations = () =>
   InvariantService.check(GameApi.getGameState()).filter(
@@ -650,6 +654,9 @@ describe("state snapshots", () => {
     ["a fractional order sequence", (s) => (s.pieces[0].orderSequence = 1.5)],
     ["hp above maxHp", (s) => (s.pieces[0].hp = 99)],
     ["an unknown generation mode", (s) => (s.turn.generationMode.self = "side" as never)],
+    ["a piece on a mountain", (s) => (s.panels.find(isAt(0, 0))!.terrain = Terrain.MOUNTAIN)],
+    ["an unknown terrain", (s) => (s.panels[0].terrain = "swamp" as never)],
+    ["a negative hop progress", (s) => (s.pieces[0].hopProgress = -1)],
   ])("loadGameState rejects %s", (_, corrupt) => {
     newGame();
     add(1, pos(0, 0));
