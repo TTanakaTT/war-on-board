@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { GameApi } from "#lib/api/GameApi.ts";
 import { createPiece, samePos, Terrain, type GameState, type Piece } from "#lib/domain/model.ts";
 import { InvariantService as I } from "#lib/services/InvariantService.ts";
-import { newGame, pos } from "../helpers.ts";
+import { newGame, pos, SIDES } from "../helpers.ts";
 
 const piece = (id: number, overrides: Partial<Piece> = {}) =>
   createPiece({
@@ -81,6 +81,21 @@ describe("InvariantService", () => {
     changed.turn.resources.self = 999;
     expect(I.findIntroducedViolations(finished, changed).map((v) => v.type)).toEqual([
       "state-changed-after-winner",
+    ]);
+  });
+});
+
+describe.each(SIDES)("InvariantService home base (%s)", (player) => {
+  const home = pos(player === "self" ? -3 : 3, 0);
+  const rooks = (count: number) =>
+    Array.from({ length: count }, (_, i) =>
+      piece(i + 1, { player, panelPosition: home, pieceType: "rook" }),
+    );
+
+  test("a home base holds three non-mergeable pieces, not four", () => {
+    expect(keys(state(rooks(3)))).toEqual([]);
+    expect(keys(state(rooks(4)))).toEqual([
+      `piece-capacity-exceeded:${home.horizontalLayer},0:${player}`,
     ]);
   });
 });

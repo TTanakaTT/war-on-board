@@ -1,6 +1,7 @@
 import { MOVEMENT_HOP_COST, PASSIVE_RESOURCE_CAP, PASSIVE_WALL_CAP } from "#lib/domain/config.ts";
 import {
   isInTransit,
+  maxPiecesAt,
   PanelState,
   pieceConfig,
   PieceType,
@@ -14,6 +15,7 @@ import {
   type Piece,
 } from "#lib/domain/model.ts";
 import {
+  HomeBaseRepository,
   MatchStatsRepository,
   PanelRepository,
   PiecesRepository,
@@ -259,7 +261,7 @@ export class PieceService {
   /**
    * Resolves every attacker engaging one panel: wall first (overflow damages defenders), else
    * piece combat. Survivors enter only if no enemies and no wall remain; after combat they
-   * enter in order sequence while the entered pieces (merged) fit within <maxPieces>, the rest
+   * enter in order sequence while the entered pieces (merged) fit within the target's cap, the rest
    * stay with their order cleared. A plain move (no combat) always enters: the plan made room.
    * Returns null when no combat happened.
    */
@@ -306,6 +308,7 @@ export class PieceService {
       currentPanel.wall <= 0;
     const canEnter = enemies().length === 0 && noWall;
     const hadAnyCombat = hadWallCombat || hasCombat;
+    const capacity = maxPiecesAt(targetPosition, maxPieces, HomeBaseRepository.getAll());
 
     const entered: Piece[] = [];
     const inOrder = [...attackers].sort((a, b) => MovementRulesService.compareOrderSequence(a, b));
@@ -314,7 +317,7 @@ export class PieceService {
       const current = PiecesRepository.get(attacker.id);
       if (!current) continue;
       const fits =
-        !hadAnyCombat || MovementRulesService.mergedStackCount([...entered, current]) <= maxPieces;
+        !hadAnyCombat || MovementRulesService.mergedStackCount([...entered, current]) <= capacity;
       if (canEnter && fits) {
         this.move(targetPosition, current);
         entered.push(current);

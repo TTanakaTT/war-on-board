@@ -51,6 +51,16 @@ export function fill(position: PanelPosition, firstId: number, player: Player = 
   add(firstId + 1, position, player, { pieceType: PieceType.NOBLE });
 }
 
+/** Three non-mergeable pieces without orders: a full home base. */
+export function fillHomeBase(
+  position: PanelPosition,
+  firstId: number,
+  player: Player = Player.SELF,
+) {
+  fill(position, firstId, player);
+  add(firstId + 2, position, player, { pieceType: PieceType.ROOK });
+}
+
 export const piece = (id: number): Piece => {
   const found = PiecesRepository.get(id);
   if (!found) throw new Error(`piece ${id} not found`);

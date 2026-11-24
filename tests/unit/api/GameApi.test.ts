@@ -29,6 +29,7 @@ import {
   endRound,
   exists,
   fill,
+  fillHomeBase,
   newGame,
   panel,
   piece,
@@ -259,7 +260,7 @@ describe("generatePiece", () => {
     );
     expect(GameApi.canGenerate(Player.SELF, PieceType.INFANTRY)).toBe(false);
     setResources(Player.SELF, 100);
-    fill(pos(-3, 0), 10);
+    fillHomeBase(pos(-3, 0), 10);
     expect(GameApi.generatePiece(Player.SELF, PieceType.NOBLE)).toEqual(
       fail(ActionError.NO_GENERATION_PANEL),
     );
@@ -271,6 +272,7 @@ describe("generatePiece", () => {
     setResources(Player.SELF, 100);
     add(1, pos(-3, 0));
     add(2, pos(-3, 0), Player.SELF, { pieceType: PieceType.ROOK });
+    add(3, pos(-3, 0), Player.SELF, { pieceType: PieceType.NOBLE });
     expect(GameApi.canGenerate(Player.SELF, PieceType.INFANTRY)).toBe(true);
     expect(GameApi.generatePiece(Player.SELF, PieceType.INFANTRY).ok).toBe(true);
     expect(piece(1).stackCount).toBe(2);
@@ -283,6 +285,21 @@ describe("generatePiece", () => {
     newGame();
     GameApi.setGenerationMode(Player.SELF, "rear");
     expect(TurnRepository.get().generationMode).toEqual({ self: "rear", opponent: "front" });
+  });
+});
+
+describe.each(SIDES)("home base capacity (%s)", (player) => {
+  const side = player === Player.SELF ? -1 : 1;
+  const home = pos(side * 3, 0);
+  const next = pos(side * 2, 0);
+
+  test("a home base takes a third piece but not a fourth", () => {
+    newGame(4, player);
+    fill(home, 10, player);
+    add(1, next, player, { pieceType: PieceType.ROOK });
+    add(2, next, player, { pieceType: PieceType.NOBLE });
+    expect(GameApi.assignMove(player, 1, home).ok).toBe(true);
+    expect(GameApi.assignMove(player, 2, home)).toEqual(fail(ActionError.TARGET_NOT_REACHABLE));
   });
 });
 

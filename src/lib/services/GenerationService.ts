@@ -2,6 +2,7 @@ import { RESOURCE_THRESHOLD_FOR_GENERATION } from "#lib/domain/config.ts";
 import {
   createPiece,
   isInTransit,
+  maxPiecesAt,
   opponentOf,
   PanelState,
   pieceConfig,
@@ -78,7 +79,9 @@ export class GenerationService {
     ) {
       return true;
     }
-    if (own.length + 1 > maxPieces) return false;
+    if (own.length + 1 > maxPiecesAt(position, maxPieces, HomeBaseRepository.getAll())) {
+      return false;
+    }
 
     const newPiece = createPiece({
       id: PieceService.generateNextId(),
