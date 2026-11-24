@@ -12,13 +12,13 @@
 <section class="flex flex-col gap-3">
   <h2 class="font-semibold">{m.terrain_legend_title()}</h2>
   <dl class="grid gap-2 text-sm">
-    {#each legendTerrains as { terrain, name, effect } (terrain)}
+    {#each legendTerrains as { terrain, name, description } (terrain)}
       <div class="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2">
         <dt class="row-span-2 {terrainIconClass(terrain)}">
           <Icon icon={iconName(terrain)} size={LEGEND_ICON_SIZE_PX} />
         </dt>
         <dt class="font-semibold">{name()}</dt>
-        <dd>{effect()}</dd>
+        <dd>{description()}</dd>
       </div>
     {/each}
   </dl>

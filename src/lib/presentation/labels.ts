@@ -34,11 +34,11 @@ const MAP_LABELS: Record<GameMapId, () => string> = {
 /** Plain has no label: it is the default terrain and not in the legend. */
 const TERRAIN_LABELS: Record<
   Exclude<Terrain, "plain">,
-  { name: () => string; effect: () => string }
+  { name: () => string; description: () => string }
 > = {
-  hill: { name: m.terrain_hill, effect: m.terrain_hill_effect },
-  forest: { name: m.terrain_forest, effect: m.terrain_forest_effect },
-  mountain: { name: m.terrain_mountain, effect: m.terrain_mountain_effect },
+  hill: { name: m.terrain_hill, description: m.terrain_hill_description },
+  forest: { name: m.terrain_forest, description: m.terrain_forest_description },
+  mountain: { name: m.terrain_mountain, description: m.terrain_mountain_description },
 };
 
 export const pieceTypeLabel = (pieceType: PieceType) => PIECE_LABELS[pieceType]();
@@ -50,7 +50,7 @@ export const legendTerrains = (Object.keys(TERRAIN_LABELS) as (keyof typeof TERR
   (terrain) => ({
     terrain,
     name: TERRAIN_LABELS[terrain].name,
-    effect: TERRAIN_LABELS[terrain].effect,
+    description: TERRAIN_LABELS[terrain].description,
   }),
 );
 
