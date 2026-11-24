@@ -14,6 +14,7 @@ import {
   SIDES,
   pos,
   posKey,
+  stackCountForHp,
   takesMultipleTurnsPerHop,
   type GameActionResult,
   type GameState,
@@ -393,9 +394,9 @@ export class GameApi {
       ]) {
         if (optional && !onBoard(optional)) return false;
       }
-      if (!nonNegative(piece.hp) || !nonNegative(piece.maxHp) || piece.hp > piece.maxHp)
-        return false;
       if (!Number.isInteger(piece.stackCount) || piece.stackCount < 1) return false;
+      if (!nonNegative(piece.hp) || stackCountForHp(piece.pieceType, piece.hp) !== piece.stackCount)
+        return false;
       if (!nonNegative(piece.movementPoints)) return false;
       if (
         piece.orderSequence !== undefined &&

@@ -91,9 +91,8 @@ export interface Piece {
   pieceType: PieceType;
   /** May be fractional after proportional damage. */
   hp: number;
-  /** Units merged into this piece. */
+  /** Units merged into this piece; always stackCountForHp(pieceType, hp). */
   stackCount: number;
-  maxHp: number;
   /** Banked movement points; for a slow piece, progress of its current hop or attack. */
   movementPoints: number;
   /** When the current order was given, across both sides. Lower enters a captured panel first. */
@@ -180,17 +179,25 @@ export function createPiece(
 ): Piece {
   const config = pieceConfig(init.pieceType);
   const stackCount = init.stackCount ?? 1;
-  const maxHp = init.maxHp ?? config.maxHp * stackCount;
   return {
     ...init,
     id: init.id ?? 0,
     initialPosition: init.initialPosition ?? init.panelPosition,
     stackCount,
-    maxHp,
-    hp: init.hp ?? maxHp,
+    hp: init.hp ?? config.maxHp * stackCount,
     movementPoints: init.movementPoints ?? config.movement,
   };
 }
+
+/** Absorbs float error from proportional damage so an exact unit boundary drops a unit. */
+const HP_EPSILON = 1e-9;
+
+/** Each unit holds the type's maxHp and only the front unit is damaged. 0 means destroyed. */
+export const stackCountForHp = (pieceType: PieceType, hp: number): number =>
+  Math.max(0, Math.ceil(hp / pieceConfig(pieceType).maxHp - HP_EPSILON));
+
+export const maxHpOf = (piece: Pick<Piece, "pieceType" | "stackCount">): number =>
+  pieceConfig(piece.pieceType).maxHp * piece.stackCount;
 
 /** Movement below MOVEMENT_HOP_COST: each hop or attack takes several turns. */
 export const takesMultipleTurnsPerHop = (piece: Piece): boolean =>

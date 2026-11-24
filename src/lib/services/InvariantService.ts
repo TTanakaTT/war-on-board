@@ -1,5 +1,12 @@
 import { MOVEMENT_HOP_COST } from "#lib/domain/config.ts";
-import { pieceConfig, posKey, SIDES, type GameState, type Piece } from "#lib/domain/model.ts";
+import {
+  pieceConfig,
+  posKey,
+  SIDES,
+  stackCountForHp,
+  type GameState,
+  type Piece,
+} from "#lib/domain/model.ts";
 import type { InvariantViolation, InvariantViolationType } from "#lib/domain/types.ts";
 
 /** Tolerance for fractional HP and movement points. */
@@ -49,12 +56,14 @@ export class InvariantService {
       }
       seenIds.add(piece.id);
 
-      if (!(piece.hp > 0 && piece.hp <= piece.maxHp + EPSILON)) {
+      if (!(
+        piece.stackCount >= 1 && piece.stackCount === stackCountForHp(piece.pieceType, piece.hp)
+      )) {
         violations.push(
           violation(
             "piece-hp-out-of-range",
             `${piece.id}`,
-            `${label(piece)} hp=${piece.hp} maxHp=${piece.maxHp}`,
+            `${label(piece)} hp=${piece.hp} stackCount=${piece.stackCount}`,
           ),
         );
       }

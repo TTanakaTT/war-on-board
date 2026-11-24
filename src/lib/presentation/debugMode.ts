@@ -17,7 +17,7 @@ const AUTOMATION_PROGRESS_CHECK_INTERVAL_MS = 1000;
 const VIOLATION_TYPE_LABELS: Record<InvariantViolationType, string> = {
   "piece-capacity-exceeded": "Too many pieces on a panel",
   "mixed-players-on-panel": "Both players' pieces on one panel",
-  "piece-hp-out-of-range": "Piece HP out of range",
+  "piece-hp-out-of-range": "Piece HP does not match its stack count",
   "movement-points-out-of-range": "Movement points out of range",
   "duplicate-piece-id": "Duplicate piece ID",
   "piece-off-board": "Piece position off the board",

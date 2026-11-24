@@ -7,6 +7,7 @@ import {
 } from "#lib/domain/config.ts";
 import {
   ActionError,
+  maxHpOf,
   opponentOf,
   PanelState,
   pieceConfig,
@@ -396,7 +397,7 @@ describe.each(SIDES)("endTurn (%s)", (player) => {
     add(2, pos(0, 2), player);
     for (const id of [1, 2]) GameApi.assignMove(player, id, pos(0, 1));
     GameApi.endTurn(player);
-    expect(piece(1)).toMatchObject({ stackCount: 2, hp: 20, maxHp: 20 });
+    expect(piece(1)).toMatchObject({ stackCount: 2, hp: 20 });
     expect(exists(2)).toBe(false);
   });
 
@@ -473,7 +474,7 @@ describe.each(SIDES)("slow pieces (%s)", (player) => {
     GameApi.endTurn(player);
     expect(piece(1)).toMatchObject({ panelPosition: pos(0, 0), transitPosition: undefined });
     expect(piece(1).targetPosition).toBeUndefined();
-    expect(piece(1).hp).toBeLessThan(piece(1).maxHp);
+    expect(piece(1).hp).toBeLessThan(maxHpOf(piece(1)));
   });
 
   test("a wound-up attack is locked, then resolves", () => {
@@ -549,7 +550,7 @@ describe("state snapshots", () => {
     ["a ranged target off the board", (s) => (s.pieces[0].rangedAttackTargetPosition = pos(9, 9))],
     ["a zero order sequence", (s) => (s.pieces[0].orderSequence = 0)],
     ["a fractional order sequence", (s) => (s.pieces[0].orderSequence = 1.5)],
-    ["hp above maxHp", (s) => (s.pieces[0].hp = 99)],
+    ["hp that does not match the stack count", (s) => (s.pieces[0].hp = 99)],
     ["an unknown generation mode", (s) => (s.turn.generationMode.self = "side" as never)],
   ])("loadGameState rejects %s", (_, corrupt) => {
     newGame();

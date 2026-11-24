@@ -81,7 +81,7 @@ describe("merging", () => {
     add(5, pos(0, 0), "self", { pieceType: PieceType.NOBLE });
     add(6, pos(0, 0), "opponent");
     PieceService.mergePiecesAtPosition(pos(0, 0));
-    expect(piece(1)).toMatchObject({ stackCount: 3, hp: 24, maxHp: 30 });
+    expect(piece(1)).toMatchObject({ stackCount: 3, hp: 24 });
     expect(pieceConfig(piece(1).pieceType).attackPowerAgainstPiece).toBe(5);
     expect(wallAttackPower(piece(1))).toBe(3);
     expect([2, 3].some(exists)).toBe(false);
@@ -127,7 +127,7 @@ describe.each(SIDES)("finalizePlayerMoves (%s)", (player) => {
 
   test("a failed attack stays, clears the order and still spends the hop", () => {
     add(1, pos(0, 0), player, { targetPosition: pos(0, 1) });
-    add(2, pos(0, 1), enemy, { pieceType: PieceType.ROOK, hp: 30, maxHp: 30 });
+    add(2, pos(0, 1), enemy, { pieceType: PieceType.ROOK });
     PieceService.finalizePlayerMoves(player);
     expect(piece(1)).toMatchObject({ panelPosition: pos(0, 0), movementPoints: 0 });
     expect(piece(1).targetPosition).toBeUndefined();

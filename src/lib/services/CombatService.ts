@@ -1,4 +1,10 @@
-import { pieceConfig, wallAttackPower, type Panel, type Piece } from "#lib/domain/model.ts";
+import {
+  pieceConfig,
+  stackCountForHp,
+  wallAttackPower,
+  type Panel,
+  type Piece,
+} from "#lib/domain/model.ts";
 import { MatchStatsRepository, PanelRepository, PiecesRepository } from "#lib/store.svelte.ts";
 
 const attackOf = (piece: Piece) => pieceConfig(piece.pieceType).attackPowerAgainstPiece;
@@ -6,6 +12,7 @@ const attackOf = (piece: Piece) => pieceConfig(piece.pieceType).attackPowerAgain
 /**
  * Simultaneous group combat: each side deals sum(max(0, attack - target HP-weighted defense)
  * * stackCount), split across the other side in proportion to HP (fractional HP allowed).
+ * A piece loses a unit each time its HP crosses a multiple of the type's maxHp.
  */
 export class CombatService {
   private static aggregatedDefense(group: Piece[]): number {
@@ -33,11 +40,16 @@ export class CombatService {
   private static applyDamage(outcomes: { piece: Piece; newHp: number }[]) {
     const deadIds = new Set<number>();
     for (const { piece, newHp } of outcomes) {
-      if (newHp > 0) {
-        PiecesRepository.update({ ...piece, hp: newHp });
+      const stackCount = stackCountForHp(piece.pieceType, newHp);
+      MatchStatsRepository.addLostUnits(
+        piece.player,
+        piece.pieceType,
+        piece.stackCount - stackCount,
+      );
+      if (stackCount > 0) {
+        PiecesRepository.update({ ...piece, hp: newHp, stackCount });
         continue;
       }
-      MatchStatsRepository.addLostUnits(piece.player, piece.pieceType, piece.stackCount);
       PiecesRepository.remove(piece);
       deadIds.add(piece.id);
     }

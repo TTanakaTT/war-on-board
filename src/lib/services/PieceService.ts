@@ -7,6 +7,7 @@ import {
   Player,
   posKey,
   samePos,
+  stackCountForHp,
   takesMultipleTurnsPerHop,
   type BoardPoint,
   type CombatOutcome,
@@ -40,7 +41,10 @@ function groupByTarget(engagements: { piece: Piece; target: PanelPosition }[]) {
 }
 
 export class PieceService {
-  /** Merges same-player same-type mergeable pieces into the lowest ID (transit pieces wait). */
+  /**
+   * Merges same-player same-type mergeable pieces into the lowest ID (transit pieces wait).
+   * Pooled HP can hold fewer units than the pieces had; the difference counts as lost.
+   */
   static mergePiecesAtPosition(position: PanelPosition): void {
     const groups = new Map<string, Piece[]>();
     for (const piece of PiecesRepository.getPiecesByPosition(position)) {
@@ -52,14 +56,15 @@ export class PieceService {
     for (const group of groups.values()) {
       if (group.length < 2) continue;
       const [base, ...rest] = group.sort((a, b) => a.id - b.id);
-      const sum = (field: "hp" | "maxHp" | "stackCount") =>
-        group.reduce((total, p) => total + p[field], 0);
-      PiecesRepository.update({
-        ...base,
-        hp: sum("hp"),
-        maxHp: sum("maxHp"),
-        stackCount: sum("stackCount"),
-      });
+      const sum = (field: "hp" | "stackCount") => group.reduce((total, p) => total + p[field], 0);
+      const hp = sum("hp");
+      const stackCount = stackCountForHp(base.pieceType, hp);
+      MatchStatsRepository.addLostUnits(
+        base.player,
+        base.pieceType,
+        sum("stackCount") - stackCount,
+      );
+      PiecesRepository.update({ ...base, hp, stackCount });
       rest.forEach((other) => PiecesRepository.remove(other));
     }
   }

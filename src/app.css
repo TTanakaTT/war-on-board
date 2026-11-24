@@ -53,6 +53,8 @@
   --color-player-self-muted: rgb(255 255 255 / 90%);
   --color-player-opponent-muted: rgb(0 0 0 / 80%);
   --color-health-fill: var(--color-white);
+  --color-health-damage: var(--color-red-500);
+  --color-health-edge: rgb(0 0 0 / 45%);
   --color-modal-scrim: rgb(0 0 0 / 60%);
   --color-dialog-backdrop: rgb(0 0 0 / 30%);
 }
