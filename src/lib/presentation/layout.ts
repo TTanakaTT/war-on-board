@@ -18,16 +18,18 @@ export const PIECE_PREVIEW_ANIMATION_MS = 1600;
 // HP gauges on a piece token: one gauge per unit, stacked behind the front unit's gauge.
 export const HP_GAUGE_WIDTH_PX = 20;
 export const HP_GAUGE_HEIGHT_PX = 4;
-/** How far each gauge behind peeks out above the one in front. */
-export const HP_GAUGE_STACK_OFFSET_PX = 2;
+/** Each gauge behind sits this far up and to the right of the one in front. */
+export const HP_GAUGE_STACK_OFFSET_X_PX = 2;
+export const HP_GAUGE_STACK_OFFSET_Y_PX = 2;
+/** Gauges behind the front one are drawn smaller. */
+export const HP_GAUGE_BACK_SCALE = 0.8;
 /** Gauges stop growing here; the badge still shows the full stackCount. */
 export const HP_GAUGE_MAX_VISIBLE = 3;
-export const HP_GAUGE_FILL_MS = 300;
+/** HP going down, including a lost unit's gauge emptying before it falls away. */
+export const HP_GAUGE_DAMAGE_MS = 600;
 /** The damaged part lingers in the damage color before shrinking. */
-export const HP_GAUGE_TRAIL_DELAY_MS = 250;
+export const HP_GAUGE_TRAIL_DELAY_MS = 450;
 export const HP_GAUGE_TRAIL_MS = 400;
-/** A lost unit's gauge empties, then falls away. */
-export const HP_GAUGE_DRAIN_MS = 350;
 export const HP_GAUGE_DROP_MS = 250;
 export const HP_GAUGE_DROP_DISTANCE_PX = 6;
 export const HP_GAUGE_SHIFT_MS = 200;

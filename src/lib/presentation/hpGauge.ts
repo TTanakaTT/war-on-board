@@ -1,7 +1,8 @@
 import { pieceConfig, type Piece } from "#lib/domain/model.ts";
+import { cubicOut } from "svelte/easing";
 import type { TransitionConfig } from "svelte/transition";
 import {
-  HP_GAUGE_DRAIN_MS,
+  HP_GAUGE_DAMAGE_MS,
   HP_GAUGE_DROP_DISTANCE_PX,
   HP_GAUGE_DROP_MS,
   HP_GAUGE_MAX_VISIBLE,
@@ -57,29 +58,32 @@ export function advanceHpGauge(previous: HpGauge | undefined, target: HpGaugeTar
 }
 
 /**
- * Outro for a lost unit's gauge: the fill empties (the damage-colored trail a little later),
- * then the gauge falls away above the others.
+ * Outro for a lost unit's gauge: the fill empties like any damage, the damage-colored trail
+ * following halfway behind, then the gauge falls away above the others.
  */
 export function unitLost(node: HTMLElement): TransitionConfig {
   const fill = node.querySelector<HTMLElement>("[data-hp-fill]");
   const trail = node.querySelector<HTMLElement>("[data-hp-trail]");
   const fillStart = fill ? parseFloat(fill.style.width) || 0 : 0;
-  const trailStart = trail ? parseFloat(trail.style.width) || 0 : 0;
+  const trailStart = Math.max(fillStart, trail ? parseFloat(trail.style.width) || 0 : 0);
   for (const el of [fill, trail]) if (el) el.style.transition = "none";
 
-  const duration = HP_GAUGE_DRAIN_MS + HP_GAUGE_DROP_MS;
-  const drainShare = HP_GAUGE_DRAIN_MS / duration;
-  const elapsed = (t: number) => 1 - t;
+  const duration = HP_GAUGE_DAMAGE_MS + HP_GAUGE_DROP_MS;
+  const trailLagMs = HP_GAUGE_DAMAGE_MS / 2;
+  const elapsedMs = (t: number) => (1 - t) * duration;
+  const progress = (ms: number, from: number, length: number) =>
+    Math.min(1, Math.max(0, (ms - from) / length));
   return {
     duration,
     tick: (t) => {
-      const drained = Math.min(1, elapsed(t) / drainShare);
-      // The fill empties in the first half of the drain so the trail shows what was lost.
-      if (fill) fill.style.width = `${fillStart * Math.max(0, 1 - drained * 2)}%`;
-      if (trail) trail.style.width = `${Math.max(trailStart, fillStart) * (1 - drained)}%`;
+      const ms = elapsedMs(t);
+      const emptied = cubicOut(progress(ms, 0, HP_GAUGE_DAMAGE_MS));
+      const trailed = progress(ms, trailLagMs, HP_GAUGE_DAMAGE_MS - trailLagMs);
+      if (fill) fill.style.width = `${fillStart * (1 - emptied)}%`;
+      if (trail) trail.style.width = `${trailStart * (1 - trailed)}%`;
     },
     css: (t) => {
-      const dropped = Math.max(0, (elapsed(t) - drainShare) / (1 - drainShare));
+      const dropped = progress(elapsedMs(t), HP_GAUGE_DAMAGE_MS, HP_GAUGE_DROP_MS);
       return `z-index: ${HP_GAUGE_MAX_VISIBLE + 1}; opacity: ${1 - dropped}; transform: translateY(${dropped * HP_GAUGE_DROP_DISTANCE_PX}px);`;
     },
   };

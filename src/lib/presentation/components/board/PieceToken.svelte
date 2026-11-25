@@ -25,15 +25,16 @@
     type HpGauge,
   } from "#lib/presentation/hpGauge.ts";
   import {
-    HP_GAUGE_DRAIN_MS,
-    HP_GAUGE_FILL_MS,
+    HP_GAUGE_BACK_SCALE,
+    HP_GAUGE_DAMAGE_MS,
     HP_GAUGE_HEIGHT_PX,
     HP_GAUGE_JOIN_DISTANCE_PX,
     HP_GAUGE_JOIN_MS,
     HP_GAUGE_JOIN_STAGGER_MS,
     HP_GAUGE_MAX_VISIBLE,
     HP_GAUGE_SHIFT_MS,
-    HP_GAUGE_STACK_OFFSET_PX,
+    HP_GAUGE_STACK_OFFSET_X_PX,
+    HP_GAUGE_STACK_OFFSET_Y_PX,
     HP_GAUGE_TRAIL_DELAY_MS,
     HP_GAUGE_TRAIL_MS,
     HP_GAUGE_WIDTH_PX,
@@ -98,8 +99,8 @@
   });
 
   // After a loss the remaining gauges wait for the lost ones to drain, then move forward.
-  let shiftDelayMs = $derived(gauge.lostUnits > 0 ? HP_GAUGE_DRAIN_MS : 0);
-  let fillDelayMs = $derived(gauge.lostUnits > 0 ? HP_GAUGE_DRAIN_MS + HP_GAUGE_SHIFT_MS : 0);
+  let shiftDelayMs = $derived(gauge.lostUnits > 0 ? HP_GAUGE_DAMAGE_MS : 0);
+  let fillDelayMs = $derived(gauge.lostUnits > 0 ? HP_GAUGE_DAMAGE_MS + HP_GAUGE_SHIFT_MS : 0);
   // The badge changes when the lost gauges fall away, not when the damage lands.
   let badgeCount = $state(initial.stackCount);
   $effect(() => {
@@ -109,10 +110,20 @@
   });
   const joinDelayMs = (index: number) =>
     gauge.lostUnits > 0
-      ? HP_GAUGE_DRAIN_MS
+      ? HP_GAUGE_DAMAGE_MS
       : Math.max(0, index - gauge.firstJoinedIndex) * HP_GAUGE_JOIN_STAGGER_MS;
 
-  const gaugeAreaStyle = `width: ${HP_GAUGE_WIDTH_PX}px; height: ${HP_GAUGE_HEIGHT_PX + (HP_GAUGE_MAX_VISIBLE - 1) * HP_GAUGE_STACK_OFFSET_PX}px;`;
+  const backGauges = HP_GAUGE_MAX_VISIBLE - 1;
+  const gaugeAreaStyle = `width: ${HP_GAUGE_WIDTH_PX + backGauges * HP_GAUGE_STACK_OFFSET_X_PX}px; height: ${HP_GAUGE_HEIGHT_PX + backGauges * HP_GAUGE_STACK_OFFSET_Y_PX}px;`;
+  const barStyle = (index: number) =>
+    [
+      `width: ${HP_GAUGE_WIDTH_PX}px`,
+      `height: ${HP_GAUGE_HEIGHT_PX}px`,
+      `z-index: ${HP_GAUGE_MAX_VISIBLE - index}`,
+      `translate: ${index * HP_GAUGE_STACK_OFFSET_X_PX}px ${-index * HP_GAUGE_STACK_OFFSET_Y_PX}px`,
+      `scale: ${index === 0 ? 1 : HP_GAUGE_BACK_SCALE}`,
+      `transition: translate ${HP_GAUGE_SHIFT_MS}ms ease-out ${shiftDelayMs}ms, scale ${HP_GAUGE_SHIFT_MS}ms ease-out ${shiftDelayMs}ms`,
+    ].join("; ");
 </script>
 
 <div class="relative flex flex-col items-center">
@@ -122,11 +133,10 @@
   >
     {#each gauge.bars as bar, index (bar.key)}
       <div
-        class="bg-outline dark:bg-outline-dark ring-health-edge absolute bottom-0 left-0 overflow-hidden rounded-full ring-1"
-        style="width: {HP_GAUGE_WIDTH_PX}px; height: {HP_GAUGE_HEIGHT_PX}px; z-index: {HP_GAUGE_MAX_VISIBLE -
-          index}; translate: 0 {-index *
-          HP_GAUGE_STACK_OFFSET_PX}px; transition: translate {HP_GAUGE_SHIFT_MS}ms ease-out {shiftDelayMs}ms;"
+        class="bg-outline dark:bg-outline-dark ring-health-edge absolute bottom-0 left-0 origin-top-right overflow-hidden rounded-full ring-1"
+        style={barStyle(index)}
         in:fly={{
+          x: HP_GAUGE_JOIN_DISTANCE_PX,
           y: -HP_GAUGE_JOIN_DISTANCE_PX,
           duration: HP_GAUGE_JOIN_MS,
           delay: joinDelayMs(index),
@@ -144,7 +154,7 @@
           data-hp-fill
           class="bg-health-fill absolute inset-y-0 left-0"
           style="width: {bar.fill *
-            100}%; transition: width {HP_GAUGE_FILL_MS}ms ease-out {fillDelayMs}ms;"
+            100}%; transition: width {HP_GAUGE_DAMAGE_MS}ms ease-out {fillDelayMs}ms;"
         ></div>
       </div>
     {/each}
